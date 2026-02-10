@@ -36,31 +36,29 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     async function fetchStations() {
-      try {
-        // Fetch station data from CDN
-        const res = await fetch("https://files.manuscdn.com/user_upload_by_module/session_file/310519663252172531/hiMtJaBqMSSztryK.json");
-        if (res.ok) {
-          const data = await res.json();
-          setStations(data);
-          setLoading(false);
-          return;
-        }
-      } catch {
-        // Fall through to local fallback
-      }
+      // Try multiple sources for station data
+      const sources = [
+        "/stations.json",
+        "https://files.manuscdn.com/user_upload_by_module/session_file/310519663252172531/hiMtJaBqMSSztryK.json",
+      ];
 
-      try {
-        // Fallback: try local data
-        const res = await fetch("/stations.json");
-        if (res.ok) {
-          const data = await res.json();
-          setStations(data);
+      for (const url of sources) {
+        try {
+          const res = await fetch(url);
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data) && data.length > 0) {
+              setStations(data);
+              setLoading(false);
+              return;
+            }
+          }
+        } catch {
+          // Try next source
         }
-      } catch (err) {
-        console.error("Failed to fetch stations:", err);
-      } finally {
-        setLoading(false);
       }
+      console.error("Failed to fetch stations from all sources");
+      setLoading(false);
     }
     fetchStations();
   }, []);
