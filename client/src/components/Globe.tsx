@@ -432,7 +432,7 @@ export default function Globe() {
         if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) s.dragMoved = true;
 
         s.targetSpherical.theta -= deltaX * 0.005;
-        s.targetSpherical.phi += deltaY * 0.005;
+        s.targetSpherical.phi -= deltaY * 0.005;
         s.previousMouse.set(e.clientX, e.clientY);
         resetAutoRotate();
       } else {
@@ -523,7 +523,7 @@ export default function Globe() {
         const deltaY = e.touches[0].clientY - s.previousMouse.y;
         if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) touchMoved = true;
         s.targetSpherical.theta -= deltaX * 0.005;
-        s.targetSpherical.phi += deltaY * 0.005;
+        s.targetSpherical.phi -= deltaY * 0.005;
         s.previousMouse.set(e.touches[0].clientX, e.touches[0].clientY);
         resetAutoRotate();
       } else if (e.touches.length === 2) {
