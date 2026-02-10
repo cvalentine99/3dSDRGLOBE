@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from "react";
-import type { Station, Receiver, ReceiverType, BandType } from "@/lib/types";
-import { detectBands } from "@/lib/types";
+import type { Station, Receiver, ReceiverType, BandType, ContinentType, RegionType } from "@/lib/types";
+import { detectBands, detectContinent, detectRegion, CONTINENT_DEFINITIONS } from "@/lib/types";
 
 interface RadioContextType {
   stations: Station[];
@@ -9,6 +9,8 @@ interface RadioContextType {
   selectedReceiver: Receiver | null;
   filterType: ReceiverType;
   filterBand: BandType;
+  filterContinent: ContinentType;
+  filterRegion: RegionType;
   searchQuery: string;
   isPlaying: boolean;
   showPanel: boolean;
@@ -17,6 +19,8 @@ interface RadioContextType {
   selectReceiver: (receiver: Receiver | null) => void;
   setFilterType: (type: ReceiverType) => void;
   setFilterBand: (band: BandType) => void;
+  setFilterContinent: (continent: ContinentType) => void;
+  setFilterRegion: (region: RegionType) => void;
   setSearchQuery: (query: string) => void;
   setIsPlaying: (playing: boolean) => void;
   setShowPanel: (show: boolean) => void;
@@ -24,6 +28,10 @@ interface RadioContextType {
   filteredStations: Station[];
   bandCounts: Record<BandType, number>;
   typeCounts: Record<ReceiverType, number>;
+  continentCounts: Record<ContinentType, number>;
+  regionCounts: Record<RegionType, number>;
+  stationContinents: Map<Station, ContinentType>;
+  stationRegions: Map<Station, RegionType>;
 }
 
 const RadioContext = createContext<RadioContextType | null>(null);
@@ -35,10 +43,18 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const [selectedReceiver, setSelectedReceiver] = useState<Receiver | null>(null);
   const [filterType, setFilterType] = useState<ReceiverType>("all");
   const [filterBand, setFilterBand] = useState<BandType>("all");
+  const [filterContinent, setFilterContinentRaw] = useState<ContinentType>("all");
+  const [filterRegion, setFilterRegion] = useState<RegionType>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isPlaying, setIsPlaying] = useState(false);
   const [showPanel, setShowPanel] = useState(false);
   const [hoveredStation, setHoveredStation] = useState<Station | null>(null);
+
+  // When continent changes, reset region
+  const setFilterContinent = useCallback((continent: ContinentType) => {
+    setFilterContinentRaw(continent);
+    setFilterRegion("all");
+  }, []);
 
   useEffect(() => {
     async function fetchStations() {
@@ -93,7 +109,26 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     return map;
   }, [stations]);
 
-  // Compute counts for each type and band
+  // Pre-compute continent/region for all stations
+  const stationContinents = useMemo(() => {
+    const map = new Map<Station, ContinentType>();
+    stations.forEach((s) => {
+      const [lng, lat] = s.location.coordinates;
+      map.set(s, detectContinent(lat, lng));
+    });
+    return map;
+  }, [stations]);
+
+  const stationRegions = useMemo(() => {
+    const map = new Map<Station, RegionType>();
+    stations.forEach((s) => {
+      const [lng, lat] = s.location.coordinates;
+      map.set(s, detectRegion(lat, lng));
+    });
+    return map;
+  }, [stations]);
+
+  // Compute counts
   const typeCounts = useMemo(() => {
     const counts: Record<ReceiverType, number> = {
       all: stations.length,
@@ -129,6 +164,32 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     return counts;
   }, [stations, stationBands]);
 
+  const continentCounts = useMemo(() => {
+    const counts = { all: stations.length } as Record<ContinentType, number>;
+    CONTINENT_DEFINITIONS.forEach((c) => {
+      counts[c.id] = 0;
+    });
+    stations.forEach((s) => {
+      const c = stationContinents.get(s);
+      if (c && c !== "all") counts[c]++;
+    });
+    return counts;
+  }, [stations, stationContinents]);
+
+  const regionCounts = useMemo(() => {
+    const counts = { all: stations.length } as Record<RegionType, number>;
+    CONTINENT_DEFINITIONS.forEach((c) => {
+      c.regions.forEach((r) => {
+        counts[r.id] = 0;
+      });
+    });
+    stations.forEach((s) => {
+      const r = stationRegions.get(s);
+      if (r && r !== "all") counts[r] = (counts[r] || 0) + 1;
+    });
+    return counts;
+  }, [stations, stationRegions]);
+
   const filteredStations = useMemo(() => {
     return stations.filter((s) => {
       // Type filter
@@ -141,6 +202,16 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         filterBand === "all" ||
         (stationBands.get(s) || []).includes(filterBand);
 
+      // Continent filter
+      const matchesContinent =
+        filterContinent === "all" ||
+        stationContinents.get(s) === filterContinent;
+
+      // Region filter
+      const matchesRegion =
+        filterRegion === "all" ||
+        stationRegions.get(s) === filterRegion;
+
       // Search filter
       const matchesSearch =
         !searchQuery ||
@@ -149,9 +220,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           r.label.toLowerCase().includes(searchQuery.toLowerCase())
         );
 
-      return matchesType && matchesBand && matchesSearch;
+      return matchesType && matchesBand && matchesContinent && matchesRegion && matchesSearch;
     });
-  }, [stations, filterType, filterBand, searchQuery, stationBands]);
+  }, [stations, filterType, filterBand, filterContinent, filterRegion, searchQuery, stationBands, stationContinents, stationRegions]);
 
   return (
     <RadioContext.Provider
@@ -162,6 +233,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         selectedReceiver,
         filterType,
         filterBand,
+        filterContinent,
+        filterRegion,
         searchQuery,
         isPlaying,
         showPanel,
@@ -170,6 +243,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         selectReceiver,
         setFilterType,
         setFilterBand,
+        setFilterContinent,
+        setFilterRegion,
         setSearchQuery,
         setIsPlaying,
         setShowPanel,
@@ -177,6 +252,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         filteredStations,
         bandCounts,
         typeCounts,
+        continentCounts,
+        regionCounts,
+        stationContinents,
+        stationRegions,
       }}
     >
       {children}

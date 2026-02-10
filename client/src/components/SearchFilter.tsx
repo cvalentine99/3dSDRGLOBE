@@ -1,13 +1,13 @@
 /**
  * SearchFilter.tsx — Enhanced search and filter controls
- * Design: "Ether" — frosted glass command palette with type + band filters
+ * Design: "Ether" — frosted glass command palette with type + band + region filters
  */
 import { useRadio } from "@/contexts/RadioContext";
-import { Search, Radio, ChevronDown, Waves, Antenna, X } from "lucide-react";
+import { Search, Radio, ChevronDown, Waves, Antenna, X, Globe, MapPin } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ReceiverType, BandType, Station } from "@/lib/types";
-import { BAND_DEFINITIONS } from "@/lib/types";
+import { BAND_DEFINITIONS, CONTINENT_DEFINITIONS } from "@/lib/types";
 
 const TYPE_OPTIONS: { value: ReceiverType; label: string; color: string; dotColor: string }[] = [
   { value: "all", label: "All", color: "text-foreground", dotColor: "bg-white" },
@@ -33,11 +33,17 @@ export default function SearchFilter() {
     setFilterType,
     filterBand,
     setFilterBand,
+    filterContinent,
+    setFilterContinent,
+    filterRegion,
+    setFilterRegion,
     filteredStations,
     selectStation,
     loading,
     typeCounts,
     bandCounts,
+    continentCounts,
+    regionCounts,
   } = useRadio();
 
   const [isFocused, setIsFocused] = useState(false);
@@ -84,13 +90,24 @@ export default function SearchFilter() {
     setSearchQuery("");
   };
 
-  const hasActiveFilters = filterType !== "all" || filterBand !== "all";
+  const hasActiveFilters = filterType !== "all" || filterBand !== "all" || filterContinent !== "all" || filterRegion !== "all";
 
   const clearAllFilters = () => {
     setFilterType("all");
     setFilterBand("all");
+    setFilterContinent("all");
+    setFilterRegion("all");
     setSearchQuery("");
   };
+
+  // Get available regions for the selected continent
+  const availableRegions = useMemo(() => {
+    if (filterContinent === "all") return [];
+    const continentDef = CONTINENT_DEFINITIONS.find((c) => c.id === filterContinent);
+    if (!continentDef) return [];
+    // Only show regions that have stations
+    return continentDef.regions.filter((r) => (regionCounts[r.id] || 0) > 0);
+  }, [filterContinent, regionCounts]);
 
   return (
     <div ref={panelRef} className="absolute top-4 left-4 z-30 w-[340px] max-w-[calc(100vw-2rem)]">
@@ -205,7 +222,7 @@ export default function SearchFilter() {
               </div>
 
               {/* Band section */}
-              <div className="px-3 pb-3">
+              <div className="px-3 pb-2">
                 <div className="flex items-center gap-1.5 mb-1.5 px-1">
                   <Waves className="w-3 h-3 text-muted-foreground/50" />
                   <span className="text-[9px] font-mono text-muted-foreground/50 uppercase tracking-wider">
@@ -216,7 +233,6 @@ export default function SearchFilter() {
                   {BAND_OPTIONS.map((opt) => {
                     const count = bandCounts[opt.value] || 0;
                     const isActive = filterBand === opt.value;
-                    // Don't show bands with 0 stations (except "all")
                     if (opt.value !== "all" && count === 0) return null;
                     return (
                       <button
@@ -239,6 +255,102 @@ export default function SearchFilter() {
                   })}
                 </div>
               </div>
+
+              {/* Continent section */}
+              <div className="px-3 pb-2">
+                <div className="flex items-center gap-1.5 mb-1.5 px-1">
+                  <Globe className="w-3 h-3 text-muted-foreground/50" />
+                  <span className="text-[9px] font-mono text-muted-foreground/50 uppercase tracking-wider">
+                    Continent
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    onClick={() => setFilterContinent("all")}
+                    className={`text-[10px] font-medium px-2 py-1 rounded-lg border transition-all duration-200 flex items-center gap-1.5 ${
+                      filterContinent === "all"
+                        ? "bg-white/10 border-white/20 text-foreground"
+                        : "bg-transparent border-white/5 text-muted-foreground hover:border-white/10 hover:text-foreground"
+                    }`}
+                  >
+                    <span>All</span>
+                    <span className="opacity-40 font-mono">{continentCounts["all"] || 0}</span>
+                  </button>
+                  {CONTINENT_DEFINITIONS.map((c) => {
+                    const count = continentCounts[c.id] || 0;
+                    if (count === 0) return null;
+                    const isActive = filterContinent === c.id;
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => setFilterContinent(c.id)}
+                        className={`text-[10px] font-medium px-2 py-1 rounded-lg border transition-all duration-200 flex items-center gap-1.5 ${
+                          isActive
+                            ? "bg-white/10 border-white/20 text-foreground"
+                            : "bg-transparent border-white/5 text-muted-foreground hover:border-white/10 hover:text-foreground"
+                        }`}
+                      >
+                        <span className="text-[8px] font-mono opacity-50">{c.emoji}</span>
+                        <span>{c.label}</span>
+                        <span className="opacity-40 font-mono">{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Region section (only when a continent is selected) */}
+              <AnimatePresence>
+                {filterContinent !== "all" && availableRegions.length > 1 && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-3 pb-3">
+                      <div className="flex items-center gap-1.5 mb-1.5 px-1">
+                        <MapPin className="w-3 h-3 text-muted-foreground/50" />
+                        <span className="text-[9px] font-mono text-muted-foreground/50 uppercase tracking-wider">
+                          Region
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          onClick={() => setFilterRegion("all")}
+                          className={`text-[10px] font-medium px-2 py-1 rounded-lg border transition-all duration-200 flex items-center gap-1.5 ${
+                            filterRegion === "all"
+                              ? "bg-white/10 border-white/20 text-foreground"
+                              : "bg-transparent border-white/5 text-muted-foreground hover:border-white/10 hover:text-foreground"
+                          }`}
+                        >
+                          <span>All Regions</span>
+                          <span className="opacity-40 font-mono">{continentCounts[filterContinent] || 0}</span>
+                        </button>
+                        {availableRegions.map((r) => {
+                          const count = regionCounts[r.id] || 0;
+                          const isActive = filterRegion === r.id;
+                          return (
+                            <button
+                              key={r.id}
+                              onClick={() => setFilterRegion(r.id)}
+                              className={`text-[10px] font-medium px-2 py-1 rounded-lg border transition-all duration-200 flex items-center gap-1.5 ${
+                                isActive
+                                  ? "bg-white/10 border-white/20 text-foreground"
+                                  : "bg-transparent border-white/5 text-muted-foreground hover:border-white/10 hover:text-foreground"
+                              }`}
+                            >
+                              <span>{r.label}</span>
+                              <span className="opacity-40 font-mono">{count}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
         </AnimatePresence>
@@ -249,7 +361,7 @@ export default function SearchFilter() {
         <motion.div
           initial={{ opacity: 0, y: -5 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-1.5 px-3 py-1.5 glass-panel rounded-lg flex items-center gap-2"
+          className="mt-1.5 px-3 py-1.5 glass-panel rounded-lg flex items-center gap-2 flex-wrap"
         >
           <span className="text-[9px] font-mono text-muted-foreground/50">Active:</span>
           {filterType !== "all" && (
@@ -260,6 +372,16 @@ export default function SearchFilter() {
           {filterBand !== "all" && (
             <span className="text-[9px] font-mono text-accent/80 bg-accent/10 px-1.5 py-0.5 rounded">
               {filterBand}
+            </span>
+          )}
+          {filterContinent !== "all" && (
+            <span className="text-[9px] font-mono text-accent/80 bg-accent/10 px-1.5 py-0.5 rounded">
+              {filterContinent}
+            </span>
+          )}
+          {filterRegion !== "all" && (
+            <span className="text-[9px] font-mono text-accent/80 bg-accent/10 px-1.5 py-0.5 rounded">
+              {filterRegion}
             </span>
           )}
         </motion.div>

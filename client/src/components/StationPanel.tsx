@@ -4,7 +4,7 @@
  */
 import { useRadio } from "@/contexts/RadioContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Radio, Globe, ExternalLink, ChevronRight, Waves } from "lucide-react";
+import { X, Radio, Globe, ExternalLink, ChevronRight, Waves, MapPin } from "lucide-react";
 import { detectBands, BAND_DEFINITIONS } from "@/lib/types";
 import { useMemo } from "react";
 
@@ -34,6 +34,8 @@ export default function StationPanel() {
     selectReceiver,
     showPanel,
     setShowPanel,
+    stationContinents,
+    stationRegions,
   } = useRadio();
 
   const detectedBands = useMemo(() => {
@@ -75,6 +77,17 @@ export default function StationPanel() {
                   {selectedStation.location.coordinates[1].toFixed(4)}°N,{" "}
                   {selectedStation.location.coordinates[0].toFixed(4)}°E
                 </p>
+                {selectedStation && (
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <MapPin className="w-3 h-3 text-muted-foreground/50 shrink-0" />
+                    <span className="text-[10px] font-mono text-muted-foreground/70">
+                      {stationRegions.get(selectedStation) || ""}
+                      {stationContinents.get(selectedStation) && stationRegions.get(selectedStation) !== stationContinents.get(selectedStation)
+                        ? ` · ${stationContinents.get(selectedStation)}`
+                        : ""}
+                    </span>
+                  </div>
+                )}
                 {bandLabels.length > 0 && (
                   <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                     <Waves className="w-3 h-3 text-muted-foreground/50 shrink-0" />
