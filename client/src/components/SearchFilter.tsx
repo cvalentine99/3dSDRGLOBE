@@ -1,18 +1,28 @@
 /**
- * SearchFilter.tsx — Floating search and filter controls
- * Design: "Ether" — minimal frosted glass with command-palette feel
+ * SearchFilter.tsx — Enhanced search and filter controls
+ * Design: "Ether" — frosted glass command palette with type + band filters
  */
 import { useRadio } from "@/contexts/RadioContext";
-import { Search, Radio } from "lucide-react";
+import { Search, Radio, ChevronDown, Waves, Antenna, X } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { ReceiverType, Station } from "@/lib/types";
+import type { ReceiverType, BandType, Station } from "@/lib/types";
+import { BAND_DEFINITIONS } from "@/lib/types";
 
-const FILTER_OPTIONS: { value: ReceiverType; label: string; color: string; count?: number }[] = [
-  { value: "all", label: "All Types", color: "text-foreground" },
-  { value: "KiwiSDR", label: "KiwiSDR", color: "text-green-400" },
-  { value: "OpenWebRX", label: "OpenWebRX", color: "text-cyan-400" },
-  { value: "WebSDR", label: "WebSDR", color: "text-primary" },
+const TYPE_OPTIONS: { value: ReceiverType; label: string; color: string; dotColor: string }[] = [
+  { value: "all", label: "All", color: "text-foreground", dotColor: "bg-white" },
+  { value: "KiwiSDR", label: "KiwiSDR", color: "text-green-400", dotColor: "bg-green-400" },
+  { value: "OpenWebRX", label: "OpenWebRX", color: "text-cyan-400", dotColor: "bg-cyan-400" },
+  { value: "WebSDR", label: "WebSDR", color: "text-red-400", dotColor: "bg-red-400" },
+];
+
+const BAND_OPTIONS: { value: BandType; label: string; description: string }[] = [
+  { value: "all", label: "All Bands", description: "" },
+  ...BAND_DEFINITIONS.map((b) => ({
+    value: b.id,
+    label: b.label,
+    description: b.description,
+  })),
 ];
 
 export default function SearchFilter() {
@@ -21,14 +31,18 @@ export default function SearchFilter() {
     setSearchQuery,
     filterType,
     setFilterType,
+    filterBand,
+    setFilterBand,
     filteredStations,
-    stations,
     selectStation,
     loading,
+    typeCounts,
+    bandCounts,
   } = useRadio();
 
   const [isFocused, setIsFocused] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [filtersExpanded, setFiltersExpanded] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -64,28 +78,27 @@ export default function SearchFilter() {
     return filteredStations.slice(0, 8);
   }, [searchQuery, filteredStations]);
 
-  const typeCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: stations.length };
-    stations.forEach((s) => {
-      s.receivers.forEach((r) => {
-        counts[r.type] = (counts[r.type] || 0) + 1;
-      });
-    });
-    return counts;
-  }, [stations]);
-
   const handleSelectStation = (station: Station) => {
     selectStation(station);
     setShowResults(false);
     setSearchQuery("");
   };
 
+  const hasActiveFilters = filterType !== "all" || filterBand !== "all";
+
+  const clearAllFilters = () => {
+    setFilterType("all");
+    setFilterBand("all");
+    setSearchQuery("");
+  };
+
   return (
-    <div ref={panelRef} className="absolute top-4 left-4 z-30 w-[360px] max-w-[calc(100vw-2rem)]">
+    <div ref={panelRef} className="absolute top-4 left-4 z-30 w-[340px] max-w-[calc(100vw-2rem)]">
       {/* Search bar */}
       <div className={`glass-panel rounded-2xl transition-all duration-300 ${
         isFocused ? "glow-cyan" : ""
       }`}>
+        {/* Search input row */}
         <div className="flex items-center gap-3 px-4 py-3">
           <Search className={`w-4 h-4 shrink-0 transition-colors ${
             isFocused ? "text-accent" : "text-muted-foreground"
@@ -120,28 +133,137 @@ export default function SearchFilter() {
           )}
         </div>
 
-        {/* Filter pills */}
-        <div className="flex items-center gap-1.5 px-3 pb-3 flex-wrap">
-          {FILTER_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => setFilterType(opt.value)}
-              className={`text-[11px] font-medium px-2.5 py-1 rounded-full border transition-all duration-200 ${
-                filterType === opt.value
-                  ? "bg-white/10 border-white/20 text-foreground"
-                  : "bg-transparent border-white/5 text-muted-foreground hover:border-white/10 hover:text-foreground"
-              }`}
-            >
-              <span className={filterType === opt.value ? opt.color : ""}>
-                {opt.label}
-              </span>
-              <span className="ml-1 opacity-50">
-                {typeCounts[opt.value] || 0}
-              </span>
-            </button>
-          ))}
+        {/* Filter toggle header */}
+        <div className="px-3 pb-1">
+          <button
+            onClick={() => setFiltersExpanded(!filtersExpanded)}
+            className="flex items-center gap-2 w-full px-1 py-1.5 text-left group"
+          >
+            <Antenna className="w-3 h-3 text-muted-foreground/60" />
+            <span className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-wider flex-1">
+              Filters
+            </span>
+            {hasActiveFilters && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  clearAllFilters();
+                }}
+                className="text-[9px] font-mono text-accent/70 hover:text-accent transition-colors flex items-center gap-0.5"
+              >
+                <X className="w-2.5 h-2.5" />
+                Clear
+              </button>
+            )}
+            <ChevronDown className={`w-3 h-3 text-muted-foreground/40 transition-transform duration-200 ${
+              filtersExpanded ? "rotate-180" : ""
+            }`} />
+          </button>
         </div>
+
+        {/* Expandable filter sections */}
+        <AnimatePresence>
+          {filtersExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              {/* Receiver Type section */}
+              <div className="px-3 pb-2">
+                <div className="flex items-center gap-1.5 mb-1.5 px-1">
+                  <Radio className="w-3 h-3 text-muted-foreground/50" />
+                  <span className="text-[9px] font-mono text-muted-foreground/50 uppercase tracking-wider">
+                    Receiver Type
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {TYPE_OPTIONS.map((opt) => {
+                    const count = typeCounts[opt.value] || 0;
+                    const isActive = filterType === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => setFilterType(opt.value)}
+                        className={`text-[10px] font-medium px-2 py-1 rounded-lg border transition-all duration-200 flex items-center gap-1.5 ${
+                          isActive
+                            ? "bg-white/10 border-white/20 text-foreground"
+                            : "bg-transparent border-white/5 text-muted-foreground hover:border-white/10 hover:text-foreground"
+                        }`}
+                      >
+                        {opt.value !== "all" && (
+                          <span className={`w-1.5 h-1.5 rounded-full ${opt.dotColor} ${isActive ? "opacity-100" : "opacity-40"}`} />
+                        )}
+                        <span>{opt.label}</span>
+                        <span className="opacity-40 font-mono">{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Band section */}
+              <div className="px-3 pb-3">
+                <div className="flex items-center gap-1.5 mb-1.5 px-1">
+                  <Waves className="w-3 h-3 text-muted-foreground/50" />
+                  <span className="text-[9px] font-mono text-muted-foreground/50 uppercase tracking-wider">
+                    Band
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {BAND_OPTIONS.map((opt) => {
+                    const count = bandCounts[opt.value] || 0;
+                    const isActive = filterBand === opt.value;
+                    // Don't show bands with 0 stations (except "all")
+                    if (opt.value !== "all" && count === 0) return null;
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => setFilterBand(opt.value)}
+                        className={`text-[10px] font-medium px-2 py-1 rounded-lg border transition-all duration-200 flex items-center gap-1.5 ${
+                          isActive
+                            ? "bg-white/10 border-white/20 text-foreground"
+                            : "bg-transparent border-white/5 text-muted-foreground hover:border-white/10 hover:text-foreground"
+                        }`}
+                        title={opt.description}
+                      >
+                        <span>{opt.label}</span>
+                        {opt.description && (
+                          <span className="opacity-30 font-mono text-[8px]">{opt.description}</span>
+                        )}
+                        <span className="opacity-40 font-mono">{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
+
+      {/* Active filter summary (when collapsed) */}
+      {!filtersExpanded && hasActiveFilters && (
+        <motion.div
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-1.5 px-3 py-1.5 glass-panel rounded-lg flex items-center gap-2"
+        >
+          <span className="text-[9px] font-mono text-muted-foreground/50">Active:</span>
+          {filterType !== "all" && (
+            <span className="text-[9px] font-mono text-accent/80 bg-accent/10 px-1.5 py-0.5 rounded">
+              {filterType}
+            </span>
+          )}
+          {filterBand !== "all" && (
+            <span className="text-[9px] font-mono text-accent/80 bg-accent/10 px-1.5 py-0.5 rounded">
+              {filterBand}
+            </span>
+          )}
+        </motion.div>
+      )}
 
       {/* Search results dropdown */}
       <AnimatePresence>

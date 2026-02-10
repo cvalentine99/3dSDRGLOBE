@@ -4,7 +4,9 @@
  */
 import { useRadio } from "@/contexts/RadioContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Radio, Globe, ExternalLink, ChevronRight } from "lucide-react";
+import { X, Radio, Globe, ExternalLink, ChevronRight, Waves } from "lucide-react";
+import { detectBands, BAND_DEFINITIONS } from "@/lib/types";
+import { useMemo } from "react";
 
 const TYPE_COLORS: Record<string, string> = {
   OpenWebRX: "text-cyan-400",
@@ -34,6 +36,18 @@ export default function StationPanel() {
     setShowPanel,
   } = useRadio();
 
+  const detectedBands = useMemo(() => {
+    if (!selectedStation) return [];
+    return detectBands(selectedStation);
+  }, [selectedStation]);
+
+  const bandLabels = useMemo(() => {
+    return detectedBands.map((b) => {
+      const def = BAND_DEFINITIONS.find((d) => d.id === b);
+      return def ? `${def.label} (${def.description})` : b;
+    });
+  }, [detectedBands]);
+
   return (
     <AnimatePresence>
       {showPanel && selectedStation && (
@@ -61,6 +75,16 @@ export default function StationPanel() {
                   {selectedStation.location.coordinates[1].toFixed(4)}°N,{" "}
                   {selectedStation.location.coordinates[0].toFixed(4)}°E
                 </p>
+                {bandLabels.length > 0 && (
+                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                    <Waves className="w-3 h-3 text-muted-foreground/50 shrink-0" />
+                    {bandLabels.map((bl) => (
+                      <span key={bl} className="text-[9px] font-mono text-accent/80 bg-accent/10 border border-accent/20 px-1.5 py-0.5 rounded">
+                        {bl}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               <button
                 onClick={() => {

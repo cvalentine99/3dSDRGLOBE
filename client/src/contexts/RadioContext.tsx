@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
-import type { Station, Receiver, ReceiverType } from "@/lib/types";
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from "react";
+import type { Station, Receiver, ReceiverType, BandType } from "@/lib/types";
+import { detectBands } from "@/lib/types";
 
 interface RadioContextType {
   stations: Station[];
@@ -7,6 +8,7 @@ interface RadioContextType {
   selectedStation: Station | null;
   selectedReceiver: Receiver | null;
   filterType: ReceiverType;
+  filterBand: BandType;
   searchQuery: string;
   isPlaying: boolean;
   showPanel: boolean;
@@ -14,11 +16,14 @@ interface RadioContextType {
   selectStation: (station: Station | null) => void;
   selectReceiver: (receiver: Receiver | null) => void;
   setFilterType: (type: ReceiverType) => void;
+  setFilterBand: (band: BandType) => void;
   setSearchQuery: (query: string) => void;
   setIsPlaying: (playing: boolean) => void;
   setShowPanel: (show: boolean) => void;
   setHoveredStation: (station: Station | null) => void;
   filteredStations: Station[];
+  bandCounts: Record<BandType, number>;
+  typeCounts: Record<ReceiverType, number>;
 }
 
 const RadioContext = createContext<RadioContextType | null>(null);
@@ -29,6 +34,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [selectedReceiver, setSelectedReceiver] = useState<Receiver | null>(null);
   const [filterType, setFilterType] = useState<ReceiverType>("all");
+  const [filterBand, setFilterBand] = useState<BandType>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isPlaying, setIsPlaying] = useState(false);
   const [showPanel, setShowPanel] = useState(false);
@@ -36,7 +42,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     async function fetchStations() {
-      // Try multiple sources for station data
       const sources = [
         "/stations.json",
         "https://files.manuscdn.com/user_upload_by_module/session_file/310519663252172531/hiMtJaBqMSSztryK.json",
@@ -79,18 +84,74 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     setIsPlaying(false);
   }, []);
 
-  const filteredStations = stations.filter((s) => {
-    const matchesType =
-      filterType === "all" ||
-      s.receivers.some((r) => r.type === filterType);
-    const matchesSearch =
-      !searchQuery ||
-      s.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.receivers.some((r) =>
-        r.label.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    return matchesType && matchesSearch;
-  });
+  // Pre-compute band info for all stations
+  const stationBands = useMemo(() => {
+    const map = new Map<Station, BandType[]>();
+    stations.forEach((s) => {
+      map.set(s, detectBands(s));
+    });
+    return map;
+  }, [stations]);
+
+  // Compute counts for each type and band
+  const typeCounts = useMemo(() => {
+    const counts: Record<ReceiverType, number> = {
+      all: stations.length,
+      KiwiSDR: 0,
+      OpenWebRX: 0,
+      WebSDR: 0,
+    };
+    stations.forEach((s) => {
+      const types = new Set(s.receivers.map((r) => r.type));
+      if (types.has("KiwiSDR")) counts.KiwiSDR++;
+      if (types.has("OpenWebRX")) counts.OpenWebRX++;
+      if (types.has("WebSDR")) counts.WebSDR++;
+    });
+    return counts;
+  }, [stations]);
+
+  const bandCounts = useMemo(() => {
+    const counts: Record<BandType, number> = {
+      all: stations.length,
+      HF: 0,
+      VHF: 0,
+      UHF: 0,
+      "LF/MF": 0,
+      Airband: 0,
+      CB: 0,
+    };
+    stations.forEach((s) => {
+      const bands = stationBands.get(s) || [];
+      bands.forEach((b) => {
+        counts[b]++;
+      });
+    });
+    return counts;
+  }, [stations, stationBands]);
+
+  const filteredStations = useMemo(() => {
+    return stations.filter((s) => {
+      // Type filter
+      const matchesType =
+        filterType === "all" ||
+        s.receivers.some((r) => r.type === filterType);
+
+      // Band filter
+      const matchesBand =
+        filterBand === "all" ||
+        (stationBands.get(s) || []).includes(filterBand);
+
+      // Search filter
+      const matchesSearch =
+        !searchQuery ||
+        s.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.receivers.some((r) =>
+          r.label.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+
+      return matchesType && matchesBand && matchesSearch;
+    });
+  }, [stations, filterType, filterBand, searchQuery, stationBands]);
 
   return (
     <RadioContext.Provider
@@ -100,6 +161,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         selectedStation,
         selectedReceiver,
         filterType,
+        filterBand,
         searchQuery,
         isPlaying,
         showPanel,
@@ -107,11 +169,14 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         selectStation,
         selectReceiver,
         setFilterType,
+        setFilterBand,
         setSearchQuery,
         setIsPlaying,
         setShowPanel,
         setHoveredStation,
         filteredStations,
+        bandCounts,
+        typeCounts,
       }}
     >
       {children}

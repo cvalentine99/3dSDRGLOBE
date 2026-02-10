@@ -3,8 +3,9 @@
  * Design: "Ether" — minimal frosted glass tooltip
  */
 import { useRadio } from "@/contexts/RadioContext";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { detectBands, BAND_DEFINITIONS } from "@/lib/types";
 
 const TYPE_DOT: Record<string, string> = {
   OpenWebRX: "bg-cyan-400",
@@ -23,6 +24,14 @@ export default function HoverTooltip() {
     window.addEventListener("mousemove", handleMouseMove);
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
+
+  const bands = useMemo(() => {
+    if (!hoveredStation) return [];
+    return detectBands(hoveredStation).map((b) => {
+      const def = BAND_DEFINITIONS.find((d) => d.id === b);
+      return def ? def.label : b;
+    });
+  }, [hoveredStation]);
 
   const show = hoveredStation && hoveredStation !== selectedStation;
 
@@ -55,6 +64,15 @@ export default function HoverTooltip() {
                   </div>
                 ))}
             </div>
+            {bands.length > 0 && (
+              <div className="flex items-center gap-1 mt-1">
+                {bands.map((b) => (
+                  <span key={b} className="text-[8px] font-mono text-accent/70 bg-accent/10 px-1 py-0.5 rounded">
+                    {b}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </motion.div>
       )}
