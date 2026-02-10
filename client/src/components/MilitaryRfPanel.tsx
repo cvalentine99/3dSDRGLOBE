@@ -118,7 +118,7 @@ export default function MilitaryRfPanel({ isOpen, onClose }: Props) {
                         Military RF Intelligence
                       </h2>
                       <p className="text-[10px] font-mono text-white/40 uppercase tracking-wider">
-                        100 kHz – 70 MHz Spectrum Analysis
+                        VLF – UHF Spectrum Analysis · {MILITARY_FREQUENCIES.length} Entries
                       </p>
                     </div>
                   </div>
@@ -183,7 +183,7 @@ export default function MilitaryRfPanel({ isOpen, onClose }: Props) {
               {/* Footer */}
               <div className="shrink-0 px-5 py-2.5 border-t border-white/10 bg-[#0c1020]/80">
                 <p className="text-[9px] font-mono text-white/25 text-center">
-                  Source: Global Military Spectrum Dominance — Operational Analysis of RF Command and Control (100 kHz – 70 MHz)
+                  Sources: Global Military Spectrum Dominance PDF · sigidwiki.com · priyom.org · radioreference.com
                 </p>
               </div>
             </div>
@@ -341,9 +341,17 @@ function FrequenciesTab({
                       {freq.designation}
                     </span>
                   </div>
-                  <p className="text-[10px] text-white/50 mt-0.5 line-clamp-1">
-                    {freq.description}
-                  </p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <p className="text-[10px] text-white/50 line-clamp-1 flex-1">
+                      {freq.description}
+                    </p>
+                    {freq.status === "active" && (
+                      <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" title="Active" />
+                    )}
+                    {freq.status === "inactive" && (
+                      <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-red-400/50" title="Inactive" />
+                    )}
+                  </div>
                 </div>
 
                 {/* Tags */}
@@ -379,6 +387,10 @@ function FrequenciesTab({
                     <DetailRow label="Signal Type" value={freq.signalType} />
                     {freq.power && <DetailRow label="Power" value={freq.power} />}
                     {freq.location && <DetailRow label="Location" value={freq.location} />}
+                    {freq.modulation && <DetailRow label="Modulation" value={freq.modulation} />}
+                    {freq.bandwidth && <DetailRow label="Bandwidth" value={freq.bandwidth} />}
+                    {freq.source && <DetailRow label="Source" value={freq.source} />}
+                    {freq.status && <DetailRow label="Status" value={freq.status} />}
                   </div>
                   <p className="text-[10px] text-white/60 leading-relaxed">
                     {freq.description}
@@ -475,7 +487,7 @@ function BandsTab() {
   return (
     <div className="p-4 space-y-4">
       <p className="text-[10px] text-white/50 leading-relaxed">
-        The 100 kHz – 70 MHz spectrum is segmented by propagation capability and operational domain. Each band has unique physics that dictate military doctrine.
+        The VLF–UHF spectrum is segmented by propagation capability and operational domain. Each band has unique physics that dictate military doctrine.
       </p>
 
       {BAND_SECTIONS.map((band) => {
@@ -549,7 +561,7 @@ function BandsTab() {
         <ul className="space-y-1.5">
           <li className="text-[10px] text-white/60 leading-relaxed flex items-start gap-2">
             <span className="text-amber-400/60 shrink-0">1.</span>
-            <span>Prioritize the "Big Three": HFGCS (8992/11175 kHz), The Buzzer (4625 kHz), and SINCGARS bands (30–88 MHz).</span>
+            <span>Prioritize the "Big Three": HFGCS (8992/11175 kHz), The Buzzer (4625 kHz), and SINCGARS bands (30–88 MHz). Also monitor TACAMO VLF (26.9 kHz) for nuclear C2.</span>
           </li>
           <li className="text-[10px] text-white/60 leading-relaxed flex items-start gap-2">
             <span className="text-amber-400/60 shrink-0">2.</span>
@@ -562,6 +574,14 @@ function BandsTab() {
           <li className="text-[10px] text-white/60 leading-relaxed flex items-start gap-2">
             <span className="text-amber-400/60 shrink-0">4.</span>
             <span>Account for massive VLF/LF signal strength (Chayka at 100 kHz) which can desensitize receivers.</span>
+          </li>
+          <li className="text-[10px] text-white/60 leading-relaxed flex items-start gap-2">
+            <span className="text-amber-400/60 shrink-0">5.</span>
+            <span>Monitor OTH radars: Russian Kontayner (6–32 MHz), Chinese Foghorn (6–29 MHz), UK PLUTO II (8–38 MHz), and Australian JORN.</span>
+          </li>
+          <li className="text-[10px] text-white/60 leading-relaxed flex items-start gap-2">
+            <span className="text-amber-400/60 shrink-0">6.</span>
+            <span>Track French SALAMANDRE wideband HF (up to 150 kHz aggregate) and Israeli Navy hybrid modems for advanced signal analysis.</span>
           </li>
         </ul>
       </div>
