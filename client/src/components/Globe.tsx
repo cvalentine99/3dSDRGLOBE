@@ -74,18 +74,18 @@ export default function Globe() {
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
+    renderer.toneMappingExposure = 1.4;
     container.appendChild(renderer.domElement);
 
     // Globe
     const globeGeometry = new THREE.SphereGeometry(GLOBE_RADIUS, 96, 96);
     const globeMaterial = new THREE.MeshPhongMaterial({
-      color: 0x1a2a44,
-      emissive: 0x050a14,
-      specular: 0x2a4a6c,
-      shininess: 20,
-      transparent: true,
-      opacity: 0.98,
+      color: 0xbbccdd,
+      emissive: 0x112233,
+      specular: 0x4488aa,
+      shininess: 15,
+      transparent: false,
+      opacity: 1.0,
     });
     const globe = new THREE.Mesh(globeGeometry, globeMaterial);
     scene.add(globe);
@@ -97,7 +97,7 @@ export default function Globe() {
       (texture) => {
         texture.colorSpace = THREE.SRGBColorSpace;
         globeMaterial.map = texture;
-        globeMaterial.color.set(0x445566);
+        globeMaterial.color.set(0xddddee);
         globeMaterial.needsUpdate = true;
       }
     );
@@ -163,11 +163,14 @@ export default function Globe() {
     scene.add(new THREE.Mesh(innerAtmGeometry, innerAtmMaterial));
 
     // Lighting
-    scene.add(new THREE.AmbientLight(0x445566, 1.0));
-    const dirLight = new THREE.DirectionalLight(0x99bbdd, 1.5);
+    scene.add(new THREE.AmbientLight(0x8899aa, 2.0));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
     dirLight.position.set(5, 3, 5);
     scene.add(dirLight);
-    const backLight = new THREE.DirectionalLight(0x112233, 0.5);
+    const fillLight = new THREE.DirectionalLight(0x6688aa, 1.2);
+    fillLight.position.set(-3, 1, -3);
+    scene.add(fillLight);
+    const backLight = new THREE.DirectionalLight(0x334466, 0.8);
     backLight.position.set(-5, -2, -5);
     scene.add(backLight);
 
@@ -632,7 +635,7 @@ export default function Globe() {
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 w-full h-full"
+      className="absolute inset-0 w-full h-full z-[5]"
       style={{ cursor: "grab" }}
     />
   );

@@ -24,7 +24,7 @@ function HomeContent() {
     <div className="relative w-screen h-screen overflow-hidden bg-background">
       {/* Space background */}
       <div
-        className="absolute inset-0 bg-cover bg-center opacity-40"
+        className="absolute inset-0 bg-cover bg-center opacity-40 pointer-events-none"
         style={{ backgroundImage: `url(${SPACE_BG})` }}
       />
 
