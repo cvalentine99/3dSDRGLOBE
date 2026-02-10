@@ -58,12 +58,18 @@ function HomeContent() {
         transition={{ delay: 0.5, duration: 0.6 }}
         className="absolute top-5 left-1/2 -translate-x-1/2 z-20 text-center pointer-events-none"
       >
-        <h1 className="text-xl font-semibold text-foreground tracking-tight">
-          Valentine <span className="text-primary text-glow-coral">RF</span>
-        </h1>
-        <p className="text-[10px] font-mono text-muted-foreground/50 uppercase tracking-[0.3em] mt-0.5">
-          SigINT — Global Receiver Intelligence
-        </p>
+        <div className="relative px-6 py-2">
+          {/* Dark backdrop behind title for readability */}
+          <div className="absolute inset-0 rounded-xl bg-black/40 backdrop-blur-sm" />
+          <div className="relative">
+            <h1 className="text-xl font-semibold text-white tracking-tight drop-shadow-lg">
+              Valentine <span className="text-primary text-glow-coral">RF</span>
+            </h1>
+            <p className="text-[11px] font-mono text-white/70 uppercase tracking-[0.3em] mt-0.5 drop-shadow-md">
+              SigINT — Global Receiver Intelligence
+            </p>
+          </div>
+        </div>
       </motion.div>
 
       {/* Search & Filter */}
@@ -86,7 +92,9 @@ function HomeContent() {
           transition={{ delay: 2, duration: 1 }}
           className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
         >
-          <p className="text-xs font-mono text-muted-foreground/30 text-center">
+          <p className="text-xs font-mono text-white/50 text-center drop-shadow-lg"
+            style={{ textShadow: '0 1px 8px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5)' }}
+          >
             Select a target or search to begin reconnaissance
           </p>
         </motion.div>
