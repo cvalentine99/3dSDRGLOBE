@@ -54,7 +54,7 @@ export default function Globe() {
     hoverMeshIdx: number;
   } | null>(null);
 
-  const { filteredStations, selectStation, selectedStation, setHoveredStation } = useRadio();
+  const { filteredStations, selectStation, selectedStation, setHoveredStation, globeTarget, clearGlobeTarget } = useRadio();
 
   const initScene = useCallback(() => {
     if (!containerRef.current) return;
@@ -631,6 +631,31 @@ export default function Globe() {
       }
     }
   }, [selectedStation, createRingPulse]);
+
+  // Auto-rotate globe to continent/region when globeTarget changes
+  useEffect(() => {
+    if (!sceneRef.current || !globeTarget) return;
+    const s = sceneRef.current;
+    const { lat, lng, zoom } = globeTarget;
+
+    // Convert lat/lng to spherical coordinates
+    s.targetSpherical.phi = (90 - lat) * (Math.PI / 180);
+    s.targetSpherical.theta = -(lng) * (Math.PI / 180);
+
+    // Adjust zoom (camera distance)
+    if (zoom !== undefined) {
+      s.targetSpherical.radius = 14 * (1 / zoom);
+    }
+
+    // Pause auto-rotate briefly so the fly-to animation is smooth
+    s.autoRotate = false;
+    if (s.autoRotateTimer) clearTimeout(s.autoRotateTimer);
+    s.autoRotateTimer = setTimeout(() => {
+      s.autoRotate = true;
+    }, 8000);
+
+    clearGlobeTarget();
+  }, [globeTarget, clearGlobeTarget]);
 
   return (
     <div

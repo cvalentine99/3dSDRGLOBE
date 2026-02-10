@@ -12,6 +12,7 @@ import HoverTooltip from "@/components/HoverTooltip";
 import StatsOverlay from "@/components/StatsOverlay";
 import LoadingScreen from "@/components/LoadingScreen";
 import Legend from "@/components/Legend";
+import StationList from "@/components/StationList";
 import { AnimatePresence } from "framer-motion";
 import { motion } from "framer-motion";
 
@@ -96,6 +97,9 @@ function HomeContent() {
 
       {/* Legend */}
       {!selectedStation && <Legend />}
+
+      {/* Station List Sidebar */}
+      <StationList />
     </div>
   );
 }

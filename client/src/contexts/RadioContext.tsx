@@ -2,6 +2,9 @@ import { createContext, useContext, useState, useCallback, useEffect, useMemo, t
 import type { Station, Receiver, ReceiverType, BandType, ContinentType, RegionType } from "@/lib/types";
 import { detectBands, detectContinent, detectRegion, CONTINENT_DEFINITIONS } from "@/lib/types";
 
+// Globe rotation target — set by context, consumed by Globe component
+export type GlobeTarget = { lat: number; lng: number; zoom?: number } | null;
+
 interface RadioContextType {
   stations: Station[];
   loading: boolean;
@@ -15,6 +18,7 @@ interface RadioContextType {
   isPlaying: boolean;
   showPanel: boolean;
   hoveredStation: Station | null;
+  globeTarget: GlobeTarget;
   selectStation: (station: Station | null) => void;
   selectReceiver: (receiver: Receiver | null) => void;
   setFilterType: (type: ReceiverType) => void;
@@ -25,6 +29,7 @@ interface RadioContextType {
   setIsPlaying: (playing: boolean) => void;
   setShowPanel: (show: boolean) => void;
   setHoveredStation: (station: Station | null) => void;
+  clearGlobeTarget: () => void;
   filteredStations: Station[];
   bandCounts: Record<BandType, number>;
   typeCounts: Record<ReceiverType, number>;
@@ -49,11 +54,23 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showPanel, setShowPanel] = useState(false);
   const [hoveredStation, setHoveredStation] = useState<Station | null>(null);
+  const [globeTarget, setGlobeTarget] = useState<GlobeTarget>(null);
 
-  // When continent changes, reset region
+  const clearGlobeTarget = useCallback(() => setGlobeTarget(null), []);
+
+  // When continent changes, reset region and rotate globe
   const setFilterContinent = useCallback((continent: ContinentType) => {
     setFilterContinentRaw(continent);
     setFilterRegion("all");
+    if (continent === "all") {
+      // Reset to default view
+      setGlobeTarget({ lat: 20, lng: 0, zoom: 1 });
+    } else {
+      const def = CONTINENT_DEFINITIONS.find((c) => c.id === continent);
+      if (def) {
+        setGlobeTarget({ lat: def.center.lat, lng: def.center.lng, zoom: def.zoom });
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -239,6 +256,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         isPlaying,
         showPanel,
         hoveredStation,
+        globeTarget,
         selectStation,
         selectReceiver,
         setFilterType,
@@ -249,6 +267,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         setIsPlaying,
         setShowPanel,
         setHoveredStation,
+        clearGlobeTarget,
         filteredStations,
         bandCounts,
         typeCounts,

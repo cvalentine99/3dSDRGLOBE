@@ -116,6 +116,8 @@ export interface ContinentDef {
   id: ContinentType;
   label: string;
   emoji: string;
+  center: { lat: number; lng: number }; // Geographic center for globe rotation
+  zoom: number; // Camera distance multiplier (1 = default)
   regions: RegionDef[];
 }
 
@@ -124,6 +126,8 @@ export const CONTINENT_DEFINITIONS: ContinentDef[] = [
     id: "Europe",
     label: "Europe",
     emoji: "EU",
+    center: { lat: 50, lng: 10 },
+    zoom: 0.85,
     regions: [
       { id: "Western Europe", label: "Western Europe" },
       { id: "British Isles", label: "British Isles" },
@@ -137,6 +141,8 @@ export const CONTINENT_DEFINITIONS: ContinentDef[] = [
     id: "North America",
     label: "N. America",
     emoji: "NA",
+    center: { lat: 40, lng: -100 },
+    zoom: 0.85,
     regions: [
       { id: "USA & Canada", label: "USA & Canada" },
       { id: "Central America & Caribbean", label: "Central Am. & Caribbean" },
@@ -146,6 +152,8 @@ export const CONTINENT_DEFINITIONS: ContinentDef[] = [
     id: "Asia",
     label: "Asia",
     emoji: "AS",
+    center: { lat: 35, lng: 90 },
+    zoom: 0.8,
     regions: [
       { id: "East Asia", label: "East Asia" },
       { id: "Southeast Asia", label: "SE Asia" },
@@ -157,6 +165,8 @@ export const CONTINENT_DEFINITIONS: ContinentDef[] = [
     id: "Oceania",
     label: "Oceania",
     emoji: "OC",
+    center: { lat: -28, lng: 140 },
+    zoom: 0.85,
     regions: [
       { id: "Australia & NZ", label: "Australia & NZ" },
     ],
@@ -165,6 +175,8 @@ export const CONTINENT_DEFINITIONS: ContinentDef[] = [
     id: "South America",
     label: "S. America",
     emoji: "SA",
+    center: { lat: -15, lng: -55 },
+    zoom: 0.8,
     regions: [
       { id: "South America", label: "South America" },
     ],
@@ -173,6 +185,8 @@ export const CONTINENT_DEFINITIONS: ContinentDef[] = [
     id: "Africa",
     label: "Africa",
     emoji: "AF",
+    center: { lat: 5, lng: 20 },
+    zoom: 0.8,
     regions: [
       { id: "Africa", label: "Africa" },
     ],
