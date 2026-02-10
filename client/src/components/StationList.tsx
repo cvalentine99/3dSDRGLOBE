@@ -1,12 +1,23 @@
 /**
- * StationList.tsx — Scrollable station list sidebar
+ * StationList.tsx — Scrollable station list sidebar with sorting
  * Design: "Ether" — frosted glass panel with compact station rows
- * Shows all filtered stations in a browsable list, complementing the search
+ * Shows all filtered stations in a browsable, sortable list
  */
 import { useRadio } from "@/contexts/RadioContext";
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { List, Radio, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
+import {
+  List,
+  Radio,
+  ChevronLeft,
+  ChevronRight,
+  MapPin,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  SortAsc,
+} from "lucide-react";
+import type { Station } from "@/lib/types";
 
 const TYPE_DOT: Record<string, string> = {
   OpenWebRX: "bg-cyan-400",
@@ -14,9 +25,25 @@ const TYPE_DOT: Record<string, string> = {
   KiwiSDR: "bg-green-400",
 };
 
+// Sort priority for type sorting
+const TYPE_ORDER: Record<string, number> = {
+  KiwiSDR: 0,
+  OpenWebRX: 1,
+  WebSDR: 2,
+};
+
+type SortField = "name" | "type" | "receivers";
+type SortDirection = "asc" | "desc";
+
+const SORT_OPTIONS: { field: SortField; label: string; shortLabel: string }[] = [
+  { field: "name", label: "Station Name", shortLabel: "Name" },
+  { field: "type", label: "Receiver Type", shortLabel: "Type" },
+  { field: "receivers", label: "Receiver Count", shortLabel: "Receivers" },
+];
+
 // Virtual scrolling: only render visible items for performance
-const ITEM_HEIGHT = 64; // px per row
-const OVERSCAN = 5; // extra items above/below viewport
+const ITEM_HEIGHT = 64;
+const OVERSCAN = 5;
 
 export default function StationList() {
   const {
@@ -27,6 +54,8 @@ export default function StationList() {
   } = useRadio();
 
   const [isOpen, setIsOpen] = useState(false);
+  const [sortField, setSortField] = useState<SortField>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [containerHeight, setContainerHeight] = useState(600);
@@ -49,27 +78,78 @@ export default function StationList() {
     }
   };
 
+  // Toggle sort: if same field, flip direction; if new field, set ascending
+  const handleSort = useCallback(
+    (field: SortField) => {
+      if (sortField === field) {
+        setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+      } else {
+        setSortField(field);
+        setSortDirection(field === "receivers" ? "desc" : "asc");
+      }
+      // Reset scroll to top on sort change
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = 0;
+        setScrollTop(0);
+      }
+    },
+    [sortField]
+  );
+
+  // Sorted stations
+  const sortedStations = useMemo(() => {
+    const sorted = [...filteredStations];
+    const dir = sortDirection === "asc" ? 1 : -1;
+
+    sorted.sort((a: Station, b: Station) => {
+      switch (sortField) {
+        case "name":
+          return dir * a.label.localeCompare(b.label);
+        case "type": {
+          const typeA = a.receivers[0]?.type || "WebSDR";
+          const typeB = b.receivers[0]?.type || "WebSDR";
+          const orderDiff = (TYPE_ORDER[typeA] ?? 99) - (TYPE_ORDER[typeB] ?? 99);
+          if (orderDiff !== 0) return dir * orderDiff;
+          return dir * a.label.localeCompare(b.label);
+        }
+        case "receivers":
+          return dir * (a.receivers.length - b.receivers.length);
+        default:
+          return 0;
+      }
+    });
+
+    return sorted;
+  }, [filteredStations, sortField, sortDirection]);
+
   // Virtual scroll calculations
-  const totalHeight = filteredStations.length * ITEM_HEIGHT;
+  const totalHeight = sortedStations.length * ITEM_HEIGHT;
   const startIndex = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - OVERSCAN);
   const endIndex = Math.min(
-    filteredStations.length,
+    sortedStations.length,
     Math.ceil((scrollTop + containerHeight) / ITEM_HEIGHT) + OVERSCAN
   );
   const visibleStations = useMemo(
-    () => filteredStations.slice(startIndex, endIndex),
-    [filteredStations, startIndex, endIndex]
+    () => sortedStations.slice(startIndex, endIndex),
+    [sortedStations, startIndex, endIndex]
   );
 
   // Scroll to selected station when it changes
   useEffect(() => {
     if (!selectedStation || !scrollRef.current || !isOpen) return;
-    const idx = filteredStations.indexOf(selectedStation);
+    const idx = sortedStations.findIndex(
+      (s) =>
+        s.label === selectedStation.label &&
+        s.location.coordinates[0] === selectedStation.location.coordinates[0] &&
+        s.location.coordinates[1] === selectedStation.location.coordinates[1]
+    );
     if (idx >= 0) {
       const targetScroll = idx * ITEM_HEIGHT - containerHeight / 2 + ITEM_HEIGHT / 2;
       scrollRef.current.scrollTo({ top: Math.max(0, targetScroll), behavior: "smooth" });
     }
-  }, [selectedStation, isOpen, filteredStations, containerHeight]);
+  }, [selectedStation, isOpen, sortedStations, containerHeight]);
+
+  const DirectionIcon = sortDirection === "asc" ? ArrowUp : ArrowDown;
 
   return (
     <>
@@ -86,7 +166,8 @@ export default function StationList() {
       >
         <div className="flex flex-col items-center gap-2">
           <List className="w-4 h-4 text-muted-foreground" />
-          <span className="text-[9px] font-mono text-muted-foreground/60 writing-mode-vertical"
+          <span
+            className="text-[9px] font-mono text-muted-foreground/60"
             style={{ writingMode: "vertical-rl" }}
           >
             {filteredStations.length} stations
@@ -116,10 +197,40 @@ export default function StationList() {
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold text-foreground">Station Directory</h3>
                 <p className="text-[10px] font-mono text-muted-foreground/60">
-                  {filteredStations.length} targets matching filters
+                  {sortedStations.length} targets matching filters
                 </p>
               </div>
-              <List className="w-4 h-4 text-muted-foreground/40" />
+              <SortAsc className="w-4 h-4 text-muted-foreground/40" />
+            </div>
+
+            {/* Sort controls */}
+            <div className="px-4 py-2 border-b border-white/5 shrink-0">
+              <div className="flex items-center gap-1.5">
+                <ArrowUpDown className="w-3 h-3 text-muted-foreground/50 shrink-0" />
+                <span className="text-[9px] font-mono text-muted-foreground/50 uppercase tracking-wider shrink-0 mr-1">
+                  Sort
+                </span>
+                {SORT_OPTIONS.map((opt) => {
+                  const isActive = sortField === opt.field;
+                  return (
+                    <button
+                      key={opt.field}
+                      onClick={() => handleSort(opt.field)}
+                      title={`Sort by ${opt.label}`}
+                      className={`text-[10px] font-medium px-2 py-1 rounded-lg border transition-all duration-200 flex items-center gap-1 ${
+                        isActive
+                          ? "bg-white/10 border-white/20 text-foreground"
+                          : "bg-transparent border-white/5 text-muted-foreground/70 hover:border-white/10 hover:text-foreground"
+                      }`}
+                    >
+                      <span>{opt.shortLabel}</span>
+                      {isActive && (
+                        <DirectionIcon className="w-2.5 h-2.5 text-accent" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Scrollable list with virtual scrolling */}
@@ -127,7 +238,10 @@ export default function StationList() {
               ref={scrollRef}
               onScroll={handleScroll}
               className="flex-1 overflow-y-auto overflow-x-hidden"
-              style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.1) transparent" }}
+              style={{
+                scrollbarWidth: "thin",
+                scrollbarColor: "rgba(255,255,255,0.1) transparent",
+              }}
             >
               <div style={{ height: totalHeight, position: "relative" }}>
                 {visibleStations.map((station, i) => {
@@ -135,18 +249,22 @@ export default function StationList() {
                   const isSelected =
                     selectedStation &&
                     station.label === selectedStation.label &&
-                    station.location.coordinates[0] === selectedStation.location.coordinates[0] &&
-                    station.location.coordinates[1] === selectedStation.location.coordinates[1];
+                    station.location.coordinates[0] ===
+                      selectedStation.location.coordinates[0] &&
+                    station.location.coordinates[1] ===
+                      selectedStation.location.coordinates[1];
 
                   const primaryType = station.receivers[0]?.type || "WebSDR";
                   const region = stationRegions.get(station) || "";
 
                   return (
                     <button
-                      key={`${station.label}-${actualIndex}`}
+                      key={`${station.label}-${station.location.coordinates[0]}-${actualIndex}`}
                       onClick={() => selectStation(station)}
                       className={`absolute left-0 right-0 w-full text-left px-4 py-2 transition-all duration-150 border-b border-white/3 hover:bg-white/5 ${
-                        isSelected ? "bg-white/8 border-l-2 border-l-primary" : ""
+                        isSelected
+                          ? "bg-white/8 border-l-2 border-l-primary"
+                          : ""
                       }`}
                       style={{
                         top: actualIndex * ITEM_HEIGHT,
@@ -155,17 +273,23 @@ export default function StationList() {
                     >
                       <div className="flex items-start gap-3 h-full">
                         <div className="flex flex-col items-center gap-1 pt-1 shrink-0">
-                          <div className={`w-2 h-2 rounded-full ${TYPE_DOT[primaryType] || "bg-red-400"} ${
-                            isSelected ? "shadow-sm shadow-primary/50" : ""
-                          }`} />
+                          <div
+                            className={`w-2 h-2 rounded-full ${
+                              TYPE_DOT[primaryType] || "bg-red-400"
+                            } ${isSelected ? "shadow-sm shadow-primary/50" : ""}`}
+                          />
                           <span className="text-[8px] font-mono text-muted-foreground/30">
                             {actualIndex + 1}
                           </span>
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className={`text-xs font-medium truncate leading-tight ${
-                            isSelected ? "text-foreground" : "text-foreground/80"
-                          }`}>
+                          <p
+                            className={`text-xs font-medium truncate leading-tight ${
+                              isSelected
+                                ? "text-foreground"
+                                : "text-foreground/80"
+                            }`}
+                          >
                             {station.label}
                           </p>
                           <div className="flex items-center gap-1.5 mt-1">
