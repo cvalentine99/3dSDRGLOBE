@@ -103,7 +103,7 @@ export default function SearchFilter() {
               setShowResults(true);
             }}
             onBlur={() => setIsFocused(false)}
-            placeholder="Search stations..."
+            placeholder="Search receivers..."
             className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none font-sans"
           />
           {loading ? (

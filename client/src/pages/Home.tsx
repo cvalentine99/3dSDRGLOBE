@@ -1,5 +1,5 @@
 /**
- * Home.tsx — Main page for Radio Globe
+ * Home.tsx — Main page for Valentine RF - SigINT
  * Design: "Ether" — Dark atmospheric immersion
  * Full-viewport globe with floating UI overlays
  */
@@ -58,10 +58,10 @@ function HomeContent() {
         className="absolute top-5 left-1/2 -translate-x-1/2 z-20 text-center pointer-events-none"
       >
         <h1 className="text-xl font-semibold text-foreground tracking-tight">
-          Radio<span className="text-primary text-glow-coral">Globe</span>
+          Valentine <span className="text-primary text-glow-coral">RF</span>
         </h1>
         <p className="text-[10px] font-mono text-muted-foreground/50 uppercase tracking-[0.3em] mt-0.5">
-          Explore the world's radio receivers
+          SigINT — Global Receiver Intelligence
         </p>
       </motion.div>
 
@@ -86,7 +86,7 @@ function HomeContent() {
           className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
         >
           <p className="text-xs font-mono text-muted-foreground/30 text-center">
-            Click a station marker or search to explore
+            Select a target or search to begin reconnaissance
           </p>
         </motion.div>
       )}

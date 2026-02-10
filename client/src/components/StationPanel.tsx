@@ -51,7 +51,7 @@ export default function StationPanel() {
                 <div className="flex items-center gap-2 mb-1">
                   <Radio className="w-4 h-4 text-primary shrink-0" />
                   <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
-                    Station
+                    Target
                   </span>
                 </div>
                 <h2 className="text-lg font-semibold text-foreground leading-tight truncate">

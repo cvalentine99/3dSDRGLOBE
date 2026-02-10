@@ -42,7 +42,7 @@ export default function AudioPlayer() {
               <div className="flex items-center justify-between px-4 py-2 border-b border-white/5">
                 <div className="flex items-center gap-2">
                   <Globe className="w-4 h-4 text-primary" />
-                  <span className="text-xs font-mono text-muted-foreground">Live Receiver</span>
+                  <span className="text-xs font-mono text-muted-foreground">Live Signal Feed</span>
                 </div>
                 <button
                   onClick={() => setShowEmbed(false)}

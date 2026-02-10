@@ -31,11 +31,11 @@ export default function StatsOverlay() {
       className="absolute bottom-6 left-4 z-20 pointer-events-none"
     >
       <div className="flex items-center gap-4 text-[10px] font-mono text-muted-foreground/60 uppercase tracking-widest">
-        <span>{stations.length} stations</span>
+        <span>{stations.length} targets</span>
         <span className="w-px h-3 bg-white/10" />
         <span>{stats.totalReceivers} receivers</span>
         <span className="w-px h-3 bg-white/10" />
-        <span>worldwide</span>
+        <span>global coverage</span>
       </div>
     </motion.div>
   );

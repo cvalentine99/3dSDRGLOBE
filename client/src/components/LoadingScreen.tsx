@@ -39,7 +39,7 @@ export default function LoadingScreen() {
         transition={{ delay: 0.3 }}
         className="text-2xl font-semibold text-foreground tracking-tight mb-2"
       >
-        Radio Globe
+        Valentine <span className="text-primary">RF</span>
       </motion.h1>
       <motion.p
         initial={{ opacity: 0 }}
@@ -47,7 +47,7 @@ export default function LoadingScreen() {
         transition={{ delay: 0.6 }}
         className="text-sm text-muted-foreground font-mono"
       >
-        Tuning into the world...
+        Initializing SigINT...
       </motion.p>
     </motion.div>
   );
