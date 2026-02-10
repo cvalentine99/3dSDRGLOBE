@@ -161,16 +161,24 @@ export default function SearchFilter() {
               Filters
             </span>
             {hasActiveFilters && (
-              <button
+              <span
+                role="button"
+                tabIndex={0}
                 onClick={(e) => {
                   e.stopPropagation();
                   clearAllFilters();
                 }}
-                className="text-[9px] font-mono text-accent/70 hover:text-accent transition-colors flex items-center gap-0.5"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.stopPropagation();
+                    clearAllFilters();
+                  }
+                }}
+                className="text-[9px] font-mono text-accent/70 hover:text-accent transition-colors flex items-center gap-0.5 cursor-pointer"
               >
                 <X className="w-2.5 h-2.5" />
                 Clear
-              </button>
+              </span>
             )}
             <ChevronDown className={`w-3 h-3 text-muted-foreground/40 transition-transform duration-200 ${
               filtersExpanded ? "rotate-180" : ""
