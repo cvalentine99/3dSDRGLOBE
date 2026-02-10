@@ -4,7 +4,7 @@
  */
 import { useRadio } from "@/contexts/RadioContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Radio, Globe, ExternalLink, ChevronRight, Waves, MapPin } from "lucide-react";
+import { X, Radio, Globe, ExternalLink, ChevronRight, Waves, MapPin, Star } from "lucide-react";
 import { detectBands, BAND_DEFINITIONS } from "@/lib/types";
 import { useMemo } from "react";
 
@@ -36,7 +36,11 @@ export default function StationPanel() {
     setShowPanel,
     stationContinents,
     stationRegions,
+    isFavorite,
+    toggleFavorite,
   } = useRadio();
+
+  const isStarred = selectedStation ? isFavorite(selectedStation) : false;
 
   const detectedBands = useMemo(() => {
     if (!selectedStation) return [];
@@ -99,15 +103,28 @@ export default function StationPanel() {
                   </div>
                 )}
               </div>
-              <button
-                onClick={() => {
-                  setShowPanel(false);
-                  selectStation(null);
-                }}
-                className="p-1.5 rounded-lg hover:bg-white/5 transition-colors text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => selectedStation && toggleFavorite(selectedStation)}
+                  className={`p-1.5 rounded-lg transition-all duration-200 ${
+                    isStarred
+                      ? "text-yellow-400 hover:text-yellow-300"
+                      : "text-muted-foreground/40 hover:text-yellow-400/70"
+                  }`}
+                  title={isStarred ? "Remove from favorites" : "Add to favorites"}
+                >
+                  <Star className={`w-4.5 h-4.5 ${isStarred ? "fill-yellow-400" : ""}`} />
+                </button>
+                <button
+                  onClick={() => {
+                    setShowPanel(false);
+                    selectStation(null);
+                  }}
+                  className="p-1.5 rounded-lg hover:bg-white/5 transition-colors text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
           </div>
 

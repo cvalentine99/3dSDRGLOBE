@@ -5,6 +5,34 @@ import { detectBands, detectContinent, detectRegion, CONTINENT_DEFINITIONS } fro
 // Globe rotation target — set by context, consumed by Globe component
 export type GlobeTarget = { lat: number; lng: number; zoom?: number } | null;
 
+// Unique key for a station (label + coordinates)
+function stationKey(station: Station): string {
+  return `${station.label}|${station.location.coordinates[0]}|${station.location.coordinates[1]}`;
+}
+
+const FAVORITES_STORAGE_KEY = "valentine-rf-favorites";
+
+function loadFavorites(): Set<string> {
+  try {
+    const raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return new Set(arr);
+    }
+  } catch {
+    // ignore
+  }
+  return new Set();
+}
+
+function saveFavorites(favs: Set<string>) {
+  try {
+    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(Array.from(favs)));
+  } catch {
+    // ignore
+  }
+}
+
 interface RadioContextType {
   stations: Station[];
   loading: boolean;
@@ -37,6 +65,11 @@ interface RadioContextType {
   regionCounts: Record<RegionType, number>;
   stationContinents: Map<Station, ContinentType>;
   stationRegions: Map<Station, RegionType>;
+  // Favorites
+  favorites: Set<string>;
+  isFavorite: (station: Station) => boolean;
+  toggleFavorite: (station: Station) => void;
+  favoriteCount: number;
 }
 
 const RadioContext = createContext<RadioContextType | null>(null);
@@ -55,15 +88,40 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const [showPanel, setShowPanel] = useState(false);
   const [hoveredStation, setHoveredStation] = useState<Station | null>(null);
   const [globeTarget, setGlobeTarget] = useState<GlobeTarget>(null);
+  const [favorites, setFavorites] = useState<Set<string>>(() => loadFavorites());
 
   const clearGlobeTarget = useCallback(() => setGlobeTarget(null), []);
+
+  // Favorites helpers
+  const isFavorite = useCallback(
+    (station: Station) => favorites.has(stationKey(station)),
+    [favorites]
+  );
+
+  const toggleFavorite = useCallback(
+    (station: Station) => {
+      setFavorites((prev) => {
+        const next = new Set(prev);
+        const key = stationKey(station);
+        if (next.has(key)) {
+          next.delete(key);
+        } else {
+          next.add(key);
+        }
+        saveFavorites(next);
+        return next;
+      });
+    },
+    []
+  );
+
+  const favoriteCount = useMemo(() => favorites.size, [favorites]);
 
   // When continent changes, reset region and rotate globe
   const setFilterContinent = useCallback((continent: ContinentType) => {
     setFilterContinentRaw(continent);
     setFilterRegion("all");
     if (continent === "all") {
-      // Reset to default view
       setGlobeTarget({ lat: 20, lng: 0, zoom: 1 });
     } else {
       const def = CONTINENT_DEFINITIONS.find((c) => c.id === continent);
@@ -209,27 +267,22 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
   const filteredStations = useMemo(() => {
     return stations.filter((s) => {
-      // Type filter
       const matchesType =
         filterType === "all" ||
         s.receivers.some((r) => r.type === filterType);
 
-      // Band filter
       const matchesBand =
         filterBand === "all" ||
         (stationBands.get(s) || []).includes(filterBand);
 
-      // Continent filter
       const matchesContinent =
         filterContinent === "all" ||
         stationContinents.get(s) === filterContinent;
 
-      // Region filter
       const matchesRegion =
         filterRegion === "all" ||
         stationRegions.get(s) === filterRegion;
 
-      // Search filter
       const matchesSearch =
         !searchQuery ||
         s.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -275,6 +328,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         regionCounts,
         stationContinents,
         stationRegions,
+        favorites,
+        isFavorite,
+        toggleFavorite,
+        favoriteCount,
       }}
     >
       {children}
