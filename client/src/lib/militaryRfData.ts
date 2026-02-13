@@ -2070,6 +2070,32 @@ export const ALL_OPERATORS: Operator[] = ["USA", "Russia", "China", "NATO", "Isr
 // Helper: get all unique signal types
 export const ALL_SIGNAL_TYPES: SignalType[] = ["voice", "digital", "beacon", "navigation", "radar", "marker", "numbers", "broadcast", "scrambler", "datalink"];
 
+export const SIGNAL_TYPE_COLORS: Record<SignalType, string> = {
+  voice: "#22c55e",
+  digital: "#3b82f6",
+  beacon: "#f59e0b",
+  navigation: "#06b6d4",
+  radar: "#ef4444",
+  marker: "#a855f7",
+  numbers: "#ec4899",
+  broadcast: "#10b981",
+  scrambler: "#f97316",
+  datalink: "#6366f1",
+};
+
+export const SIGNAL_TYPE_LABELS: Record<SignalType, string> = {
+  voice: "Voice",
+  digital: "Digital",
+  beacon: "Beacon",
+  navigation: "Nav",
+  radar: "Radar",
+  marker: "Marker",
+  numbers: "Numbers",
+  broadcast: "Broadcast",
+  scrambler: "Scrambler",
+  datalink: "Datalink",
+};
+
 // Helper: get all unique classifications
 export const ALL_CLASSIFICATIONS = ["Strategic", "Tactical", "Navigation"] as const;
 

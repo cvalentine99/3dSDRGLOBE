@@ -16,10 +16,14 @@ import {
   BAND_SECTIONS,
   WAVEFORMS,
   ALL_OPERATORS,
+  ALL_SIGNAL_TYPES,
   OPERATOR_COLORS,
   OPERATOR_FLAGS,
+  SIGNAL_TYPE_COLORS,
+  SIGNAL_TYPE_LABELS,
   type BandCategory,
   type Operator,
+  type SignalType,
   type MilitaryFrequency,
 } from "@/lib/militaryRfData";
 
@@ -47,6 +51,7 @@ export default function MilitaryRfPanel({ isOpen, onClose }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterBand, setFilterBand] = useState<BandCategory | "all">("all");
   const [filterOperator, setFilterOperator] = useState<Operator | "all">("all");
+  const [filterSignalType, setFilterSignalType] = useState<SignalType | "all">("all");
   const [expandedFreq, setExpandedFreq] = useState<string | null>(null);
   const [expandedWaveform, setExpandedWaveform] = useState<string | null>(null);
 
@@ -54,16 +59,18 @@ export default function MilitaryRfPanel({ isOpen, onClose }: Props) {
     return MILITARY_FREQUENCIES.filter((f) => {
       const matchesBand = filterBand === "all" || f.band === filterBand;
       const matchesOperator = filterOperator === "all" || f.operator === filterOperator;
+      const matchesSignalType = filterSignalType === "all" || f.signalType === filterSignalType;
       const matchesSearch =
         !searchQuery ||
         f.frequency.toLowerCase().includes(searchQuery.toLowerCase()) ||
         f.system.toLowerCase().includes(searchQuery.toLowerCase()) ||
         f.designation.toLowerCase().includes(searchQuery.toLowerCase()) ||
         f.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        f.operator.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesBand && matchesOperator && matchesSearch;
+        f.operator.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        f.signalType.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesBand && matchesOperator && matchesSignalType && matchesSearch;
     }).sort((a, b) => a.frequencyKhz - b.frequencyKhz);
-  }, [filterBand, filterOperator, searchQuery]);
+  }, [filterBand, filterOperator, filterSignalType, searchQuery]);
 
   // Count by band
   const bandCounts = useMemo(() => {
@@ -79,6 +86,15 @@ export default function MilitaryRfPanel({ isOpen, onClose }: Props) {
     const counts: Record<string, number> = { all: MILITARY_FREQUENCIES.length };
     ALL_OPERATORS.forEach((op) => {
       counts[op] = MILITARY_FREQUENCIES.filter((f) => f.operator === op).length;
+    });
+    return counts;
+  }, []);
+
+  // Count by signal type
+  const signalTypeCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: MILITARY_FREQUENCIES.length };
+    ALL_SIGNAL_TYPES.forEach((st) => {
+      counts[st] = MILITARY_FREQUENCIES.filter((f) => f.signalType === st).length;
     });
     return counts;
   }, []);
@@ -165,10 +181,13 @@ export default function MilitaryRfPanel({ isOpen, onClose }: Props) {
                     setFilterBand={setFilterBand}
                     filterOperator={filterOperator}
                     setFilterOperator={setFilterOperator}
+                    filterSignalType={filterSignalType}
+                    setFilterSignalType={setFilterSignalType}
                     expandedFreq={expandedFreq}
                     setExpandedFreq={setExpandedFreq}
                     bandCounts={bandCounts}
                     operatorCounts={operatorCounts}
+                    signalTypeCounts={signalTypeCounts}
                   />
                 )}
                 {activeTab === "waveforms" && (
@@ -203,10 +222,13 @@ function FrequenciesTab({
   setFilterBand,
   filterOperator,
   setFilterOperator,
+  filterSignalType,
+  setFilterSignalType,
   expandedFreq,
   setExpandedFreq,
   bandCounts,
   operatorCounts,
+  signalTypeCounts,
 }: {
   frequencies: MilitaryFrequency[];
   searchQuery: string;
@@ -215,10 +237,13 @@ function FrequenciesTab({
   setFilterBand: (b: BandCategory | "all") => void;
   filterOperator: Operator | "all";
   setFilterOperator: (o: Operator | "all") => void;
+  filterSignalType: SignalType | "all";
+  setFilterSignalType: (s: SignalType | "all") => void;
   expandedFreq: string | null;
   setExpandedFreq: (id: string | null) => void;
   bandCounts: Record<string, number>;
   operatorCounts: Record<string, number>;
+  signalTypeCounts: Record<string, number>;
 }) {
   return (
     <div>
@@ -291,6 +316,37 @@ function FrequenciesTab({
                 style={{ backgroundColor: OPERATOR_COLORS[op] }}
               />
               {OPERATOR_FLAGS[op]} {operatorCounts[op]}
+            </button>
+          ))}
+        </div>
+
+        {/* Signal Type filter */}
+        <div className="flex flex-wrap gap-1">
+          <button
+            onClick={() => setFilterSignalType("all")}
+            className={`px-2 py-1 rounded text-[9px] font-mono transition-all ${
+              filterSignalType === "all"
+                ? "bg-white/15 text-white"
+                : "bg-white/5 text-white/40 hover:text-white/60"
+            }`}
+          >
+            All Types
+          </button>
+          {ALL_SIGNAL_TYPES.filter((st) => signalTypeCounts[st] > 0).map((st) => (
+            <button
+              key={st}
+              onClick={() => setFilterSignalType(st)}
+              className={`px-2 py-1 rounded text-[9px] font-mono transition-all flex items-center gap-1 ${
+                filterSignalType === st
+                  ? "bg-white/15 text-white"
+                  : "bg-white/5 text-white/40 hover:text-white/60"
+              }`}
+            >
+              <span
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ backgroundColor: SIGNAL_TYPE_COLORS[st] }}
+              />
+              {SIGNAL_TYPE_LABELS[st]} {signalTypeCounts[st]}
             </button>
           ))}
         </div>
