@@ -14,6 +14,7 @@ import {
 import { detectBands, BAND_DEFINITIONS } from "@/lib/types";
 import { useMemo, useState } from "react";
 import SignalStrength from "@/components/SignalStrength";
+import SigintLogViewer from "@/components/SigintLogViewer";
 import {
   crossReferenceFrequencies,
   getStationTuningRanges,
@@ -95,6 +96,7 @@ export default function StationPanel() {
 
   const [showMilFreqs, setShowMilFreqs] = useState(false);
   const [expandedMilFreq, setExpandedMilFreq] = useState<string | null>(null);
+  const [showLogViewer, setShowLogViewer] = useState(false);
 
   return (
     <AnimatePresence>
@@ -221,6 +223,8 @@ export default function StationPanel() {
                 <SignalStrength
                   receiverUrl={selectedReceiver.url}
                   receiverType={selectedReceiver.type}
+                  stationLabel={selectedStation.label}
+                  onOpenLog={() => setShowLogViewer(true)}
                 />
               </div>
             )}
@@ -410,6 +414,16 @@ export default function StationPanel() {
             </div>
           )}
         </motion.div>
+      )}
+
+      {/* Signal Intelligence Log Viewer Modal */}
+      {showLogViewer && selectedStation && selectedReceiver && (
+        <SigintLogViewer
+          stationLabel={selectedStation.label}
+          receiverUrl={selectedReceiver.url}
+          receiverType={selectedReceiver.type}
+          onClose={() => setShowLogViewer(false)}
+        />
       )}
     </AnimatePresence>
   );

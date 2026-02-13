@@ -9,8 +9,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity, Wifi, WifiOff, Users, Radio, Signal,
-  RefreshCw, AlertTriangle, Antenna, Clock
+  RefreshCw, AlertTriangle, Antenna, Clock, History
 } from "lucide-react";
+import { logSignalData, getStationLogs } from "@/lib/sigintLogger";
 
 /* ── Types ────────────────────────────────────────── */
 
@@ -44,6 +45,8 @@ interface SnrBand {
 interface Props {
   receiverUrl: string;
   receiverType: string; // "KiwiSDR" | "OpenWebRX" | "WebSDR"
+  stationLabel?: string;
+  onOpenLog?: () => void;
 }
 
 /* ── Helpers ──────────────────────────────────────── */
@@ -141,7 +144,7 @@ function parseStatusText(text: string): Partial<StatusData> {
 
 /* ── Component ────────────────────────────────────── */
 
-export default function SignalStrength({ receiverUrl, receiverType }: Props) {
+export default function SignalStrength({ receiverUrl, receiverType, stationLabel, onOpenLog }: Props) {
   const [statusData, setStatusData] = useState<StatusData | null>(null);
   const [snrBands, setSnrBands] = useState<SnrBand[]>([]);
   const [loading, setLoading] = useState(true);
@@ -194,7 +197,7 @@ export default function SignalStrength({ receiverUrl, receiverType }: Props) {
           // SNR endpoint may not always be available
         }
 
-        setStatusData({
+        const fullStatus: StatusData = {
           status: parsed.status || "unknown",
           offline: parsed.offline || false,
           name: parsed.name || "",
@@ -208,8 +211,27 @@ export default function SignalStrength({ receiverUrl, receiverType }: Props) {
           gpsGood: parsed.gpsGood || 0,
           adcOverload: parsed.adcOverload || false,
           antConnected: parsed.antConnected ?? true,
-        });
+        };
+        setStatusData(fullStatus);
         setSnrBands(bands);
+
+        // Auto-log signal data
+        if (stationLabel) {
+          const bandSnr: Record<string, number> = {};
+          bands.forEach((b) => {
+            if (b.label) bandSnr[b.label] = b.snr;
+          });
+          logSignalData(stationLabel, receiverUrl, receiverType, {
+            online: !fullStatus.offline && fullStatus.status === "active",
+            snr: fullStatus.snrOverall,
+            users: fullStatus.users,
+            usersMax: fullStatus.usersMax,
+            adcOverload: fullStatus.adcOverload,
+            gps: fullStatus.gpsGood,
+            uptime: fullStatus.uptime,
+            bandSnr,
+          });
+        }
       } else {
         // For OpenWebRX / WebSDR: just check reachability
         try {
@@ -260,7 +282,7 @@ export default function SignalStrength({ receiverUrl, receiverType }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [baseUrl, isKiwi]);
+  }, [baseUrl, isKiwi, stationLabel, receiverUrl, receiverType]);
 
   useEffect(() => {
     setLoading(true);
@@ -535,23 +557,41 @@ export default function SignalStrength({ receiverUrl, receiverType }: Props) {
                     </div>
                   )}
 
-                  {/* Last updated */}
+                  {/* Last updated + View Log */}
                   {lastFetch && (
                     <div className="flex items-center justify-between pt-1">
                       <span className="text-[8px] font-mono text-white/20">
                         Updated {lastFetch.toLocaleTimeString()}
+                        {stationLabel && (() => {
+                          const logs = getStationLogs(stationLabel, receiverUrl);
+                          return logs.length > 0 ? ` · ${logs.length} logged` : "";
+                        })()}
                       </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setLoading(true);
-                          fetchData();
-                        }}
-                        className="flex items-center gap-1 text-[8px] font-mono text-cyan-400/50 hover:text-cyan-400/80 transition-colors"
-                      >
-                        <RefreshCw className="w-2.5 h-2.5" />
-                        Refresh
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {onOpenLog && stationLabel && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenLog();
+                            }}
+                            className="flex items-center gap-1 text-[8px] font-mono text-purple-400/50 hover:text-purple-400/80 transition-colors"
+                          >
+                            <History className="w-2.5 h-2.5" />
+                            View Log
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLoading(true);
+                            fetchData();
+                          }}
+                          className="flex items-center gap-1 text-[8px] font-mono text-cyan-400/50 hover:text-cyan-400/80 transition-colors"
+                        >
+                          <RefreshCw className="w-2.5 h-2.5" />
+                          Refresh
+                        </button>
+                      </div>
                     </div>
                   )}
                 </>
