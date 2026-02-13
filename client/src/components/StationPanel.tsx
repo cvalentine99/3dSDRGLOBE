@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { detectBands, BAND_DEFINITIONS } from "@/lib/types";
 import { useMemo, useState } from "react";
+import SignalStrength from "@/components/SignalStrength";
 import {
   crossReferenceFrequencies,
   getStationTuningRanges,
@@ -213,6 +214,16 @@ export default function StationPanel() {
                 );
               })}
             </div>
+
+            {/* Signal Strength Indicator */}
+            {selectedReceiver && (
+              <div className="px-4 pb-2">
+                <SignalStrength
+                  receiverUrl={selectedReceiver.url}
+                  receiverType={selectedReceiver.type}
+                />
+              </div>
+            )}
 
             {/* Military Frequency Cross-Reference */}
             {milFreqs.length > 0 && (
