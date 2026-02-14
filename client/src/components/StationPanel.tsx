@@ -9,8 +9,13 @@ import { useRadio } from "@/contexts/RadioContext";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Radio, Globe, ExternalLink, ChevronRight, Waves, MapPin, Star,
-  ChevronDown, Shield, Zap, Radar as RadarIcon, Lock
+  ChevronDown, Shield, Zap, Radar as RadarIcon, Lock, Eye, EyeOff
 } from "lucide-react";
+import {
+  isWatched,
+  addToWatchlist,
+  removeFromWatchlist,
+} from "@/lib/watchlistService";
 import { detectBands, BAND_DEFINITIONS } from "@/lib/types";
 import { useMemo, useState } from "react";
 import SignalStrength from "@/components/SignalStrength";
@@ -60,6 +65,35 @@ export default function StationPanel() {
   } = useRadio();
 
   const isStarred = selectedStation ? isFavorite(selectedStation) : false;
+
+  // Watchlist state
+  const stationKey = selectedStation
+    ? `${selectedStation.label}|${selectedStation.location.coordinates[0]}|${selectedStation.location.coordinates[1]}`
+    : "";
+  const [watched, setWatched] = useState(false);
+
+  // Sync watchlist state when station changes
+  useMemo(() => {
+    if (stationKey) setWatched(isWatched(stationKey));
+  }, [stationKey]);
+
+  const toggleWatch = () => {
+    if (!selectedStation) return;
+    if (watched) {
+      removeFromWatchlist(stationKey);
+      setWatched(false);
+    } else {
+      const firstReceiver = selectedStation.receivers[0];
+      addToWatchlist(
+        stationKey,
+        selectedStation.label,
+        firstReceiver?.url || "",
+        firstReceiver?.type || "KiwiSDR",
+        selectedStation.location.coordinates as [number, number]
+      );
+      setWatched(true);
+    }
+  };
 
   const detectedBands = useMemo(() => {
     if (!selectedStation) return [];
@@ -148,6 +182,21 @@ export default function StationPanel() {
                 )}
               </div>
               <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={toggleWatch}
+                  className={`p-1.5 rounded-lg transition-all duration-200 ${
+                    watched
+                      ? "text-emerald-400 hover:text-emerald-300"
+                      : "text-muted-foreground/40 hover:text-emerald-400/70"
+                  }`}
+                  title={watched ? "Remove from watchlist" : "Add to watchlist"}
+                >
+                  {watched ? (
+                    <Eye className="w-4.5 h-4.5" />
+                  ) : (
+                    <EyeOff className="w-4.5 h-4.5" />
+                  )}
+                </button>
                 <button
                   onClick={() => selectedStation && toggleFavorite(selectedStation)}
                   className={`p-1.5 rounded-lg transition-all duration-200 ${

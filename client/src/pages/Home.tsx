@@ -3,7 +3,7 @@
  * Design: "Ether" — Dark atmospheric immersion
  * Full-viewport globe with floating UI overlays
  */
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { RadioProvider, useRadio } from "@/contexts/RadioContext";
 import Globe from "@/components/Globe";
 import StationPanel from "@/components/StationPanel";
@@ -17,20 +17,44 @@ import StationList from "@/components/StationList";
 import KeyboardNavIndicator from "@/components/KeyboardNavIndicator";
 import MilitaryRfPanel from "@/components/MilitaryRfPanel";
 import AlertSettings from "@/components/AlertSettings";
+import WatchlistPanel from "@/components/WatchlistPanel";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { AnimatePresence } from "framer-motion";
 import { motion } from "framer-motion";
-import { Radar, Bell } from "lucide-react";
+import { Radar, Bell, Eye } from "lucide-react";
 import { getUnacknowledgedCount } from "@/lib/alertService";
+import { getWatchlistCount, getOnlineCount } from "@/lib/watchlistService";
 
 const SPACE_BG = "https://private-us-east-1.manuscdn.com/sessionFile/vNaLpF1RBh0KpESEYFZ0O6/sandbox/jetyLTlTEnk4uuIRFGjEIW-img-1_1770744518000_na1fn_c3BhY2UtYmc.jpg?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvdk5hTHBGMVJCaDBLcEVTRVlGWjBPNi9zYW5kYm94L2pldHlMVGxURW5rNHV1SVJGR2pFSVctaW1nLTFfMTc3MDc0NDUxODAwMF9uYTFmbl9jM0JoWTJVdFltYy5qcGc~eC1vc3MtcHJvY2Vzcz1pbWFnZS9yZXNpemUsd18xOTIwLGhfMTkyMC9mb3JtYXQsd2VicC9xdWFsaXR5LHFfODAiLCJDb25kaXRpb24iOnsiRGF0ZUxlc3NUaGFuIjp7IkFXUzpFcG9jaFRpbWUiOjE3OTg3NjE2MDB9fX1dfQ__&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=oLsKLTDZuMfoSSrBgke-CjTMYV~7c6H6FjxCJ4T6rvv3cXvumKs9xEu4U9UsS1~PU3FHd-YJ-kfGKUTehPSvHy9u5Q0aGQ5~4lj0nLupUgiraYK7CvieHNb1nUVTSqW045sQZuXoUqptovMJaCgW9m6b6cVrk8mfKsAqPHKA1yFtO8Wj2RYeENPMvELvCyVIo~IjFn3jmIE6VO5MAAUaXr4fng1RicMAPHzysVpYWrvTsrp8ldVH02Z2oFtdcipjkIhAYJAeWNku9Hsg5RBcO8W9DrUMNFyKmW4Dq7LkBQ9XWUZo2lBZDfPHtNrKllwHc4xZUrX0tcNLIVRDxX0rCg__";
 
 function HomeContent() {
-  const { loading, selectedStation, filteredStations } = useRadio();
+  const { loading, selectedStation, filteredStations, selectStation, setShowPanel } = useRadio();
   const { highlightedStation, highlightedIndex, isKeyNavActive } = useKeyboardNav();
   const [milRfOpen, setMilRfOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
+  const [watchlistOpen, setWatchlistOpen] = useState(false);
   const unackAlerts = getUnacknowledgedCount();
+  const watchCount = getWatchlistCount();
+  const watchOnline = getOnlineCount();
+
+  // Handle selecting a station from the watchlist panel
+  const handleWatchlistSelect = useCallback(
+    (coordinates: [number, number], label: string) => {
+      // Find the station matching these coordinates
+      const station = filteredStations.find(
+        (s) =>
+          s.label === label &&
+          Math.abs(s.location.coordinates[0] - coordinates[0]) < 0.001 &&
+          Math.abs(s.location.coordinates[1] - coordinates[1]) < 0.001
+      );
+      if (station) {
+        selectStation(station);
+        setShowPanel(true);
+        setWatchlistOpen(false);
+      }
+    },
+    [filteredStations, selectStation, setShowPanel]
+  );
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-background">
@@ -90,6 +114,28 @@ function HomeContent() {
         transition={{ delay: 1, duration: 0.5 }}
         className="absolute top-5 right-4 z-20 flex items-center gap-2"
       >
+        {/* Watchlist Button */}
+        <button
+          onClick={() => setWatchlistOpen(true)}
+          className="relative flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/25 backdrop-blur-md hover:bg-emerald-500/25 hover:border-emerald-500/40 transition-all group"
+          title="Watchlist — Background Monitoring"
+        >
+          <Eye className="w-4 h-4 text-emerald-400 group-hover:text-emerald-300 transition-colors" />
+          <span className="text-[10px] font-mono text-emerald-300/80 uppercase tracking-wider group-hover:text-emerald-200 transition-colors hidden sm:inline">
+            Watch
+          </span>
+          {watchCount > 0 && (
+            <span className="text-[9px] font-mono text-emerald-400/70 hidden sm:inline">
+              {watchOnline}/{watchCount}
+            </span>
+          )}
+          {watchCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-emerald-500 text-[8px] text-white font-bold flex items-center justify-center shadow-lg shadow-emerald-500/30 sm:hidden">
+              {watchCount}
+            </span>
+          )}
+        </button>
+
         {/* Alert Settings Button */}
         <button
           onClick={() => setAlertsOpen(true)}
@@ -126,6 +172,17 @@ function HomeContent() {
       {/* Alert Settings Panel */}
       <AnimatePresence>
         {alertsOpen && <AlertSettings onClose={() => setAlertsOpen(false)} />}
+      </AnimatePresence>
+
+      {/* Watchlist Panel */}
+      <AnimatePresence>
+        {watchlistOpen && (
+          <WatchlistPanel
+            isOpen={watchlistOpen}
+            onClose={() => setWatchlistOpen(false)}
+            onSelectStation={handleWatchlistSelect}
+          />
+        )}
       </AnimatePresence>
 
       {/* Search & Filter */}
