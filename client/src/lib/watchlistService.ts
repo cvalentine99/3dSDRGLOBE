@@ -29,6 +29,10 @@ export interface WatchlistEntry {
   lastStatus?: WatchlistStatus;
   /** Last poll timestamp */
   lastPollAt?: string;
+  /** User notes for this station */
+  notes?: string;
+  /** When notes were last updated */
+  notesUpdatedAt?: string;
 }
 
 export interface WatchlistStatus {
@@ -225,6 +229,34 @@ export function getOnlineCount(): number {
 
 export function getWatchlistEntry(key: string): WatchlistEntry | undefined {
   return entries.get(key);
+}
+
+/** Get notes for a station */
+export function getStationNote(key: string): string {
+  const entry = entries.get(key);
+  return entry?.notes || "";
+}
+
+/** Set/update notes for a station */
+export function setStationNote(key: string, note: string): void {
+  const entry = entries.get(key);
+  if (!entry) return;
+  entry.notes = note.trim();
+  entry.notesUpdatedAt = new Date().toISOString();
+  entries.set(key, entry);
+  saveEntries();
+  notifyChange();
+}
+
+/** Delete notes for a station */
+export function deleteStationNote(key: string): void {
+  const entry = entries.get(key);
+  if (!entry) return;
+  delete entry.notes;
+  delete entry.notesUpdatedAt;
+  entries.set(key, entry);
+  saveEntries();
+  notifyChange();
 }
 
 /* ── Polling ──────────────────────────────────────── */

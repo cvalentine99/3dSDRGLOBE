@@ -11,7 +11,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Eye, EyeOff, RefreshCw, Trash2, Radio, Wifi, WifiOff,
   Activity, Users, Clock, Settings, ChevronDown, ChevronUp,
-  Crosshair, AlertTriangle, Antenna, Zap
+  Crosshair, AlertTriangle, Antenna, Zap, StickyNote, Pencil,
+  Check, X as XIcon
 } from "lucide-react";
 import {
   getWatchlist,
@@ -22,6 +23,7 @@ import {
   forcePollAll,
   forcePollStation,
   onWatchlistChange,
+  setStationNote,
   type WatchlistEntry,
   type WatchlistConfig,
 } from "@/lib/watchlistService";
@@ -414,6 +416,9 @@ function WatchlistCard({
   onSelect: () => void;
 }) {
   const [polling, setPolling] = useState(false);
+  const [editingNote, setEditingNote] = useState(false);
+  const [noteText, setNoteText] = useState(entry.notes || "");
+  const [showNote, setShowNote] = useState(!!entry.notes);
   const status = entry.lastStatus;
   const isOnline = status?.online ?? false;
   const snr = status?.snr ?? -1;
@@ -423,6 +428,24 @@ function WatchlistCard({
     setPolling(true);
     await onPoll();
     setPolling(false);
+  };
+
+  const handleSaveNote = () => {
+    setStationNote(entry.key, noteText);
+    setEditingNote(false);
+    if (!noteText.trim()) setShowNote(false);
+  };
+
+  const handleCancelNote = () => {
+    setNoteText(entry.notes || "");
+    setEditingNote(false);
+    if (!entry.notes) setShowNote(false);
+  };
+
+  const handleStartEdit = () => {
+    setNoteText(entry.notes || "");
+    setShowNote(true);
+    setEditingNote(true);
   };
 
   return (
@@ -568,6 +591,15 @@ function WatchlistCard({
             <Crosshair className="w-3.5 h-3.5" />
           </button>
           <button
+            onClick={handleStartEdit}
+            className={`p-1.5 rounded-md hover:bg-white/5 transition-colors ${
+              entry.notes ? "text-amber-400/50 hover:text-amber-400/80" : "text-white/25 hover:text-amber-400/70"
+            }`}
+            title={entry.notes ? "Edit note" : "Add note"}
+          >
+            <StickyNote className="w-3.5 h-3.5" />
+          </button>
+          <button
             onClick={handlePoll}
             disabled={polling}
             className="p-1.5 rounded-md hover:bg-white/5 text-white/25 hover:text-emerald-400/70 transition-colors disabled:opacity-30"
@@ -584,6 +616,89 @@ function WatchlistCard({
           </button>
         </div>
       </div>
+
+      {/* Notes section */}
+      <AnimatePresence>
+        {showNote && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="mt-2 pt-2 border-t border-white/5">
+              {editingNote ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Pencil className="w-2.5 h-2.5 text-amber-400/50" />
+                    <span className="text-[8px] font-mono text-amber-400/50 uppercase tracking-wider">Note</span>
+                  </div>
+                  <textarea
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    placeholder="Write a note about this station..."
+                    maxLength={500}
+                    autoFocus
+                    className="w-full bg-white/5 border border-white/10 rounded-md px-2.5 py-2 text-[10px] text-white/80 placeholder:text-white/20 font-mono resize-none focus:outline-none focus:border-amber-400/30 focus:ring-1 focus:ring-amber-400/10 transition-colors"
+                    rows={3}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                        handleSaveNote();
+                      }
+                      if (e.key === "Escape") {
+                        handleCancelNote();
+                      }
+                    }}
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-[8px] font-mono text-white/15">
+                      {noteText.length}/500 · Ctrl+Enter to save · Esc to cancel
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={handleCancelNote}
+                        className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-mono text-white/30 hover:text-white/50 hover:bg-white/5 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveNote}
+                        className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-mono text-amber-400/70 hover:text-amber-400 hover:bg-amber-400/10 transition-colors"
+                      >
+                        <Check className="w-3 h-3" />
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : entry.notes ? (
+                <div
+                  className="group/note cursor-pointer"
+                  onClick={handleStartEdit}
+                  title="Click to edit note"
+                >
+                  <div className="flex items-start gap-1.5">
+                    <StickyNote className="w-2.5 h-2.5 text-amber-400/30 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-white/50 font-mono leading-relaxed whitespace-pre-wrap break-words group-hover/note:text-white/60 transition-colors">
+                        {entry.notes}
+                      </p>
+                      {entry.notesUpdatedAt && (
+                        <p className="text-[7px] font-mono text-white/15 mt-1">
+                          updated {timeAgo(entry.notesUpdatedAt)}
+                        </p>
+                      )}
+                    </div>
+                    <Pencil className="w-2.5 h-2.5 text-white/0 group-hover/note:text-white/25 transition-colors shrink-0 mt-0.5" />
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
