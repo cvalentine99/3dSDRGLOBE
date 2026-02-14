@@ -1,8 +1,11 @@
 /*
  * SignalStrength.tsx — Real-time signal strength indicator
  * Design: Dark atmospheric "Ether" theme
- * Fetches live data from KiwiSDR /status and /snr endpoints.
- * For non-KiwiSDR receivers, performs a reachability check.
+ *
+ * Uses the backend tRPC endpoint (receiver.checkStatus) which proxies
+ * requests through rotating IPs to avoid CORS and IP bans.
+ * KiwiSDR: fetches /status + /snr for full signal data.
+ * OpenWebRX/WebSDR: reachability check only.
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -12,31 +15,16 @@ import {
   RefreshCw, AlertTriangle, Antenna, Clock, History
 } from "lucide-react";
 import { logSignalData, getStationLogs } from "@/lib/sigintLogger";
-import { checkAlerts, type AlertEvent } from "@/lib/alertService";
+import { checkAlerts } from "@/lib/alertService";
 import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
 
 /* ── Types ────────────────────────────────────────── */
 
-interface StatusData {
-  status: "active" | "inactive" | "unknown";
-  offline: boolean;
-  name: string;
-  users: number;
-  usersMax: number;
-  snrOverall: number; // 0-30 MHz composite SNR
-  snrBands: SnrBand[];
-  antenna: string;
-  version: string;
-  uptime: number; // seconds
-  gpsGood: number;
-  adcOverload: boolean;
-  antConnected: boolean;
-}
-
 interface SnrBand {
-  lo: number;   // kHz
-  hi: number;   // kHz
-  snr: number;  // dB
+  lo: number;
+  hi: number;
+  snr: number;
   min: number;
   max: number;
   p50: number;
@@ -80,16 +68,6 @@ function getBandLabel(lo: number, hi: number): string {
   return BAND_LABELS[key] || `${(lo / 1000).toFixed(1)}-${(hi / 1000).toFixed(1)} MHz`;
 }
 
-function snrToLevel(snr: number): number {
-  // Map SNR (0-40 dB) to 0-5 bars
-  if (snr <= 0) return 0;
-  if (snr <= 5) return 1;
-  if (snr <= 10) return 2;
-  if (snr <= 18) return 3;
-  if (snr <= 28) return 4;
-  return 5;
-}
-
 function snrToColor(snr: number): string {
   if (snr <= 3) return "#ef4444";   // red
   if (snr <= 8) return "#f97316";   // orange
@@ -115,223 +93,97 @@ function formatUptime(seconds: number): string {
   return `${m}m`;
 }
 
-function parseStatusText(text: string): Partial<StatusData> {
-  const lines = text.split("\n");
-  const kv: Record<string, string> = {};
-  for (const line of lines) {
-    const eq = line.indexOf("=");
-    if (eq > 0) {
-      kv[line.substring(0, eq).trim()] = line.substring(eq + 1).trim();
-    }
-  }
-
-  const snrParts = (kv.snr || "").split(",");
-  const snrOverall = snrParts.length > 0 ? parseInt(snrParts[0], 10) : 0;
-
-  return {
-    status: kv.status === "active" ? "active" : "inactive",
-    offline: kv.offline === "yes",
-    name: kv.name || "",
-    users: parseInt(kv.users || "0", 10),
-    usersMax: parseInt(kv.users_max || "4", 10),
-    snrOverall: isNaN(snrOverall) ? 0 : snrOverall,
-    antenna: kv.antenna || "",
-    version: kv.sw_version || "",
-    uptime: parseInt(kv.uptime || "0", 10),
-    gpsGood: parseInt(kv.gps_good || "0", 10),
-    adcOverload: kv.adc_ov === "1",
-    antConnected: kv.ant_connected === "1",
-  };
-}
-
 /* ── Component ────────────────────────────────────── */
 
 export default function SignalStrength({ receiverUrl, receiverType, stationLabel, onOpenLog }: Props) {
-  const [statusData, setStatusData] = useState<StatusData | null>(null);
-  const [snrBands, setSnrBands] = useState<SnrBand[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastFetch, setLastFetch] = useState<Date | null>(null);
   const [expanded, setExpanded] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const baseUrl = receiverUrl.replace(/\/$/, "");
+  const [manualRefreshKey, setManualRefreshKey] = useState(0);
   const isKiwi = receiverType === "KiwiSDR";
 
-  const fetchData = useCallback(async () => {
-    try {
-      setError(null);
-
-      if (isKiwi) {
-        // Fetch /status
-        const statusRes = await fetch(`${baseUrl}/status`, {
-          signal: AbortSignal.timeout(6000),
-        });
-        if (!statusRes.ok) throw new Error("Status unavailable");
-        const statusText = await statusRes.text();
-        const parsed = parseStatusText(statusText);
-
-        // Fetch /snr
-        let bands: SnrBand[] = [];
-        try {
-          const snrRes = await fetch(`${baseUrl}/snr`, {
-            signal: AbortSignal.timeout(6000),
-          });
-          if (snrRes.ok) {
-            const snrJson = await snrRes.json();
-            if (Array.isArray(snrJson) && snrJson.length > 0) {
-              const latest = snrJson[snrJson.length - 1];
-              if (latest.snr && Array.isArray(latest.snr)) {
-                bands = latest.snr.map((b: any) => ({
-                  lo: b.lo,
-                  hi: b.hi,
-                  snr: b.snr || 0,
-                  min: b.min || 0,
-                  max: b.max || 0,
-                  p50: b.p50 || 0,
-                  p95: b.p95 || 0,
-                  label: getBandLabel(b.lo, b.hi),
-                }));
-              }
-            }
-          }
-        } catch {
-          // SNR endpoint may not always be available
-        }
-
-        const fullStatus: StatusData = {
-          status: parsed.status || "unknown",
-          offline: parsed.offline || false,
-          name: parsed.name || "",
-          users: parsed.users || 0,
-          usersMax: parsed.usersMax || 4,
-          snrOverall: parsed.snrOverall || 0,
-          snrBands: bands,
-          antenna: parsed.antenna || "",
-          version: parsed.version || "",
-          uptime: parsed.uptime || 0,
-          gpsGood: parsed.gpsGood || 0,
-          adcOverload: parsed.adcOverload || false,
-          antConnected: parsed.antConnected ?? true,
-        };
-        setStatusData(fullStatus);
-        setSnrBands(bands);
-
-        // Auto-log signal data
-        if (stationLabel) {
-          const bandSnr: Record<string, number> = {};
-          bands.forEach((b) => {
-            if (b.label) bandSnr[b.label] = b.snr;
-          });
-          logSignalData(stationLabel, receiverUrl, receiverType, {
-            online: !fullStatus.offline && fullStatus.status === "active",
-            snr: fullStatus.snrOverall,
-            users: fullStatus.users,
-            usersMax: fullStatus.usersMax,
-            adcOverload: fullStatus.adcOverload,
-            gps: fullStatus.gpsGood,
-            uptime: fullStatus.uptime,
-            bandSnr,
-          });
-
-          // Check alert thresholds and fire toast notifications
-          const alerts = checkAlerts(stationLabel, receiverUrl, {
-            online: !fullStatus.offline && fullStatus.status === "active",
-            snr: fullStatus.snrOverall,
-            adcOverload: fullStatus.adcOverload,
-          });
-          alerts.forEach((alert) => {
-            if (alert.severity === "critical") {
-              toast.error(alert.message, {
-                description: `${new Date(alert.ts).toLocaleTimeString()} — ${alert.type.replace("_", " ").toUpperCase()}`,
-                duration: 8000,
-                style: {
-                  background: "rgba(20, 10, 10, 0.95)",
-                  border: "1px solid rgba(239, 68, 68, 0.3)",
-                  color: "#fca5a5",
-                  backdropFilter: "blur(12px)",
-                },
-              });
-            } else {
-              toast.warning(alert.message, {
-                description: `${new Date(alert.ts).toLocaleTimeString()} — ${alert.type.replace("_", " ").toUpperCase()}`,
-                duration: 6000,
-                style: {
-                  background: "rgba(20, 15, 5, 0.95)",
-                  border: "1px solid rgba(245, 158, 11, 0.3)",
-                  color: "#fcd34d",
-                  backdropFilter: "blur(12px)",
-                },
-              });
-            }
-          });
-        }
-      } else {
-        // For OpenWebRX / WebSDR: just check reachability
-        try {
-          const res = await fetch(baseUrl, {
-            mode: "no-cors",
-            signal: AbortSignal.timeout(6000),
-          });
-          setStatusData({
-            status: "active",
-            offline: false,
-            name: "",
-            users: -1,
-            usersMax: -1,
-            snrOverall: -1,
-            snrBands: [],
-            antenna: "",
-            version: "",
-            uptime: -1,
-            gpsGood: -1,
-            adcOverload: false,
-            antConnected: true,
-          });
-        } catch {
-          setStatusData({
-            status: "unknown",
-            offline: true,
-            name: "",
-            users: -1,
-            usersMax: -1,
-            snrOverall: -1,
-            snrBands: [],
-            antenna: "",
-            version: "",
-            uptime: -1,
-            gpsGood: -1,
-            adcOverload: false,
-            antConnected: true,
-          });
-        }
-        setSnrBands([]);
-      }
-
-      setLastFetch(new Date());
-    } catch (e: any) {
-      setError(e.message || "Connection failed");
-      setStatusData(null);
-      setSnrBands([]);
-    } finally {
-      setLoading(false);
+  // Use tRPC query to fetch status from our backend proxy
+  const {
+    data: statusData,
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = trpc.receiver.checkStatus.useQuery(
+    {
+      receiverUrl,
+      receiverType: receiverType as "KiwiSDR" | "OpenWebRX" | "WebSDR",
+    },
+    {
+      // Refetch every 60 seconds (backend caches for 15 min anyway)
+      refetchInterval: 60000,
+      // Don't refetch on window focus to avoid hammering
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 30000,
     }
-  }, [baseUrl, isKiwi, stationLabel, receiverUrl, receiverType]);
+  );
 
+  const error = queryError?.message || statusData?.error || null;
+
+  // Enrich SNR bands with labels
+  const snrBands: SnrBand[] = (statusData?.snrBands || []).map((b) => ({
+    ...b,
+    label: getBandLabel(b.lo, b.hi),
+  }));
+
+  // Auto-log signal data when we get a response
+  const prevCheckedAt = useRef<number | null>(null);
   useEffect(() => {
-    setLoading(true);
-    setStatusData(null);
-    setSnrBands([]);
-    setError(null);
-    setExpanded(false);
-    fetchData();
+    if (!statusData || !stationLabel) return;
+    if (statusData.checkedAt === prevCheckedAt.current) return;
+    prevCheckedAt.current = statusData.checkedAt;
 
-    // Auto-refresh every 30 seconds
-    intervalRef.current = setInterval(fetchData, 30000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [fetchData]);
+    const bandSnr: Record<string, number> = {};
+    snrBands.forEach((b) => {
+      if (b.label) bandSnr[b.label] = b.snr;
+    });
+
+    logSignalData(stationLabel, receiverUrl, receiverType, {
+      online: statusData.online,
+      snr: statusData.snrOverall ?? 0,
+      users: statusData.users ?? 0,
+      usersMax: statusData.usersMax ?? 0,
+      adcOverload: statusData.adcOverload ?? false,
+      gps: statusData.gpsGood ?? 0,
+      uptime: statusData.uptime ?? 0,
+      bandSnr,
+    });
+
+    // Check alert thresholds
+    const alerts = checkAlerts(stationLabel, receiverUrl, {
+      online: statusData.online,
+      snr: statusData.snrOverall ?? 0,
+      adcOverload: statusData.adcOverload ?? false,
+    });
+    alerts.forEach((alert) => {
+      if (alert.severity === "critical") {
+        toast.error(alert.message, {
+          description: `${new Date(alert.ts).toLocaleTimeString()} — ${alert.type.replace("_", " ").toUpperCase()}`,
+          duration: 8000,
+          style: {
+            background: "rgba(20, 10, 10, 0.95)",
+            border: "1px solid rgba(239, 68, 68, 0.3)",
+            color: "#fca5a5",
+            backdropFilter: "blur(12px)",
+          },
+        });
+      } else {
+        toast.warning(alert.message, {
+          description: `${new Date(alert.ts).toLocaleTimeString()} — ${alert.type.replace("_", " ").toUpperCase()}`,
+          duration: 6000,
+          style: {
+            background: "rgba(20, 15, 5, 0.95)",
+            border: "1px solid rgba(245, 158, 11, 0.3)",
+            color: "#fcd34d",
+            backdropFilter: "blur(12px)",
+          },
+        });
+      }
+    });
+  }, [statusData, stationLabel, receiverUrl, receiverType, snrBands]);
 
   /* ── Render ─────────────────────────────────────── */
 
@@ -349,7 +201,7 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
 
         {loading ? (
           <RefreshCw className="w-3 h-3 text-white/30 animate-spin" />
-        ) : error ? (
+        ) : error && !statusData ? (
           <span className="flex items-center gap-1">
             <AlertTriangle className="w-3 h-3 text-amber-400/70" />
             <span className="text-[9px] font-mono text-amber-400/70">Unreachable</span>
@@ -357,7 +209,7 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
         ) : statusData ? (
           <span className="flex items-center gap-2">
             {/* Online indicator */}
-            {!statusData.offline && statusData.status === "active" ? (
+            {statusData.online ? (
               <span className="flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
                 <span className="text-[9px] font-mono text-green-400">ONLINE</span>
@@ -370,7 +222,7 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
             )}
 
             {/* SNR badge for KiwiSDR */}
-            {isKiwi && statusData.snrOverall > 0 && (
+            {isKiwi && statusData.snrOverall != null && statusData.snrOverall > 0 && (
               <span
                 className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded"
                 style={{
@@ -379,6 +231,13 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
                 }}
               >
                 {statusData.snrOverall} dB
+              </span>
+            )}
+
+            {/* Cache indicator */}
+            {statusData.fromCache && (
+              <span className="text-[8px] font-mono text-white/20" title="Cached result">
+                cached
               </span>
             )}
           </span>
@@ -400,27 +259,27 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
               {loading && (
                 <div className="flex items-center justify-center py-4">
                   <RefreshCw className="w-4 h-4 text-white/20 animate-spin" />
-                  <span className="text-[10px] text-white/30 ml-2">Probing receiver...</span>
+                  <span className="text-[10px] text-white/30 ml-2">Probing receiver via proxy...</span>
                 </div>
               )}
 
-              {error && (
+              {error && !statusData && (
                 <div className="flex items-center gap-2 py-3 px-2 rounded bg-red-500/10 border border-red-500/20">
                   <WifiOff className="w-4 h-4 text-red-400/70 shrink-0" />
                   <div>
                     <p className="text-[10px] text-red-400/80 font-medium">Connection Failed</p>
                     <p className="text-[9px] text-red-400/50 mt-0.5">{error}</p>
                     <p className="text-[9px] text-white/30 mt-1">
-                      Receiver may be offline, behind a firewall, or blocking cross-origin requests.
+                      Receiver may be offline, behind a firewall, or temporarily unreachable.
                     </p>
                   </div>
                 </div>
               )}
 
-              {!loading && !error && statusData && (
+              {!loading && statusData && (
                 <>
                   {/* ── Signal Meter ── */}
-                  {isKiwi && statusData.snrOverall > 0 && (
+                  {isKiwi && statusData.snrOverall != null && statusData.snrOverall > 0 && (
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="text-[9px] font-mono text-white/40 uppercase tracking-wider">
@@ -437,8 +296,8 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
                       {/* Animated bar meter */}
                       <div className="flex items-end gap-[3px] h-8">
                         {Array.from({ length: 10 }).map((_, i) => {
-                          const threshold = (i + 1) * 3; // 3dB per bar
-                          const active = statusData.snrOverall >= threshold;
+                          const threshold = (i + 1) * 3;
+                          const active = (statusData.snrOverall ?? 0) >= threshold;
                           const color = snrToColor(threshold);
                           return (
                             <motion.div
@@ -471,12 +330,12 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
                   {/* ── Status Grid ── */}
                   <div className="grid grid-cols-2 gap-2">
                     {/* Users */}
-                    {isKiwi && statusData.users >= 0 && (
+                    {isKiwi && statusData.users != null && statusData.users >= 0 && (
                       <StatusCard
                         icon={Users}
                         label="Active Users"
-                        value={`${statusData.users} / ${statusData.usersMax}`}
-                        color={statusData.users >= statusData.usersMax ? "#ef4444" : "#22c55e"}
+                        value={`${statusData.users} / ${statusData.usersMax ?? "?"}`}
+                        color={(statusData.users ?? 0) >= (statusData.usersMax ?? 4) ? "#ef4444" : "#22c55e"}
                       />
                     )}
 
@@ -493,7 +352,7 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
                     )}
 
                     {/* Uptime */}
-                    {isKiwi && statusData.uptime > 0 && (
+                    {isKiwi && statusData.uptime != null && statusData.uptime > 0 && (
                       <StatusCard
                         icon={Clock}
                         label="Uptime"
@@ -513,7 +372,7 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
                     )}
 
                     {/* GPS */}
-                    {isKiwi && statusData.gpsGood >= 0 && (
+                    {isKiwi && statusData.gpsGood != null && statusData.gpsGood >= 0 && (
                       <StatusCard
                         icon={Signal}
                         label="GPS Sats"
@@ -542,7 +401,6 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
                       <div className="space-y-1.5">
                         {snrBands
                           .filter((b) => {
-                            // Show only the interesting bands, skip the wide composites
                             const key = `${b.lo}-${b.hi}`;
                             return key !== "0-30000" && key !== "1800-30000" && key !== "0-1800"
                               && key !== "1800-10000" && key !== "10000-20000" && key !== "20000-30000";
@@ -591,11 +449,21 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
                     </div>
                   )}
 
+                  {/* Proxy indicator */}
+                  {statusData.proxyUsed && (
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <span className="w-1 h-1 rounded-full bg-cyan-400/40" />
+                      <span className="text-[8px] font-mono text-white/20">
+                        Checked via rotating proxy
+                      </span>
+                    </div>
+                  )}
+
                   {/* Last updated + View Log */}
-                  {lastFetch && (
+                  {statusData.checkedAt && (
                     <div className="flex items-center justify-between pt-1">
                       <span className="text-[8px] font-mono text-white/20">
-                        Updated {lastFetch.toLocaleTimeString()}
+                        Updated {new Date(statusData.checkedAt).toLocaleTimeString()}
                         {stationLabel && (() => {
                           const logs = getStationLogs(stationLabel, receiverUrl);
                           return logs.length > 0 ? ` · ${logs.length} logged` : "";
@@ -617,8 +485,7 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setLoading(true);
-                            fetchData();
+                            refetch();
                           }}
                           className="flex items-center gap-1 text-[8px] font-mono text-cyan-400/50 hover:text-cyan-400/80 transition-colors"
                         >
