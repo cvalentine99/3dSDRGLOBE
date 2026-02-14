@@ -12,6 +12,8 @@ import {
   RefreshCw, AlertTriangle, Antenna, Clock, History
 } from "lucide-react";
 import { logSignalData, getStationLogs } from "@/lib/sigintLogger";
+import { checkAlerts, type AlertEvent } from "@/lib/alertService";
+import { toast } from "sonner";
 
 /* ── Types ────────────────────────────────────────── */
 
@@ -230,6 +232,38 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
             gps: fullStatus.gpsGood,
             uptime: fullStatus.uptime,
             bandSnr,
+          });
+
+          // Check alert thresholds and fire toast notifications
+          const alerts = checkAlerts(stationLabel, receiverUrl, {
+            online: !fullStatus.offline && fullStatus.status === "active",
+            snr: fullStatus.snrOverall,
+            adcOverload: fullStatus.adcOverload,
+          });
+          alerts.forEach((alert) => {
+            if (alert.severity === "critical") {
+              toast.error(alert.message, {
+                description: `${new Date(alert.ts).toLocaleTimeString()} — ${alert.type.replace("_", " ").toUpperCase()}`,
+                duration: 8000,
+                style: {
+                  background: "rgba(20, 10, 10, 0.95)",
+                  border: "1px solid rgba(239, 68, 68, 0.3)",
+                  color: "#fca5a5",
+                  backdropFilter: "blur(12px)",
+                },
+              });
+            } else {
+              toast.warning(alert.message, {
+                description: `${new Date(alert.ts).toLocaleTimeString()} — ${alert.type.replace("_", " ").toUpperCase()}`,
+                duration: 6000,
+                style: {
+                  background: "rgba(20, 15, 5, 0.95)",
+                  border: "1px solid rgba(245, 158, 11, 0.3)",
+                  color: "#fcd34d",
+                  backdropFilter: "blur(12px)",
+                },
+              });
+            }
           });
         }
       } else {

@@ -16,10 +16,12 @@ import Legend from "@/components/Legend";
 import StationList from "@/components/StationList";
 import KeyboardNavIndicator from "@/components/KeyboardNavIndicator";
 import MilitaryRfPanel from "@/components/MilitaryRfPanel";
+import AlertSettings from "@/components/AlertSettings";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { AnimatePresence } from "framer-motion";
 import { motion } from "framer-motion";
-import { Radar } from "lucide-react";
+import { Radar, Bell } from "lucide-react";
+import { getUnacknowledgedCount } from "@/lib/alertService";
 
 const SPACE_BG = "https://private-us-east-1.manuscdn.com/sessionFile/vNaLpF1RBh0KpESEYFZ0O6/sandbox/jetyLTlTEnk4uuIRFGjEIW-img-1_1770744518000_na1fn_c3BhY2UtYmc.jpg?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvdk5hTHBGMVJCaDBLcEVTRVlGWjBPNi9zYW5kYm94L2pldHlMVGxURW5rNHV1SVJGR2pFSVctaW1nLTFfMTc3MDc0NDUxODAwMF9uYTFmbl9jM0JoWTJVdFltYy5qcGc~eC1vc3MtcHJvY2Vzcz1pbWFnZS9yZXNpemUsd18xOTIwLGhfMTkyMC9mb3JtYXQsd2VicC9xdWFsaXR5LHFfODAiLCJDb25kaXRpb24iOnsiRGF0ZUxlc3NUaGFuIjp7IkFXUzpFcG9jaFRpbWUiOjE3OTg3NjE2MDB9fX1dfQ__&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=oLsKLTDZuMfoSSrBgke-CjTMYV~7c6H6FjxCJ4T6rvv3cXvumKs9xEu4U9UsS1~PU3FHd-YJ-kfGKUTehPSvHy9u5Q0aGQ5~4lj0nLupUgiraYK7CvieHNb1nUVTSqW045sQZuXoUqptovMJaCgW9m6b6cVrk8mfKsAqPHKA1yFtO8Wj2RYeENPMvELvCyVIo~IjFn3jmIE6VO5MAAUaXr4fng1RicMAPHzysVpYWrvTsrp8ldVH02Z2oFtdcipjkIhAYJAeWNku9Hsg5RBcO8W9DrUMNFyKmW4Dq7LkBQ9XWUZo2lBZDfPHtNrKllwHc4xZUrX0tcNLIVRDxX0rCg__";
 
@@ -27,6 +29,8 @@ function HomeContent() {
   const { loading, selectedStation, filteredStations } = useRadio();
   const { highlightedStation, highlightedIndex, isKeyNavActive } = useKeyboardNav();
   const [milRfOpen, setMilRfOpen] = useState(false);
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const unackAlerts = getUnacknowledgedCount();
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-background">
@@ -79,23 +83,50 @@ function HomeContent() {
         </div>
       </motion.div>
 
-      {/* Military RF Intel Button */}
-      <motion.button
+      {/* Top-right button group */}
+      <motion.div
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 1, duration: 0.5 }}
-        onClick={() => setMilRfOpen(true)}
-        className="absolute top-5 right-4 z-20 flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/15 border border-red-500/25 backdrop-blur-md hover:bg-red-500/25 hover:border-red-500/40 transition-all group"
-        title="Military RF Intelligence Database"
+        className="absolute top-5 right-4 z-20 flex items-center gap-2"
       >
-        <Radar className="w-4 h-4 text-red-400 group-hover:text-red-300 transition-colors" />
-        <span className="text-[10px] font-mono text-red-300/80 uppercase tracking-wider group-hover:text-red-200 transition-colors hidden sm:inline">
-          Mil-RF Intel
-        </span>
-      </motion.button>
+        {/* Alert Settings Button */}
+        <button
+          onClick={() => setAlertsOpen(true)}
+          className="relative flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/15 border border-amber-500/25 backdrop-blur-md hover:bg-amber-500/25 hover:border-amber-500/40 transition-all group"
+          title="Alert Configuration"
+        >
+          <Bell className="w-4 h-4 text-amber-400 group-hover:text-amber-300 transition-colors" />
+          <span className="text-[10px] font-mono text-amber-300/80 uppercase tracking-wider group-hover:text-amber-200 transition-colors hidden sm:inline">
+            Alerts
+          </span>
+          {unackAlerts > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-red-500 text-[8px] text-white font-bold flex items-center justify-center shadow-lg shadow-red-500/30 animate-pulse">
+              {unackAlerts > 9 ? "9+" : unackAlerts}
+            </span>
+          )}
+        </button>
+
+        {/* Military RF Intel Button */}
+        <button
+          onClick={() => setMilRfOpen(true)}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/15 border border-red-500/25 backdrop-blur-md hover:bg-red-500/25 hover:border-red-500/40 transition-all group"
+          title="Military RF Intelligence Database"
+        >
+          <Radar className="w-4 h-4 text-red-400 group-hover:text-red-300 transition-colors" />
+          <span className="text-[10px] font-mono text-red-300/80 uppercase tracking-wider group-hover:text-red-200 transition-colors hidden sm:inline">
+            Mil-RF Intel
+          </span>
+        </button>
+      </motion.div>
 
       {/* Military RF Intelligence Panel */}
       <MilitaryRfPanel isOpen={milRfOpen} onClose={() => setMilRfOpen(false)} />
+
+      {/* Alert Settings Panel */}
+      <AnimatePresence>
+        {alertsOpen && <AlertSettings onClose={() => setAlertsOpen(false)} />}
+      </AnimatePresence>
 
       {/* Search & Filter */}
       <SearchFilter />
