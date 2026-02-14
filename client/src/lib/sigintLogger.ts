@@ -219,13 +219,61 @@ export function exportLogsAsJson(): string {
   return JSON.stringify(store, null, 2);
 }
 
-/** Export logs for a specific station as CSV */
+/** Export logs for a specific station as CSV with peak/trough annotations */
 export function exportStationLogAsCsv(stationLabel: string, receiverUrl: string): string {
   const entries = getStationLogs(stationLabel, receiverUrl);
   if (entries.length === 0) return "";
 
-  const headers = ["Timestamp", "Online", "SNR (dB)", "Users", "Max Users", "ADC Overload", "GPS Sats", "Uptime (s)"];
-  
+  // Run peak/trough detection
+  const dataPoints = entries.map((e, idx) => ({
+    ts: new Date(e.ts).getTime(),
+    val: e.snr >= 0 ? e.snr : 0,
+    idx,
+  })).filter((d) => d.val > 0);
+
+  // Import-free peak detection (inline simplified version)
+  const extremaMap = new Map<number, { type: string; prominence: number; severity: string }>();
+  if (dataPoints.length >= 3) {
+    const vals = dataPoints.map((d) => d.val);
+    const globalMax = Math.max(...vals);
+    const globalMin = Math.min(...vals);
+    const range = globalMax - globalMin;
+    if (range >= 2) {
+      const minProm = range * 0.12;
+      for (let i = 1; i < vals.length - 1; i++) {
+        // Local maxima
+        if (vals[i] > vals[i - 1] && vals[i] >= vals[i + 1]) {
+          const prom = calcProm(vals, i, "peak");
+          if (prom >= minProm) {
+            extremaMap.set(dataPoints[i].idx, {
+              type: "PEAK",
+              prominence: Math.round(prom * 10) / 10,
+              severity: prom >= range * 0.3 ? "MAJOR" : "MINOR",
+            });
+          }
+        }
+        // Local minima
+        if (vals[i] < vals[i - 1] && vals[i] <= vals[i + 1]) {
+          const prom = calcProm(vals, i, "trough");
+          if (prom >= minProm) {
+            extremaMap.set(dataPoints[i].idx, {
+              type: "TROUGH",
+              prominence: Math.round(prom * 10) / 10,
+              severity: prom >= range * 0.3 ? "MAJOR" : "MINOR",
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // Build CSV
+  const headers = [
+    "Timestamp", "Online", "SNR (dB)", "Users", "Max Users",
+    "ADC Overload", "GPS Sats", "Uptime (s)",
+    "Event Type", "Prominence (dB)", "Severity",
+  ];
+
   // Collect all band keys
   const bandKeys = new Set<string>();
   entries.forEach((e) => {
@@ -234,7 +282,8 @@ export function exportStationLogAsCsv(stationLabel: string, receiverUrl: string)
   const sortedBandKeys = Array.from(bandKeys).sort();
   sortedBandKeys.forEach((k) => headers.push(`SNR: ${k}`));
 
-  const rows = entries.map((e) => {
+  const rows = entries.map((e, idx) => {
+    const ext = extremaMap.get(idx);
     const base = [
       e.ts,
       e.online ? "Yes" : "No",
@@ -244,14 +293,219 @@ export function exportStationLogAsCsv(stationLabel: string, receiverUrl: string)
       e.adcOverload ? "Yes" : "No",
       e.gps >= 0 ? e.gps.toString() : "N/A",
       e.uptime >= 0 ? e.uptime.toString() : "N/A",
+      ext ? ext.type : "",
+      ext ? ext.prominence.toString() : "",
+      ext ? ext.severity : "",
     ];
     sortedBandKeys.forEach((k) => {
       base.push(e.bandSnr[k] !== undefined ? e.bandSnr[k].toString() : "N/A");
     });
-    return base.join(",");
+    return base.map(csvEscape).join(",");
   });
 
-  return [headers.join(","), ...rows].join("\n");
+  // Summary section
+  const summary = getLogSummary(stationLabel, receiverUrl);
+  const peakEvents = Array.from(extremaMap.values()).filter((e) => e.type === "PEAK");
+  const troughEvents = Array.from(extremaMap.values()).filter((e) => e.type === "TROUGH");
+
+  const summaryLines = [
+    `# Valentine RF - SigINT Export`,
+    `# Station: ${csvEscape(stationLabel)}`,
+    `# Receiver: ${csvEscape(receiverUrl)}`,
+    `# Export Date: ${new Date().toISOString()}`,
+    `# Total Entries: ${entries.length}`,
+    summary ? `# Avg SNR: ${summary.avgSnr} dB` : "",
+    summary ? `# Max SNR: ${summary.maxSnr} dB` : "",
+    summary ? `# Min SNR: ${summary.minSnr} dB` : "",
+    summary ? `# Uptime: ${summary.uptimePercent}%` : "",
+    summary ? `# Time Span: ${summary.timeSpanHours} hours` : "",
+    `# Peaks Detected: ${peakEvents.length}`,
+    `# Troughs Detected: ${troughEvents.length}`,
+    `# Major Events: ${Array.from(extremaMap.values()).filter((e) => e.severity === "MAJOR").length}`,
+    `#`,
+  ].filter(Boolean);
+
+  return [...summaryLines, headers.join(","), ...rows].join("\n");
+}
+
+/** Export ALL monitored stations as a combined CSV report */
+export function exportAllStationsCsv(): string {
+  const store = loadStore();
+  const stations = Object.values(store.stations);
+  if (stations.length === 0) return "";
+
+  const lines: string[] = [
+    `# Valentine RF - SigINT Full Export`,
+    `# Export Date: ${new Date().toISOString()}`,
+    `# Total Stations: ${stations.length}`,
+    `# Total Entries: ${stations.reduce((sum, s) => sum + s.entries.length, 0)}`,
+    `#`,
+  ];
+
+  // Station summary table
+  lines.push("Station,Receiver URL,Type,First Seen,Last Seen,Entries,Avg SNR (dB),Max SNR (dB),Min SNR (dB),Uptime %,Peaks,Troughs,Major Events");
+
+  for (const station of stations) {
+    const summary = getLogSummary(station.stationLabel, station.receiverUrl);
+    // Detect peaks/troughs for this station
+    const dataPoints = station.entries.map((e, idx) => ({
+      ts: new Date(e.ts).getTime(),
+      val: e.snr >= 0 ? e.snr : 0,
+      idx,
+    })).filter((d) => d.val > 0);
+
+    let peaks = 0, troughs = 0, major = 0;
+    if (dataPoints.length >= 3) {
+      const vals = dataPoints.map((d) => d.val);
+      const range = Math.max(...vals) - Math.min(...vals);
+      if (range >= 2) {
+        const minProm = range * 0.12;
+        for (let i = 1; i < vals.length - 1; i++) {
+          if (vals[i] > vals[i - 1] && vals[i] >= vals[i + 1]) {
+            const prom = calcProm(vals, i, "peak");
+            if (prom >= minProm) { peaks++; if (prom >= range * 0.3) major++; }
+          }
+          if (vals[i] < vals[i - 1] && vals[i] <= vals[i + 1]) {
+            const prom = calcProm(vals, i, "trough");
+            if (prom >= minProm) { troughs++; if (prom >= range * 0.3) major++; }
+          }
+        }
+      }
+    }
+
+    lines.push([
+      csvEscape(station.stationLabel),
+      csvEscape(station.receiverUrl),
+      station.receiverType,
+      station.firstSeen,
+      station.lastSeen,
+      station.entries.length.toString(),
+      summary ? summary.avgSnr.toString() : "N/A",
+      summary ? summary.maxSnr.toString() : "N/A",
+      summary ? summary.minSnr.toString() : "N/A",
+      summary ? summary.uptimePercent.toString() : "N/A",
+      peaks.toString(),
+      troughs.toString(),
+      major.toString(),
+    ].join(","));
+  }
+
+  // Detailed entries for each station
+  lines.push("");
+  lines.push("# ── Detailed Entries ──");
+
+  for (const station of stations) {
+    if (station.entries.length === 0) continue;
+    lines.push("");
+    lines.push(`# Station: ${station.stationLabel}`);
+
+    const bandKeys = new Set<string>();
+    station.entries.forEach((e) => Object.keys(e.bandSnr).forEach((k) => bandKeys.add(k)));
+    const sortedBands = Array.from(bandKeys).sort();
+
+    const detailHeaders = [
+      "Timestamp", "Online", "SNR (dB)", "Users", "Max Users",
+      "ADC Overload", "GPS Sats", "Uptime (s)",
+      "Event Type", "Prominence (dB)", "Severity",
+      ...sortedBands.map((b) => `SNR: ${b}`),
+    ];
+    lines.push(detailHeaders.join(","));
+
+    // Detect peaks for this station
+    const dataPoints = station.entries.map((e, idx) => ({
+      ts: new Date(e.ts).getTime(),
+      val: e.snr >= 0 ? e.snr : 0,
+      idx,
+    })).filter((d) => d.val > 0);
+
+    const extMap = new Map<number, { type: string; prominence: number; severity: string }>();
+    if (dataPoints.length >= 3) {
+      const vals = dataPoints.map((d) => d.val);
+      const range = Math.max(...vals) - Math.min(...vals);
+      if (range >= 2) {
+        const minProm = range * 0.12;
+        for (let i = 1; i < vals.length - 1; i++) {
+          if (vals[i] > vals[i - 1] && vals[i] >= vals[i + 1]) {
+            const prom = calcProm(vals, i, "peak");
+            if (prom >= minProm) {
+              extMap.set(dataPoints[i].idx, {
+                type: "PEAK", prominence: Math.round(prom * 10) / 10,
+                severity: prom >= range * 0.3 ? "MAJOR" : "MINOR",
+              });
+            }
+          }
+          if (vals[i] < vals[i - 1] && vals[i] <= vals[i + 1]) {
+            const prom = calcProm(vals, i, "trough");
+            if (prom >= minProm) {
+              extMap.set(dataPoints[i].idx, {
+                type: "TROUGH", prominence: Math.round(prom * 10) / 10,
+                severity: prom >= range * 0.3 ? "MAJOR" : "MINOR",
+              });
+            }
+          }
+        }
+      }
+    }
+
+    station.entries.forEach((e, idx) => {
+      const ext = extMap.get(idx);
+      const row = [
+        e.ts,
+        e.online ? "Yes" : "No",
+        e.snr >= 0 ? e.snr.toString() : "N/A",
+        e.users >= 0 ? e.users.toString() : "N/A",
+        e.usersMax >= 0 ? e.usersMax.toString() : "N/A",
+        e.adcOverload ? "Yes" : "No",
+        e.gps >= 0 ? e.gps.toString() : "N/A",
+        e.uptime >= 0 ? e.uptime.toString() : "N/A",
+        ext ? ext.type : "",
+        ext ? ext.prominence.toString() : "",
+        ext ? ext.severity : "",
+        ...sortedBands.map((b) => e.bandSnr[b] !== undefined ? e.bandSnr[b].toString() : "N/A"),
+      ];
+      lines.push(row.map(csvEscape).join(","));
+    });
+  }
+
+  return lines.join("\n");
+}
+
+/** Inline prominence calculation for CSV export (avoids circular imports) */
+function calcProm(values: number[], idx: number, type: "peak" | "trough"): number {
+  const val = values[idx];
+  if (type === "peak") {
+    let leftMin = val;
+    for (let i = idx - 1; i >= 0; i--) {
+      leftMin = Math.min(leftMin, values[i]);
+      if (values[i] > val) break;
+    }
+    let rightMin = val;
+    for (let i = idx + 1; i < values.length; i++) {
+      rightMin = Math.min(rightMin, values[i]);
+      if (values[i] > val) break;
+    }
+    return val - Math.max(leftMin, rightMin);
+  } else {
+    let leftMax = val;
+    for (let i = idx - 1; i >= 0; i--) {
+      leftMax = Math.max(leftMax, values[i]);
+      if (values[i] < val) break;
+    }
+    let rightMax = val;
+    for (let i = idx + 1; i < values.length; i++) {
+      rightMax = Math.max(rightMax, values[i]);
+      if (values[i] < val) break;
+    }
+    return Math.min(leftMax, rightMax) - val;
+  }
+}
+
+/** Escape a CSV field value */
+function csvEscape(val: string): string {
+  if (val.includes(",") || val.includes('"') || val.includes("\n")) {
+    return `"${val.replace(/"/g, '""')}"`;
+  }
+  return val;
 }
 
 /** Get summary stats for a station's logs */

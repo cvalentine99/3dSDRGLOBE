@@ -19,6 +19,7 @@ import {
   getLogSummary,
   exportStationLogAsCsv,
   exportLogsAsJson,
+  exportAllStationsCsv,
   clearStationLogs,
   getAllMonitoredStations,
   removeStationFromLog,
@@ -118,6 +119,18 @@ export default function SigintLogViewer({ stationLabel, receiverUrl, receiverTyp
     const a = document.createElement("a");
     a.href = url;
     a.download = "sigint-all-logs.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportAllCsv = () => {
+    const csv = exportAllStationsCsv();
+    if (!csv) return;
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `sigint-full-report-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -382,12 +395,20 @@ export default function SigintLogViewer({ stationLabel, receiverUrl, receiverTyp
             </>
           )}
           {!stationLabel && allStations.length > 0 && (
-            <button
-              onClick={handleExportJson}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/8 border border-white/10 text-[10px] font-mono text-white/60 hover:text-white/80 transition-colors"
-            >
-              <Download className="w-3 h-3" />Export All
-            </button>
+            <>
+              <button
+                onClick={handleExportAllCsv}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/8 border border-white/10 text-[10px] font-mono text-white/60 hover:text-white/80 transition-colors"
+              >
+                <FileSpreadsheet className="w-3 h-3" />Export All CSV
+              </button>
+              <button
+                onClick={handleExportJson}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/8 border border-white/10 text-[10px] font-mono text-white/60 hover:text-white/80 transition-colors"
+              >
+                <FileJson className="w-3 h-3" />Export All JSON
+              </button>
+            </>
           )}
         </div>
 
