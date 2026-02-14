@@ -1,8 +1,10 @@
 /**
  * receiverStatus.ts — Server-side receiver status checker with proxy rotation
  *
- * Fetches real status data from KiwiSDR /status and /snr endpoints,
- * and performs reachability checks for OpenWebRX and WebSDR receivers.
+ * Uses real API endpoints for each receiver type:
+ *   KiwiSDR:  /status (plain text key=value) + /snr (JSON band-by-band SNR)
+ *   OpenWebRX: /status.json (receiver info, SDRs, version) + /metrics.json (users, decode counts)
+ *   WebSDR:   /tmp/bandinfo.js (band/frequency info — proves receiver is live)
  *
  * Uses rotating free proxies from ProxyScrape to avoid IP bans.
  * Caches results per receiver for 15 minutes.
@@ -18,18 +20,30 @@ export interface ReceiverStatusResult {
   online: boolean;
   receiverType: string;
   receiverUrl: string;
-  // KiwiSDR-specific fields
+  // Common fields
   name?: string;
   users?: number;
   usersMax?: number;
+  version?: string;
+  // KiwiSDR-specific
   snrOverall?: number;
   antenna?: string;
-  version?: string;
   uptime?: number;
   gpsGood?: number;
   adcOverload?: boolean;
   antConnected?: boolean;
   snrBands?: SnrBand[];
+  // OpenWebRX-specific
+  sdrHardware?: SdrProfile[];
+  location?: string;
+  gps?: { lat: number; lon: number };
+  decoderFeatures?: string[];
+  metricsUsers?: number;
+  pskReporterSpots?: number;
+  wsprSpots?: number;
+  decodingQueueLength?: number;
+  // WebSDR-specific
+  bands?: WebSdrBand[];
   // Metadata
   checkedAt: number; // Unix timestamp ms
   fromCache: boolean;
@@ -45,6 +59,17 @@ export interface SnrBand {
   max: number;
   p50: number;
   p95: number;
+}
+
+export interface SdrProfile {
+  name: string;
+  type: string;
+  profiles: { name: string; centerFreq: number; sampleRate: number }[];
+}
+
+export interface WebSdrBand {
+  min: number;
+  max: number;
 }
 
 /* ── Proxy Pool ──────────────────────────────────── */
@@ -126,7 +151,6 @@ async function fetchWithProxy(
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
       Accept: "*/*",
     },
-    // Disable automatic redirect following for status checks
     maxRedirects: 3,
     validateStatus: (status) => status < 500,
   };
@@ -200,7 +224,6 @@ function parseKiwiSnr(json: any): { snrOverall: number; snrBands: SnrBand[] } {
           p95: b.p95 || 0,
         });
       }
-      // Use the first band (0-30MHz composite) as overall if available
       if (snrBands.length > 0) {
         snrOverall = snrBands[0].snr;
       }
@@ -208,6 +231,96 @@ function parseKiwiSnr(json: any): { snrOverall: number; snrBands: SnrBand[] } {
   }
 
   return { snrOverall, snrBands };
+}
+
+/* ── OpenWebRX Status Parser ─────────────────────── */
+
+function parseOpenWebRXStatus(json: any): Partial<ReceiverStatusResult> {
+  const result: Partial<ReceiverStatusResult> = { online: true };
+
+  if (json.receiver) {
+    result.name = json.receiver.name || undefined;
+    if (json.receiver.gps) {
+      result.gps = {
+        lat: json.receiver.gps.lat,
+        lon: json.receiver.gps.lon,
+      };
+    }
+    // Clean HTML from location string
+    if (json.receiver.location) {
+      result.location = json.receiver.location.replace(/<[^>]*>/g, "").trim();
+    }
+  }
+
+  result.usersMax = json.max_clients || undefined;
+  result.version = json.version || undefined;
+
+  // Parse SDR hardware profiles
+  if (Array.isArray(json.sdrs)) {
+    result.sdrHardware = json.sdrs.map((sdr: any) => ({
+      name: sdr.name || "Unknown",
+      type: sdr.type || "Unknown",
+      profiles: Array.isArray(sdr.profiles)
+        ? sdr.profiles.map((p: any) => ({
+            name: p.name || "Default",
+            centerFreq: p.center_freq || 0,
+            sampleRate: p.sample_rate || 0,
+          }))
+        : [],
+    }));
+  }
+
+  return result;
+}
+
+/* ── OpenWebRX Metrics Parser ────────────────────── */
+
+function parseOpenWebRXMetrics(json: any): Partial<ReceiverStatusResult> {
+  const result: Partial<ReceiverStatusResult> = {};
+
+  if (json.openwebrx && typeof json.openwebrx.users === "number") {
+    result.metricsUsers = json.openwebrx.users;
+    result.users = json.openwebrx.users;
+  }
+
+  if (json.pskreporter?.spots?.count !== undefined) {
+    result.pskReporterSpots = json.pskreporter.spots.count;
+  }
+
+  if (json.wsprnet?.spots?.count !== undefined) {
+    result.wsprSpots = json.wsprnet.spots.count;
+  }
+
+  if (json.decoding?.queue?.length !== undefined) {
+    result.decodingQueueLength = json.decoding.queue.length;
+  }
+
+  return result;
+}
+
+/* ── WebSDR bandinfo.js Parser ───────────────────── */
+
+function parseWebSdrBandInfo(jsText: string): Partial<ReceiverStatusResult> {
+  const result: Partial<ReceiverStatusResult> = { online: true };
+  const bands: WebSdrBand[] = [];
+
+  // Extract freqbands.push() calls: freqbands.push( { min:148.500000, max:283.500000 } )
+  const bandRegex = /freqbands\.push\(\s*\{\s*min:\s*([\d.]+)\s*,\s*max:\s*([\d.]+)\s*\}\s*\)/g;
+  let match;
+  while ((match = bandRegex.exec(jsText)) !== null) {
+    bands.push({
+      min: parseFloat(match[1]),
+      max: parseFloat(match[2]),
+    });
+  }
+
+  if (bands.length > 0) {
+    result.bands = bands;
+  }
+
+  // Try to extract name from the bandinfo data (bi array)
+  // bi[0].centerfreq etc. are available but name is typically in the HTML page
+  return result;
 }
 
 /* ── Main Check Function ─────────────────────────── */
@@ -263,16 +376,18 @@ export async function checkReceiverStatus(
   }
 }
 
+/* ── KiwiSDR Check ───────────────────────────────── */
+
 async function checkKiwiSDR(
   baseUrl: string,
   receiverType: string,
   receiverUrl: string
 ): Promise<ReceiverStatusResult> {
-  // Fetch /status
+  // Fetch /status (plain text key=value pairs)
   const statusResponse = await fetchWithProxy(`${baseUrl}/status`);
   const parsed = parseKiwiStatus(statusResponse.data);
 
-  // Fetch /snr (non-critical — don't fail if this errors)
+  // Fetch /snr (JSON — non-critical, don't fail if this errors)
   let snrData = { snrOverall: 0, snrBands: [] as SnrBand[] };
   try {
     const snrResponse = await fetchWithProxy(`${baseUrl}/snr`, {
@@ -313,19 +428,70 @@ async function checkKiwiSDR(
   return result;
 }
 
+/* ── OpenWebRX Check ─────────────────────────────── */
+
 async function checkOpenWebRX(
   baseUrl: string,
   receiverType: string,
   receiverUrl: string
 ): Promise<ReceiverStatusResult> {
-  // OpenWebRX has no public status API — just check reachability
-  const response = await fetchWithProxy(baseUrl, { timeout: 10000 });
-  const isOnline = response.status >= 200 && response.status < 400;
+  // Fetch /status.json — the primary status endpoint
+  const statusResponse = await fetchWithProxy(`${baseUrl}/status.json`, {
+    timeout: 10000,
+  });
+
+  let statusData: any;
+  try {
+    statusData =
+      typeof statusResponse.data === "string"
+        ? JSON.parse(statusResponse.data)
+        : statusResponse.data;
+  } catch {
+    // If /status.json doesn't parse, receiver might still be online but older version
+    const result: ReceiverStatusResult = {
+      online: statusResponse.status >= 200 && statusResponse.status < 400,
+      receiverType,
+      receiverUrl,
+      checkedAt: Date.now(),
+      fromCache: false,
+      proxyUsed: proxyList.length > 0,
+    };
+    statusCache.set(baseUrl, result);
+    return result;
+  }
+
+  const parsed = parseOpenWebRXStatus(statusData);
+
+  // Fetch /metrics.json for active user count and decode stats (non-critical)
+  let metricsData: Partial<ReceiverStatusResult> = {};
+  try {
+    const metricsResponse = await fetchWithProxy(`${baseUrl}/metrics.json`, {
+      timeout: 8000,
+    });
+    const metricsJson =
+      typeof metricsResponse.data === "string"
+        ? JSON.parse(metricsResponse.data)
+        : metricsResponse.data;
+    metricsData = parseOpenWebRXMetrics(metricsJson);
+  } catch {
+    // /metrics.json may not be available on all OpenWebRX versions
+  }
 
   const result: ReceiverStatusResult = {
-    online: isOnline,
+    online: true,
     receiverType,
     receiverUrl,
+    name: parsed.name,
+    users: metricsData.users,
+    usersMax: parsed.usersMax,
+    version: parsed.version,
+    location: parsed.location,
+    gps: parsed.gps,
+    sdrHardware: parsed.sdrHardware,
+    metricsUsers: metricsData.metricsUsers,
+    pskReporterSpots: metricsData.pskReporterSpots,
+    wsprSpots: metricsData.wsprSpots,
+    decodingQueueLength: metricsData.decodingQueueLength,
     checkedAt: Date.now(),
     fromCache: false,
     proxyUsed: proxyList.length > 0,
@@ -335,19 +501,39 @@ async function checkOpenWebRX(
   return result;
 }
 
+/* ── WebSDR Check ────────────────────────────────── */
+
 async function checkWebSDR(
   baseUrl: string,
   receiverType: string,
   receiverUrl: string
 ): Promise<ReceiverStatusResult> {
-  // WebSDR has no public status API — just check reachability
-  const response = await fetchWithProxy(baseUrl, { timeout: 10000 });
-  const isOnline = response.status >= 200 && response.status < 400;
+  // Fetch /tmp/bandinfo.js — this file is dynamically generated by the WebSDR server
+  // and contains band configuration + waterfall image references.
+  // If it returns valid JS with freqbands data, the receiver is online.
+  const bandInfoResponse = await fetchWithProxy(`${baseUrl}/tmp/bandinfo.js`, {
+    timeout: 10000,
+  });
+
+  const jsText =
+    typeof bandInfoResponse.data === "string" ? bandInfoResponse.data : "";
+
+  // Verify this is actually bandinfo.js content (not an error page)
+  const isValid =
+    bandInfoResponse.status >= 200 &&
+    bandInfoResponse.status < 400 &&
+    (jsText.includes("freqbands") || jsText.includes("bi["));
+
+  let parsed: Partial<ReceiverStatusResult> = { online: false };
+  if (isValid) {
+    parsed = parseWebSdrBandInfo(jsText);
+  }
 
   const result: ReceiverStatusResult = {
-    online: isOnline,
+    online: isValid,
     receiverType,
     receiverUrl,
+    bands: parsed.bands,
     checkedAt: Date.now(),
     fromCache: false,
     proxyUsed: proxyList.length > 0,

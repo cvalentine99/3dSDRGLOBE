@@ -5,3 +5,8 @@
 - [x] Write vitest tests for batch endpoint
 - [x] Test end-to-end in browser
 - [x] Save checkpoint and push to GitHub
+- [x] Research real OpenWebRX API endpoints by examining live receivers
+- [x] Research real WebSDR API endpoints by examining live receivers
+- [x] Fix backend status checker to use correct APIs for ALL receiver types (no HEAD-only checks)
+- [x] Test with real receivers and verify correct data returned
+- [x] Save checkpoint and push to GitHub
