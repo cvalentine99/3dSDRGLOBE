@@ -32,11 +32,17 @@ const TYPE_COLORS: Record<string, number> = {
 
 const GLOBE_RADIUS = 5;
 
+// Status-aware colors
+const STATUS_ONLINE = 0x22c55e; // bright green
+const STATUS_OFFLINE = 0xef4444; // red
+const STATUS_UNKNOWN_ALPHA = 0.45; // dimmer for unchecked
+
 interface GlobeProps {
   ionosondes?: IonosondeStation[];
+  isStationOnline?: (station: Station) => boolean | null;
 }
 
-export default function Globe({ ionosondes = [] }: GlobeProps) {
+export default function Globe({ ionosondes = [], isStationOnline }: GlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ionoGroupRef = useRef<THREE.Group | null>(null);
   const sceneRef = useRef<{
@@ -277,17 +283,37 @@ export default function Globe({ ionosondes = [] }: GlobeProps) {
       const [lng, lat] = station.location.coordinates;
       const pos = latLngToVector3(lat, lng, GLOBE_RADIUS * 1.008);
       const primaryType = station.receivers[0]?.type || "WebSDR";
-      const color = TYPE_COLORS[primaryType] || TYPE_COLORS.WebSDR;
+      const typeColor = TYPE_COLORS[primaryType] || TYPE_COLORS.WebSDR;
+
+      // Determine color and opacity based on online status
+      let color = typeColor;
+      let opacity = 0.85;
+      let scale = 0.055;
+
+      if (isStationOnline) {
+        const status = isStationOnline(station);
+        if (status === true) {
+          color = STATUS_ONLINE;
+          opacity = 0.95;
+          scale = 0.065; // Slightly larger for online stations
+        } else if (status === false) {
+          color = STATUS_OFFLINE;
+          opacity = 0.6;
+          scale = 0.045; // Slightly smaller for offline
+        } else {
+          // null = not yet checked, use type color but dimmer
+          opacity = STATUS_UNKNOWN_ALPHA;
+        }
+      }
 
       const mat = new THREE.MeshBasicMaterial({
         color,
         transparent: true,
-        opacity: 0.85,
+        opacity,
         depthTest: true,
       });
 
       const mesh = new THREE.Mesh(markerGeo, mat);
-      const scale = 0.055;
       mesh.scale.set(scale, scale, scale);
       mesh.position.copy(pos);
       mesh.lookAt(0, 0, 0);
@@ -296,7 +322,7 @@ export default function Globe({ ionosondes = [] }: GlobeProps) {
     });
 
     sceneRef.current.markerMeshes = meshes;
-  }, [filteredStations]);
+  }, [filteredStations, isStationOnline]);
 
   useEffect(() => {
     updateMarkers();

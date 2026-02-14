@@ -6,6 +6,7 @@
 import { useState, useCallback, useRef } from "react";
 import { RadioProvider, useRadio } from "@/contexts/RadioContext";
 import Globe from "@/components/Globe";
+import { useReceiverStatusMap } from "@/hooks/useReceiverStatusMap";
 import StationPanel from "@/components/StationPanel";
 import AudioPlayer from "@/components/AudioPlayer";
 import SearchFilter from "@/components/SearchFilter";
@@ -30,7 +31,8 @@ import type { IonosondeStation } from "@/lib/propagationService";
 const SPACE_BG = "https://private-us-east-1.manuscdn.com/sessionFile/vNaLpF1RBh0KpESEYFZ0O6/sandbox/jetyLTlTEnk4uuIRFGjEIW-img-1_1770744518000_na1fn_c3BhY2UtYmc.jpg?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvdk5hTHBGMVJCaDBLcEVTRVlGWjBPNi9zYW5kYm94L2pldHlMVGxURW5rNHV1SVJGR2pFSVctaW1nLTFfMTc3MDc0NDUxODAwMF9uYTFmbl9jM0JoWTJVdFltYy5qcGc~eC1vc3MtcHJvY2Vzcz1pbWFnZS9yZXNpemUsd18xOTIwLGhfMTkyMC9mb3JtYXQsd2VicC9xdWFsaXR5LHFfODAiLCJDb25kaXRpb24iOnsiRGF0ZUxlc3NUaGFuIjp7IkFXUzpFcG9jaFRpbWUiOjE3OTg3NjE2MDB9fX1dfQ__&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=oLsKLTDZuMfoSSrBgke-CjTMYV~7c6H6FjxCJ4T6rvv3cXvumKs9xEu4U9UsS1~PU3FHd-YJ-kfGKUTehPSvHy9u5Q0aGQ5~4lj0nLupUgiraYK7CvieHNb1nUVTSqW045sQZuXoUqptovMJaCgW9m6b6cVrk8mfKsAqPHKA1yFtO8Wj2RYeENPMvELvCyVIo~IjFn3jmIE6VO5MAAUaXr4fng1RicMAPHzysVpYWrvTsrp8ldVH02Z2oFtdcipjkIhAYJAeWNku9Hsg5RBcO8W9DrUMNFyKmW4Dq7LkBQ9XWUZo2lBZDfPHtNrKllwHc4xZUrX0tcNLIVRDxX0rCg__";
 
 function HomeContent() {
-  const { loading, selectedStation, filteredStations, selectStation, setShowPanel } = useRadio();
+  const { loading, stations, selectedStation, filteredStations, selectStation, setShowPanel } = useRadio();
+  const { isStationOnline, progress: batchProgress } = useReceiverStatusMap(stations, loading);
   const { highlightedStation, highlightedIndex, isKeyNavActive } = useKeyboardNav();
   const [milRfOpen, setMilRfOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
@@ -91,7 +93,23 @@ function HomeContent() {
       </AnimatePresence>
 
       {/* 3D Globe */}
-      <Globe ionosondes={propVisible ? ionosondesRef.current : []} />
+      <Globe ionosondes={propVisible ? ionosondesRef.current : []} isStationOnline={isStationOnline} />
+
+      {/* Batch pre-check progress indicator */}
+      {batchProgress.running && batchProgress.total > 0 && (
+        <div className="absolute bottom-2 right-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/50 backdrop-blur-sm border border-white/10">
+          <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+          <span className="text-[10px] font-mono text-white/60">
+            Scanning receivers: {batchProgress.checked}/{batchProgress.total}
+          </span>
+          <div className="w-20 h-1 bg-white/10 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-cyan-400/60 rounded-full transition-all duration-500"
+              style={{ width: `${Math.round((batchProgress.checked / batchProgress.total) * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Title / Branding */}
       <motion.div
