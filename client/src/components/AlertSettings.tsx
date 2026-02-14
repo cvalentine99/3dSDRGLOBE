@@ -3,15 +3,15 @@
  * Design: "Ether" dark atmospheric theme
  *
  * Allows users to configure SNR thresholds, enable/disable
- * alert types, view alert history, and manage notifications.
+ * alert types, select alert sounds, view alert history, and manage notifications.
  */
 
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Bell, BellOff, Settings, Trash2, Check, Volume2, VolumeX,
-  AlertTriangle, WifiOff, TrendingDown, Activity, ChevronDown,
-  ChevronRight, RotateCcw
+  AlertTriangle, WifiOff, TrendingDown, Activity, Play,
+  RotateCcw
 } from "lucide-react";
 import {
   getAlertConfig,
@@ -20,10 +20,13 @@ import {
   getAlertHistory,
   clearAlertHistory,
   acknowledgeAlert,
+  playAlertSound,
   ALERT_TYPE_LABELS,
   ALERT_TYPE_COLORS,
+  ALERT_SOUNDS,
   type AlertConfig,
   type AlertEvent,
+  type AlertSoundType,
 } from "@/lib/alertService";
 
 /* ── Types ────────────────────────────────────────── */
@@ -39,6 +42,7 @@ export default function AlertSettings({ onClose }: Props) {
   const [history, setHistory] = useState<AlertEvent[]>(getAlertHistory);
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(true);
+  const [playingSound, setPlayingSound] = useState<string | null>(null);
 
   const unackCount = useMemo(
     () => history.filter((e) => !e.acknowledged).length,
@@ -72,6 +76,12 @@ export default function AlertSettings({ onClose }: Props) {
     setHistory(getAlertHistory());
   };
 
+  const handlePreviewSound = (soundId: AlertSoundType) => {
+    setPlayingSound(soundId);
+    playAlertSound(soundId, "critical", config.soundVolume);
+    setTimeout(() => setPlayingSound(null), 800);
+  };
+
   const alertTypeIcon = (type: AlertEvent["type"]) => {
     switch (type) {
       case "snr_low": return TrendingDown;
@@ -88,7 +98,7 @@ export default function AlertSettings({ onClose }: Props) {
       exit={{ opacity: 0, scale: 0.95, y: 20 }}
       transition={{ type: "spring", damping: 25, stiffness: 250 }}
       className="absolute inset-4 z-50 glass-panel rounded-2xl overflow-hidden flex flex-col"
-      style={{ maxWidth: "520px", maxHeight: "620px", margin: "auto" }}
+      style={{ maxWidth: "520px", maxHeight: "700px", margin: "auto" }}
     >
       {/* Header */}
       <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between shrink-0">
@@ -268,7 +278,7 @@ export default function AlertSettings({ onClose }: Props) {
                   )}
                 </div>
 
-                {/* Cooldown & Sound */}
+                {/* Cooldown */}
                 <div className="p-3 rounded-lg bg-white/[0.03] border border-white/8 space-y-2.5">
                   <span className="text-[10px] font-mono text-white/60 uppercase tracking-wider">
                     Behavior
@@ -293,15 +303,119 @@ export default function AlertSettings({ onClose }: Props) {
                       <option value={600}>10 min</option>
                     </select>
                   </div>
+                </div>
 
-                  <ToggleRow
-                    icon={config.soundEnabled ? Volume2 : VolumeX}
-                    label="Alert Sound"
-                    description="Play a beep when an alert fires"
-                    enabled={config.soundEnabled}
-                    color="#06b6d4"
-                    onToggle={() => updateConfig({ soundEnabled: !config.soundEnabled })}
-                  />
+                {/* Sound Configuration */}
+                <div className="p-3 rounded-lg bg-white/[0.03] border border-white/8 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-white/60 uppercase tracking-wider">
+                      Alert Sound
+                    </span>
+                    <button
+                      onClick={() => updateConfig({ soundEnabled: !config.soundEnabled })}
+                      className={`relative w-8 h-4 rounded-full transition-colors ${
+                        config.soundEnabled ? "bg-cyan-500/40" : "bg-white/8"
+                      }`}
+                    >
+                      <motion.div
+                        className="absolute top-0.5 w-3 h-3 rounded-full"
+                        style={{ backgroundColor: config.soundEnabled ? "#06b6d4" : "rgba(255,255,255,0.2)" }}
+                        animate={{ left: config.soundEnabled ? 18 : 2 }}
+                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                      />
+                    </button>
+                  </div>
+
+                  {config.soundEnabled && (
+                    <>
+                      {/* Volume slider */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-1.5">
+                            {config.soundVolume > 0 ? (
+                              <Volume2 className="w-3 h-3 text-cyan-400/60" />
+                            ) : (
+                              <VolumeX className="w-3 h-3 text-white/30" />
+                            )}
+                            <span className="text-[9px] font-mono text-white/40">Volume</span>
+                          </div>
+                          <span className="text-[10px] font-mono font-bold text-cyan-400">
+                            {Math.round(config.soundVolume * 100)}%
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          step={5}
+                          value={Math.round(config.soundVolume * 100)}
+                          onChange={(e) => updateConfig({ soundVolume: parseInt(e.target.value) / 100 })}
+                          className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer
+                            [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5
+                            [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-400
+                            [&::-webkit-slider-thumb]:shadow-[0_0_6px_rgba(6,182,212,0.4)]"
+                        />
+                      </div>
+
+                      {/* Sound selector grid */}
+                      <div className="space-y-1">
+                        <span className="text-[9px] font-mono text-white/35 uppercase tracking-wider">
+                          Select Sound
+                        </span>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {ALERT_SOUNDS.map((sound) => {
+                            const isSelected = config.soundType === sound.id;
+                            const isPlaying = playingSound === sound.id;
+                            return (
+                              <button
+                                key={sound.id}
+                                onClick={() => updateConfig({ soundType: sound.id })}
+                                className={`relative flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-all ${
+                                  isSelected
+                                    ? "bg-cyan-500/15 border border-cyan-500/30"
+                                    : "bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/10"
+                                }`}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-[10px] font-medium truncate ${
+                                    isSelected ? "text-cyan-300" : "text-white/60"
+                                  }`}>
+                                    {sound.label}
+                                  </p>
+                                  <p className="text-[8px] text-white/25 truncate mt-0.5">
+                                    {sound.description}
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handlePreviewSound(sound.id);
+                                  }}
+                                  className={`shrink-0 w-6 h-6 rounded-md flex items-center justify-center transition-all ${
+                                    isPlaying
+                                      ? "bg-cyan-500/30 scale-110"
+                                      : "bg-white/5 hover:bg-white/10"
+                                  }`}
+                                  title={`Preview ${sound.label}`}
+                                >
+                                  <Play className={`w-3 h-3 ${
+                                    isPlaying ? "text-cyan-300" : "text-white/40"
+                                  }`} />
+                                </button>
+                                {isSelected && (
+                                  <motion.div
+                                    layoutId="sound-check"
+                                    className="absolute top-1 right-1 w-2 h-2 rounded-full bg-cyan-400"
+                                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                  />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Reset */}

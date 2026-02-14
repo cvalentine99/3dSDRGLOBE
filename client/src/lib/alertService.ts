@@ -11,6 +11,33 @@
 
 /* ── Types ────────────────────────────────────────── */
 
+export type AlertSoundType =
+  | "classic_beep"
+  | "radar_ping"
+  | "sonar_pulse"
+  | "klaxon"
+  | "morse_sos"
+  | "geiger"
+  | "tritone"
+  | "emergency_siren";
+
+export interface AlertSoundOption {
+  id: AlertSoundType;
+  label: string;
+  description: string;
+}
+
+export const ALERT_SOUNDS: AlertSoundOption[] = [
+  { id: "classic_beep", label: "Classic Beep", description: "Simple sine wave tone" },
+  { id: "radar_ping", label: "Radar Ping", description: "Short radar-style sweep" },
+  { id: "sonar_pulse", label: "Sonar Pulse", description: "Submarine sonar ping" },
+  { id: "klaxon", label: "Klaxon", description: "Alternating two-tone alarm" },
+  { id: "morse_sos", label: "Morse SOS", description: "... --- ... in Morse code" },
+  { id: "geiger", label: "Geiger Counter", description: "Rapid clicking bursts" },
+  { id: "tritone", label: "Tri-Tone", description: "Three ascending notes" },
+  { id: "emergency_siren", label: "Emergency Siren", description: "Rising/falling siren sweep" },
+];
+
 export interface AlertConfig {
   /** Enable/disable the alert system globally */
   enabled: boolean;
@@ -28,6 +55,10 @@ export interface AlertConfig {
   cooldownSeconds: number;
   /** Play audio beep on alert */
   soundEnabled: boolean;
+  /** Selected alert sound */
+  soundType: AlertSoundType;
+  /** Sound volume (0-1) */
+  soundVolume: number;
 }
 
 export interface AlertEvent {
@@ -69,6 +100,8 @@ const DEFAULT_CONFIG: AlertConfig = {
   deltaDropThreshold: 5,
   cooldownSeconds: 120,
   soundEnabled: false,
+  soundType: "classic_beep",
+  soundVolume: 0.3,
 };
 
 /* ── State ───────────────────────────────────────── */
@@ -273,21 +306,180 @@ export function checkAlerts(
   return newAlerts;
 }
 
-/* ── Alert Sound ─────────────────────────────────── */
+/* ── Alert Sound System ──────────────────────────── */
+
+let audioCtx: AudioContext | null = null;
+
+function getAudioCtx(): AudioContext {
+  if (!audioCtx) audioCtx = new AudioContext();
+  return audioCtx;
+}
 
 function playAlertBeep(severity: "warning" | "critical"): void {
+  const config = getAlertConfig();
+  playAlertSound(config.soundType, severity, config.soundVolume);
+}
+
+/** Play a specific alert sound — used by both alerts and preview */
+export function playAlertSound(
+  soundType: AlertSoundType,
+  severity: "warning" | "critical" = "warning",
+  volume: number = 0.3
+): void {
   try {
-    const ctx = new AudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = severity === "critical" ? 880 : 660;
-    osc.type = "sine";
-    gain.gain.value = 0.15;
-    osc.start();
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-    osc.stop(ctx.currentTime + 0.3);
+    const ctx = getAudioCtx();
+    if (ctx.state === "suspended") ctx.resume();
+    const masterGain = ctx.createGain();
+    masterGain.gain.value = volume;
+    masterGain.connect(ctx.destination);
+    const t = ctx.currentTime;
+
+    switch (soundType) {
+      case "classic_beep": {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.connect(g);
+        g.connect(masterGain);
+        osc.frequency.value = severity === "critical" ? 880 : 660;
+        osc.type = "sine";
+        g.gain.setValueAtTime(1, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+        osc.start(t);
+        osc.stop(t + 0.35);
+        break;
+      }
+
+      case "radar_ping": {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.connect(g);
+        g.connect(masterGain);
+        const baseFreq = severity === "critical" ? 2400 : 1800;
+        osc.frequency.setValueAtTime(baseFreq, t);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.3, t + 0.15);
+        osc.type = "sine";
+        g.gain.setValueAtTime(0.8, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+        osc.start(t);
+        osc.stop(t + 0.25);
+        break;
+      }
+
+      case "sonar_pulse": {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.connect(g);
+        g.connect(masterGain);
+        osc.frequency.value = severity === "critical" ? 1200 : 800;
+        osc.type = "sine";
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.9, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+        osc.start(t);
+        osc.stop(t + 0.65);
+        break;
+      }
+
+      case "klaxon": {
+        for (let i = 0; i < 3; i++) {
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          osc.connect(g);
+          g.connect(masterGain);
+          const freq = i % 2 === 0
+            ? (severity === "critical" ? 800 : 600)
+            : (severity === "critical" ? 600 : 450);
+          osc.frequency.value = freq;
+          osc.type = "square";
+          const start = t + i * 0.15;
+          g.gain.setValueAtTime(0.4, start);
+          g.gain.setValueAtTime(0.001, start + 0.12);
+          osc.start(start);
+          osc.stop(start + 0.13);
+        }
+        break;
+      }
+
+      case "morse_sos": {
+        // ... --- ... (dit dit dit dah dah dah dit dit dit)
+        const ditLen = 0.06;
+        const dahLen = 0.18;
+        const gap = 0.04;
+        const pattern = [ditLen, ditLen, ditLen, dahLen, dahLen, dahLen, ditLen, ditLen, ditLen];
+        let offset = 0;
+        const freq = severity === "critical" ? 1000 : 750;
+        pattern.forEach((dur) => {
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          osc.connect(g);
+          g.connect(masterGain);
+          osc.frequency.value = freq;
+          osc.type = "sine";
+          g.gain.setValueAtTime(0.7, t + offset);
+          g.gain.setValueAtTime(0.001, t + offset + dur);
+          osc.start(t + offset);
+          osc.stop(t + offset + dur + 0.01);
+          offset += dur + gap;
+        });
+        break;
+      }
+
+      case "geiger": {
+        const clicks = severity === "critical" ? 12 : 7;
+        for (let i = 0; i < clicks; i++) {
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          osc.connect(g);
+          g.connect(masterGain);
+          osc.frequency.value = 4000 + Math.random() * 2000;
+          osc.type = "square";
+          const start = t + i * (0.03 + Math.random() * 0.04);
+          g.gain.setValueAtTime(0.5, start);
+          g.gain.exponentialRampToValueAtTime(0.001, start + 0.015);
+          osc.start(start);
+          osc.stop(start + 0.02);
+        }
+        break;
+      }
+
+      case "tritone": {
+        const notes = severity === "critical"
+          ? [523.25, 659.25, 783.99]  // C5 E5 G5
+          : [392, 493.88, 587.33];     // G4 B4 D5
+        notes.forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          osc.connect(g);
+          g.connect(masterGain);
+          osc.frequency.value = freq;
+          osc.type = "triangle";
+          const start = t + i * 0.12;
+          g.gain.setValueAtTime(0.6, start);
+          g.gain.exponentialRampToValueAtTime(0.001, start + 0.2);
+          osc.start(start);
+          osc.stop(start + 0.25);
+        });
+        break;
+      }
+
+      case "emergency_siren": {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.connect(g);
+        g.connect(masterGain);
+        osc.type = "sawtooth";
+        const lo = severity === "critical" ? 600 : 400;
+        const hi = severity === "critical" ? 1400 : 1000;
+        osc.frequency.setValueAtTime(lo, t);
+        osc.frequency.linearRampToValueAtTime(hi, t + 0.3);
+        osc.frequency.linearRampToValueAtTime(lo, t + 0.6);
+        g.gain.setValueAtTime(0.35, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.65);
+        osc.start(t);
+        osc.stop(t + 0.7);
+        break;
+      }
+    }
   } catch {
     // Audio not available
   }
