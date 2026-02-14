@@ -25,6 +25,7 @@ import {
   type SigintLogEntry,
   type StationLog,
 } from "@/lib/sigintLogger";
+import { detectExtrema, computeBaseline, type Extremum } from "@/lib/peakDetection";
 
 /* ── Types ────────────────────────────────────────── */
 
@@ -504,23 +505,38 @@ function AllStationRow({ station, onRemove }: { station: StationLog; onRemove: (
 /* ── Charts ───────────────────────────────────────── */
 
 function SnrChart({ entries, selectedBand }: { entries: SigintLogEntry[]; selectedBand: string }) {
+  const [showBaseline, setShowBaseline] = useState(true);
+  const [showAnnotations, setShowAnnotations] = useState(true);
+
   const chartW = 800;
-  const chartH = 180;
+  const chartH = 220;
   const padL = 40;
   const padR = 10;
-  const padT = 10;
+  const padT = 30;
   const padB = 30;
   const innerW = chartW - padL - padR;
   const innerH = chartH - padT - padB;
 
   const dataPoints = useMemo(() => {
-    return entries.map((e) => {
+    return entries.map((e, idx) => {
       const val = selectedBand === "overall"
         ? e.snr
         : (e.bandSnr[selectedBand] ?? -1);
-      return { ts: new Date(e.ts).getTime(), val };
+      return { ts: new Date(e.ts).getTime(), val, idx };
     }).filter((d) => d.val >= 0);
   }, [entries, selectedBand]);
+
+  // Detect peaks and troughs
+  const extrema = useMemo(() => {
+    if (dataPoints.length < 3) return [];
+    return detectExtrema(dataPoints);
+  }, [dataPoints]);
+
+  // Compute baseline
+  const baseline = useMemo(() => {
+    if (dataPoints.length < 3) return [];
+    return computeBaseline(dataPoints);
+  }, [dataPoints]);
 
   if (dataPoints.length < 2) {
     return (
@@ -547,6 +563,11 @@ function SnrChart({ entries, selectedBand }: { entries: SigintLogEntry[]; select
 
   const areaD = pathD + ` L ${toX(dataPoints[dataPoints.length - 1].ts)} ${padT + innerH} L ${toX(dataPoints[0].ts)} ${padT + innerH} Z`;
 
+  // Baseline path
+  const baselineD = baseline.length > 1
+    ? baseline.map((b, i) => `${i === 0 ? "M" : "L"} ${toX(b.ts)} ${toY(b.val)}`).join(" ")
+    : "";
+
   // Y-axis labels
   const ySteps = 5;
   const yLabels = Array.from({ length: ySteps + 1 }).map((_, i) => {
@@ -561,12 +582,63 @@ function SnrChart({ entries, selectedBand }: { entries: SigintLogEntry[]; select
     return { label: formatTime(new Date(ts).toISOString()), x: toX(ts) };
   });
 
+  const peakCount = extrema.filter((e: Extremum) => e.type === "peak").length;
+  const troughCount = extrema.filter((e: Extremum) => e.type === "trough").length;
+
   return (
     <div>
-      <p className="text-[9px] font-mono text-white/30 uppercase mb-2">
-        SNR Over Time — {selectedBand === "overall" ? "Full Spectrum" : selectedBand}
-      </p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[9px] font-mono text-white/30 uppercase">
+          SNR Over Time — {selectedBand === "overall" ? "Full Spectrum" : selectedBand}
+        </p>
+        <div className="flex items-center gap-3">
+          {/* Toggle controls */}
+          <button
+            onClick={() => setShowBaseline(!showBaseline)}
+            className={`text-[8px] font-mono px-1.5 py-0.5 rounded transition-colors border ${
+              showBaseline
+                ? "text-amber-400/80 border-amber-400/30 bg-amber-400/10"
+                : "text-white/25 border-white/10 hover:text-white/40"
+            }`}
+          >
+            Baseline
+          </button>
+          <button
+            onClick={() => setShowAnnotations(!showAnnotations)}
+            className={`text-[8px] font-mono px-1.5 py-0.5 rounded transition-colors border ${
+              showAnnotations
+                ? "text-cyan-400/80 border-cyan-400/30 bg-cyan-400/10"
+                : "text-white/25 border-white/10 hover:text-white/40"
+            }`}
+          >
+            Peaks/Troughs
+          </button>
+        </div>
+      </div>
+
       <svg viewBox={`0 0 ${chartW} ${chartH}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <linearGradient id="snrGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#06b6d4" stopOpacity="0" />
+          </linearGradient>
+          {/* Glow filter for peak markers */}
+          <filter id="peakGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="troughGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
         {/* Grid lines */}
         {yLabels.map((yl, i) => (
           <g key={i}>
@@ -584,16 +656,23 @@ function SnrChart({ entries, selectedBand }: { entries: SigintLogEntry[]; select
           </text>
         ))}
 
-        {/* Gradient fill */}
-        <defs>
-          <linearGradient id="snrGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#06b6d4" stopOpacity="0" />
-          </linearGradient>
-        </defs>
+        {/* Area fill */}
         <path d={areaD} fill="url(#snrGrad)" />
 
-        {/* Line */}
+        {/* Baseline overlay */}
+        {showBaseline && baselineD && (
+          <path
+            d={baselineD}
+            fill="none"
+            stroke="#f59e0b"
+            strokeWidth="1.5"
+            strokeDasharray="6,4"
+            opacity="0.5"
+            strokeLinecap="round"
+          />
+        )}
+
+        {/* Main SNR line */}
         <path d={pathD} fill="none" stroke="#06b6d4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 
         {/* Data points */}
@@ -602,14 +681,105 @@ function SnrChart({ entries, selectedBand }: { entries: SigintLogEntry[]; select
             key={i}
             cx={toX(d.ts)}
             cy={toY(d.val)}
-            r="3"
+            r="2.5"
             fill={snrColor(d.val)}
             stroke="rgba(0,0,0,0.5)"
-            strokeWidth="1"
+            strokeWidth="0.8"
+            opacity={0.7}
           >
             <title>{`${formatTime(new Date(d.ts).toISOString())}: ${d.val} dB`}</title>
           </circle>
         ))}
+
+        {/* Peak and Trough annotations */}
+        {showAnnotations && extrema.map((ext: Extremum, i: number) => {
+          const cx = toX(ext.point.ts);
+          const cy = toY(ext.point.val);
+          const isPeak = ext.type === "peak";
+          const isMajor = ext.severity === "major";
+          const markerR = isMajor ? 6 : 4.5;
+          const color = isPeak ? "#10b981" : "#ef4444";
+          const labelY = isPeak
+            ? Math.max(padT + 2, cy - (isMajor ? 18 : 14))
+            : Math.min(padT + innerH - 2, cy + (isMajor ? 22 : 16));
+
+          return (
+            <g key={`ext-${i}`}>
+              {/* Vertical dashed line from point to annotation */}
+              <line
+                x1={cx} y1={cy}
+                x2={cx} y2={labelY + (isPeak ? 6 : -8)}
+                stroke={color}
+                strokeWidth="0.8"
+                strokeDasharray="2,2"
+                opacity="0.4"
+              />
+
+              {/* Marker circle with glow */}
+              <circle
+                cx={cx} cy={cy}
+                r={markerR}
+                fill={color}
+                opacity={isMajor ? 0.9 : 0.6}
+                filter={isMajor ? (isPeak ? "url(#peakGlow)" : "url(#troughGlow)") : undefined}
+              />
+              <circle
+                cx={cx} cy={cy}
+                r={markerR}
+                fill="none"
+                stroke={color}
+                strokeWidth="1.5"
+                opacity={0.3}
+              />
+
+              {/* Arrow indicator */}
+              {isPeak ? (
+                <polygon
+                  points={`${cx},${cy - markerR - 2} ${cx - 3},${cy - markerR - 7} ${cx + 3},${cy - markerR - 7}`}
+                  fill={color}
+                  opacity={isMajor ? 0.8 : 0.5}
+                />
+              ) : (
+                <polygon
+                  points={`${cx},${cy + markerR + 2} ${cx - 3},${cy + markerR + 7} ${cx + 3},${cy + markerR + 7}`}
+                  fill={color}
+                  opacity={isMajor ? 0.8 : 0.5}
+                />
+              )}
+
+              {/* Label background */}
+              <rect
+                x={cx - 22} y={labelY - 6}
+                width="44" height="13"
+                rx="3"
+                fill="rgba(0,0,0,0.7)"
+                stroke={color}
+                strokeWidth="0.5"
+                opacity="0.8"
+              />
+
+              {/* Label text */}
+              <text
+                x={cx} y={labelY + 4}
+                textAnchor="middle"
+                fill={color}
+                fontSize={isMajor ? "9" : "8"}
+                fontFamily="monospace"
+                fontWeight={isMajor ? "bold" : "normal"}
+              >
+                {ext.label}
+              </text>
+
+              {/* Tooltip */}
+              <title>
+                {`${isPeak ? "Peak" : "Trough"}: ${ext.point.val} dB\n`}
+                {`Prominence: ${ext.prominence.toFixed(1)} dB\n`}
+                {`Time: ${formatTime(new Date(ext.point.ts).toISOString())}\n`}
+                {`Severity: ${ext.severity}`}
+              </title>
+            </g>
+          );
+        })}
 
         {/* Y-axis label */}
         <text x="5" y={padT + innerH / 2} textAnchor="middle" fill="rgba(255,255,255,0.2)" fontSize="9" fontFamily="monospace"
@@ -618,6 +788,38 @@ function SnrChart({ entries, selectedBand }: { entries: SigintLogEntry[]; select
           SNR (dB)
         </text>
       </svg>
+
+      {/* Chart legend */}
+      {showAnnotations && extrema.length > 0 && (
+        <div className="flex items-center gap-4 mt-2 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+            <span className="text-[8px] font-mono text-white/40">
+              Peaks ({peakCount})
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+            <span className="text-[8px] font-mono text-white/40">
+              Troughs ({troughCount})
+            </span>
+          </div>
+          {showBaseline && (
+            <div className="flex items-center gap-1.5">
+              <span className="w-4 h-0 border-t border-dashed border-amber-500/60" />
+              <span className="text-[8px] font-mono text-white/40">
+                Rolling Avg
+              </span>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5">
+            <span className="w-4 h-0 border-t-2 border-cyan-500" />
+            <span className="text-[8px] font-mono text-white/40">
+              SNR
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
