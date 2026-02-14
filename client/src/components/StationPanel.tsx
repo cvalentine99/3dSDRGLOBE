@@ -9,7 +9,7 @@ import { useRadio } from "@/contexts/RadioContext";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Radio, Globe, ExternalLink, ChevronRight, Waves, MapPin, Star,
-  ChevronDown, Shield, Zap, Radar as RadarIcon, Lock, Eye, EyeOff
+  ChevronDown, Shield, Zap, Radar as RadarIcon, Lock, Eye, EyeOff, Play, Info
 } from "lucide-react";
 import {
   isWatched,
@@ -447,17 +447,28 @@ export default function StationPanel() {
             )}
           </div>
 
-          {/* Open in browser button */}
+          {/* Open in browser + receiver guidance */}
           {selectedReceiver && (
-            <div className="p-4 border-t border-white/5">
+            <div className="p-4 border-t border-white/5 space-y-3">
+              {/* Receiver-specific guidance */}
+              <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-400/5 border border-amber-400/10">
+                <Info className="w-3.5 h-3.5 text-amber-400/50 shrink-0 mt-0.5" />
+                <p className="text-[10px] text-amber-400/60 leading-relaxed">
+                  {selectedReceiver.type === "KiwiSDR"
+                    ? "Click the waterfall display to start audio. Use the frequency/mode controls to tune. The REC button records audio."
+                    : selectedReceiver.type === "OpenWebRX"
+                    ? "Click the 'Start OpenWebRX' button to begin. Click the waterfall to tune. Some versions have a record button."
+                    : "Select a band tab, then click the waterfall to tune. Use the 'Audio recording: Start' button to record."}
+                </p>
+              </div>
               <a
                 href={selectedReceiver.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-primary/15 border border-primary/25 text-primary hover:bg-primary/25 transition-all duration-200 text-sm font-medium"
               >
-                <Globe className="w-4 h-4" />
-                Open in Browser
+                <Play className="w-4 h-4" />
+                Open Receiver
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
             </div>
