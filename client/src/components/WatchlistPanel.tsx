@@ -12,7 +12,7 @@ import {
   X, Eye, EyeOff, RefreshCw, Trash2, Radio, Wifi, WifiOff,
   Activity, Users, Clock, Settings, ChevronDown, ChevronUp,
   Crosshair, AlertTriangle, Antenna, Zap, StickyNote, Pencil,
-  Check, X as XIcon
+  Check, X as XIcon, Search, FileText
 } from "lucide-react";
 import {
   getWatchlist,
@@ -93,6 +93,8 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
   const [sortMode, setSortMode] = useState<SortMode>("status");
   const [sortAsc, setSortAsc] = useState(false);
   const [polling, setPolling] = useState(false);
+  const [noteSearch, setNoteSearch] = useState("");
+  const [showNoteSearch, setShowNoteSearch] = useState(false);
 
   // Listen for watchlist changes
   useEffect(() => {
@@ -146,9 +148,28 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
     }
   }, [sortMode, sortAsc]);
 
-  // Sort entries
+  // Filter by note search, then sort
+  const filteredEntries = useMemo(() => {
+    if (!noteSearch.trim()) return entries;
+    const q = noteSearch.toLowerCase();
+    return entries.filter((e) => {
+      // Search in notes, station label, and receiver type
+      const inNotes = e.notes?.toLowerCase().includes(q);
+      const inLabel = e.label.toLowerCase().includes(q);
+      const inType = e.receiverType.toLowerCase().includes(q);
+      return inNotes || inLabel || inType;
+    });
+  }, [entries, noteSearch]);
+
   const sortedEntries = useMemo(() => {
-    const sorted = [...entries].sort((a, b) => {
+    const sorted = [...filteredEntries].sort((a, b) => {
+      // When searching notes, prioritize entries with matching notes
+      if (noteSearch.trim()) {
+        const q = noteSearch.toLowerCase();
+        const aHasNote = a.notes?.toLowerCase().includes(q) ? 1 : 0;
+        const bHasNote = b.notes?.toLowerCase().includes(q) ? 1 : 0;
+        if (aHasNote !== bHasNote) return bHasNote - aHasNote;
+      }
       switch (sortMode) {
         case "name":
           return a.label.localeCompare(b.label);
@@ -170,7 +191,9 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
       }
     });
     return sortAsc ? sorted.reverse() : sorted;
-  }, [entries, sortMode, sortAsc]);
+  }, [filteredEntries, sortMode, sortAsc, noteSearch]);
+
+  const notesCount = entries.filter((e) => e.notes).length;
 
   // Stats
   const onlineCount = entries.filter((e) => e.lastStatus?.online).length;
@@ -304,6 +327,74 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
         )}
       </AnimatePresence>
 
+      {/* Note search bar */}
+      {entries.length > 0 && (
+        <div className="px-5 py-2 border-b border-white/5 shrink-0">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setShowNoteSearch(!showNoteSearch);
+                if (showNoteSearch) setNoteSearch("");
+              }}
+              className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[9px] font-mono transition-colors ${
+                showNoteSearch || noteSearch
+                  ? "bg-amber-400/10 text-amber-400/80 border border-amber-400/20"
+                  : "text-white/30 hover:text-white/50 hover:bg-white/5"
+              }`}
+              title="Search notes & stations"
+            >
+              <Search className="w-3 h-3" />
+              Search
+              {notesCount > 0 && (
+                <span className="text-[8px] text-white/20 ml-1">{notesCount} notes</span>
+              )}
+            </button>
+            {noteSearch && (
+              <span className="text-[9px] font-mono text-amber-400/50">
+                {filteredEntries.length} of {entries.length} match
+              </span>
+            )}
+          </div>
+          <AnimatePresence>
+            {showNoteSearch && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="overflow-hidden"
+              >
+                <div className="relative mt-2">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-white/20" />
+                  <input
+                    type="text"
+                    value={noteSearch}
+                    onChange={(e) => setNoteSearch(e.target.value)}
+                    placeholder="Search notes, station names, types..."
+                    autoFocus
+                    className="w-full bg-white/5 border border-white/10 rounded-lg pl-7 pr-8 py-1.5 text-[10px] text-white/80 placeholder:text-white/20 font-mono focus:outline-none focus:border-amber-400/30 focus:ring-1 focus:ring-amber-400/10 transition-colors"
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        setNoteSearch("");
+                        setShowNoteSearch(false);
+                      }
+                    }}
+                  />
+                  {noteSearch && (
+                    <button
+                      onClick={() => setNoteSearch("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-white/10 text-white/30 hover:text-white/60 transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
       {/* Stats bar */}
       {entries.length > 0 && (
         <div className="px-5 py-2.5 border-b border-white/5 flex items-center gap-4 shrink-0">
@@ -390,6 +481,7 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
               <WatchlistCard
                 key={entry.key}
                 entry={entry}
+                searchQuery={noteSearch}
                 onPoll={() => handlePollOne(entry.key)}
                 onRemove={() => handleRemove(entry.key)}
                 onSelect={() => onSelectStation?.(entry.coordinates, entry.label)}
@@ -404,13 +496,31 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
 
 /* ── Station Card ─────────────────────────────────── */
 
+function HighlightText({ text, query }: { text: string; query: string }) {
+  if (!query.trim()) return <>{text}</>;
+  const q = query.toLowerCase();
+  const idx = text.toLowerCase().indexOf(q);
+  if (idx === -1) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <span className="bg-amber-400/25 text-amber-300 rounded-sm px-0.5">
+        {text.slice(idx, idx + query.length)}
+      </span>
+      {text.slice(idx + query.length)}
+    </>
+  );
+}
+
 function WatchlistCard({
   entry,
+  searchQuery,
   onPoll,
   onRemove,
   onSelect,
 }: {
   entry: WatchlistEntry;
+  searchQuery: string;
   onPoll: () => void;
   onRemove: () => void;
   onSelect: () => void;
@@ -467,7 +577,7 @@ function WatchlistCard({
               className="text-[11px] font-medium text-white/80 hover:text-white truncate transition-colors text-left"
               title="Fly to station"
             >
-              {entry.label}
+              <HighlightText text={entry.label} query={searchQuery} />
             </button>
             <span
               className="text-[8px] font-mono px-1.5 py-0.5 rounded shrink-0"
@@ -683,7 +793,7 @@ function WatchlistCard({
                     <StickyNote className="w-2.5 h-2.5 text-amber-400/30 mt-0.5 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-[10px] text-white/50 font-mono leading-relaxed whitespace-pre-wrap break-words group-hover/note:text-white/60 transition-colors">
-                        {entry.notes}
+                        <HighlightText text={entry.notes} query={searchQuery} />
                       </p>
                       {entry.notesUpdatedAt && (
                         <p className="text-[7px] font-mono text-white/15 mt-1">
