@@ -56,7 +56,7 @@ describe("receiver.checkStatus", () => {
     }
   }, 30000); // 30s timeout for network request
 
-  it("returns a valid response for an OpenWebRX receiver", async () => {
+  it("returns real status data for an OpenWebRX receiver via /status.json and /metrics.json", async () => {
     const ctx = createPublicContext();
     const caller = appRouter.createCaller(ctx);
 
@@ -70,6 +70,60 @@ describe("receiver.checkStatus", () => {
     expect(result).toHaveProperty("receiverType", "OpenWebRX");
     expect(result).toHaveProperty("checkedAt");
     expect(typeof result.checkedAt).toBe("number");
+
+    // If online and fresh, verify OpenWebRX-specific fields from /status.json
+    if (result.online && !result.fromCache) {
+      // /status.json fields
+      if (result.name !== undefined) {
+        expect(typeof result.name).toBe("string");
+      }
+      if (result.version !== undefined) {
+        expect(typeof result.version).toBe("string");
+      }
+      if (result.usersMax !== undefined) {
+        expect(typeof result.usersMax).toBe("number");
+      }
+      if (result.sdrHardware !== undefined) {
+        expect(Array.isArray(result.sdrHardware)).toBe(true);
+        if (result.sdrHardware.length > 0) {
+          expect(result.sdrHardware[0]).toHaveProperty("name");
+          expect(result.sdrHardware[0]).toHaveProperty("type");
+          expect(result.sdrHardware[0]).toHaveProperty("profiles");
+        }
+      }
+      // /metrics.json fields
+      if (result.users !== undefined) {
+        expect(typeof result.users).toBe("number");
+      }
+    }
+  }, 30000);
+
+  it("returns real band data for a WebSDR receiver via /tmp/bandinfo.js", async () => {
+    const ctx = createPublicContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.receiver.checkStatus({
+      receiverUrl: "http://websdr.ewi.utwente.nl:8901",
+      receiverType: "WebSDR",
+    });
+
+    expect(result).toHaveProperty("online");
+    expect(typeof result.online).toBe("boolean");
+    expect(result).toHaveProperty("receiverType", "WebSDR");
+    expect(result).toHaveProperty("checkedAt");
+    expect(typeof result.checkedAt).toBe("number");
+
+    // If online and fresh, verify WebSDR-specific fields from /tmp/bandinfo.js
+    if (result.online && !result.fromCache) {
+      if (result.bands !== undefined) {
+        expect(Array.isArray(result.bands)).toBe(true);
+        expect(result.bands.length).toBeGreaterThan(0);
+        expect(result.bands[0]).toHaveProperty("min");
+        expect(result.bands[0]).toHaveProperty("max");
+        expect(typeof result.bands[0].min).toBe("number");
+        expect(typeof result.bands[0].max).toBe("number");
+      }
+    }
   }, 30000);
 
   it("returns cached result on second call for same receiver", async () => {

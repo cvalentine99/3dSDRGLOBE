@@ -433,19 +433,116 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
                     </div>
                   )}
 
-                  {/* Non-KiwiSDR notice */}
-                  {!isKiwi && (
+                  {/* ── OpenWebRX Status Details ── */}
+                  {receiverType === "OpenWebRX" && statusData.online && (
+                    <>
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* Active Users */}
+                        {statusData.users != null && statusData.users >= 0 && (
+                          <StatusCard
+                            icon={Users}
+                            label="Active Users"
+                            value={`${statusData.users}${statusData.usersMax ? ` / ${statusData.usersMax}` : ""}`}
+                            color={(statusData.users ?? 0) >= (statusData.usersMax ?? 20) ? "#ef4444" : "#22c55e"}
+                          />
+                        )}
+
+                        {/* Version */}
+                        {statusData.version && (
+                          <StatusCard
+                            icon={Radio}
+                            label="Version"
+                            value={statusData.version}
+                            color="#a855f7"
+                          />
+                        )}
+
+                        {/* Location */}
+                        {statusData.location && (
+                          <StatusCard
+                            icon={Signal}
+                            label="Location"
+                            value={statusData.location.length > 30 ? statusData.location.substring(0, 30) + "..." : statusData.location}
+                            color="#06b6d4"
+                          />
+                        )}
+
+                        {/* PSK Reporter Spots */}
+                        {statusData.pskReporterSpots != null && statusData.pskReporterSpots > 0 && (
+                          <StatusCard
+                            icon={Activity}
+                            label="PSK Spots"
+                            value={`${statusData.pskReporterSpots} reported`}
+                            color="#f59e0b"
+                          />
+                        )}
+
+                        {/* WSPR Spots */}
+                        {statusData.wsprSpots != null && statusData.wsprSpots > 0 && (
+                          <StatusCard
+                            icon={Activity}
+                            label="WSPR Spots"
+                            value={`${statusData.wsprSpots} reported`}
+                            color="#10b981"
+                          />
+                        )}
+                      </div>
+
+                      {/* SDR Hardware */}
+                      {statusData.sdrHardware && statusData.sdrHardware.length > 0 && (
+                        <div>
+                          <p className="text-[9px] font-mono text-white/40 uppercase tracking-wider mb-2">
+                            SDR Hardware ({statusData.sdrHardware.length})
+                          </p>
+                          <div className="space-y-1.5">
+                            {statusData.sdrHardware.map((sdr: any, i: number) => (
+                              <div key={i} className="flex items-center gap-2 p-1.5 rounded bg-white/[0.03] border border-white/5">
+                                <Antenna className="w-3 h-3 text-cyan-400/50 shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[9px] font-mono text-white/60 truncate">{sdr.name}</p>
+                                  <p className="text-[8px] font-mono text-white/30">
+                                    {sdr.type} · {sdr.profiles?.length || 0} profile{(sdr.profiles?.length || 0) !== 1 ? "s" : ""}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* ── WebSDR Status Details ── */}
+                  {receiverType === "WebSDR" && statusData.online && (
+                    <>
+                      {statusData.bands && statusData.bands.length > 0 && (
+                        <div>
+                          <p className="text-[9px] font-mono text-white/40 uppercase tracking-wider mb-2">
+                            Frequency Bands ({statusData.bands.length})
+                          </p>
+                          <div className="space-y-1">
+                            {statusData.bands.map((band: any, i: number) => (
+                              <div key={i} className="flex items-center gap-2 p-1.5 rounded bg-white/[0.03] border border-white/5">
+                                <Radio className="w-3 h-3 text-emerald-400/50 shrink-0" />
+                                <span className="text-[9px] font-mono text-white/60">
+                                  {band.min.toFixed(0)} – {band.max.toFixed(0)} kHz
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Note about SNR availability */}
+                  {!isKiwi && statusData.online && (
                     <div className="flex items-start gap-2 py-2 px-2 rounded bg-white/5 border border-white/5">
                       <Wifi className="w-3.5 h-3.5 text-cyan-400/50 shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-[10px] text-white/60">
-                          {receiverType} receivers don't expose a public status API.
-                        </p>
-                        <p className="text-[9px] text-white/30 mt-0.5">
-                          Detailed SNR data is available for KiwiSDR receivers only.
-                          Open the receiver to check live signal conditions.
-                        </p>
-                      </div>
+                      <p className="text-[9px] text-white/30">
+                        Band-by-band SNR data is available for KiwiSDR receivers only.
+                        Open the receiver embed to check live signal conditions.
+                      </p>
                     </div>
                   )}
 
