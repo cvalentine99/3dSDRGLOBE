@@ -3,7 +3,7 @@
  * Design: "Ether" — Dark atmospheric immersion
  * Full-viewport globe with floating UI overlays
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { RadioProvider, useRadio } from "@/contexts/RadioContext";
 import Globe from "@/components/Globe";
 import StationPanel from "@/components/StationPanel";
@@ -18,12 +18,14 @@ import KeyboardNavIndicator from "@/components/KeyboardNavIndicator";
 import MilitaryRfPanel from "@/components/MilitaryRfPanel";
 import AlertSettings from "@/components/AlertSettings";
 import WatchlistPanel from "@/components/WatchlistPanel";
+import PropagationOverlay from "@/components/PropagationOverlay";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { AnimatePresence } from "framer-motion";
 import { motion } from "framer-motion";
-import { Radar, Bell, Eye } from "lucide-react";
+import { Radar, Bell, Eye, Activity } from "lucide-react";
 import { getUnacknowledgedCount } from "@/lib/alertService";
 import { getWatchlistCount, getOnlineCount } from "@/lib/watchlistService";
+import type { IonosondeStation } from "@/lib/propagationService";
 
 const SPACE_BG = "https://private-us-east-1.manuscdn.com/sessionFile/vNaLpF1RBh0KpESEYFZ0O6/sandbox/jetyLTlTEnk4uuIRFGjEIW-img-1_1770744518000_na1fn_c3BhY2UtYmc.jpg?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvdk5hTHBGMVJCaDBLcEVTRVlGWjBPNi9zYW5kYm94L2pldHlMVGxURW5rNHV1SVJGR2pFSVctaW1nLTFfMTc3MDc0NDUxODAwMF9uYTFmbl9jM0JoWTJVdFltYy5qcGc~eC1vc3MtcHJvY2Vzcz1pbWFnZS9yZXNpemUsd18xOTIwLGhfMTkyMC9mb3JtYXQsd2VicC9xdWFsaXR5LHFfODAiLCJDb25kaXRpb24iOnsiRGF0ZUxlc3NUaGFuIjp7IkFXUzpFcG9jaFRpbWUiOjE3OTg3NjE2MDB9fX1dfQ__&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=oLsKLTDZuMfoSSrBgke-CjTMYV~7c6H6FjxCJ4T6rvv3cXvumKs9xEu4U9UsS1~PU3FHd-YJ-kfGKUTehPSvHy9u5Q0aGQ5~4lj0nLupUgiraYK7CvieHNb1nUVTSqW045sQZuXoUqptovMJaCgW9m6b6cVrk8mfKsAqPHKA1yFtO8Wj2RYeENPMvELvCyVIo~IjFn3jmIE6VO5MAAUaXr4fng1RicMAPHzysVpYWrvTsrp8ldVH02Z2oFtdcipjkIhAYJAeWNku9Hsg5RBcO8W9DrUMNFyKmW4Dq7LkBQ9XWUZo2lBZDfPHtNrKllwHc4xZUrX0tcNLIVRDxX0rCg__";
 
@@ -33,6 +35,8 @@ function HomeContent() {
   const [milRfOpen, setMilRfOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [watchlistOpen, setWatchlistOpen] = useState(false);
+  const [propVisible, setPropVisible] = useState(false);
+  const ionosondesRef = useRef<IonosondeStation[]>([]);
   const unackAlerts = getUnacknowledgedCount();
   const watchCount = getWatchlistCount();
   const watchOnline = getOnlineCount();
@@ -40,7 +44,6 @@ function HomeContent() {
   // Handle selecting a station from the watchlist panel
   const handleWatchlistSelect = useCallback(
     (coordinates: [number, number], label: string) => {
-      // Find the station matching these coordinates
       const station = filteredStations.find(
         (s) =>
           s.label === label &&
@@ -55,6 +58,10 @@ function HomeContent() {
     },
     [filteredStations, selectStation, setShowPanel]
   );
+
+  const handleIonosondesLoaded = useCallback((stations: IonosondeStation[]) => {
+    ionosondesRef.current = stations;
+  }, []);
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-background">
@@ -84,7 +91,7 @@ function HomeContent() {
       </AnimatePresence>
 
       {/* 3D Globe */}
-      <Globe />
+      <Globe ionosondes={propVisible ? ionosondesRef.current : []} />
 
       {/* Title / Branding */}
       <motion.div
@@ -94,7 +101,6 @@ function HomeContent() {
         className="absolute top-5 left-1/2 -translate-x-1/2 z-20 text-center pointer-events-none"
       >
         <div className="relative px-6 py-2">
-          {/* Dark backdrop behind title for readability */}
           <div className="absolute inset-0 rounded-xl bg-black/40 backdrop-blur-sm" />
           <div className="relative">
             <h1 className="text-xl font-semibold text-white tracking-tight drop-shadow-lg">
@@ -114,6 +120,24 @@ function HomeContent() {
         transition={{ delay: 1, duration: 0.5 }}
         className="absolute top-5 right-4 z-20 flex items-center gap-2"
       >
+        {/* Propagation Overlay Button */}
+        <button
+          onClick={() => setPropVisible(!propVisible)}
+          className={`relative flex items-center gap-2 px-3 py-2 rounded-lg backdrop-blur-md transition-all group ${
+            propVisible
+              ? 'bg-cyan-500/25 border border-cyan-500/40'
+              : 'bg-cyan-500/10 border border-cyan-500/20 hover:bg-cyan-500/20 hover:border-cyan-500/30'
+          }`}
+          title="HF Propagation Overlay"
+        >
+          <Activity className={`w-4 h-4 transition-colors ${propVisible ? 'text-cyan-300' : 'text-cyan-400 group-hover:text-cyan-300'}`} />
+          <span className={`text-[10px] font-mono uppercase tracking-wider transition-colors hidden sm:inline ${
+            propVisible ? 'text-cyan-200' : 'text-cyan-300/80 group-hover:text-cyan-200'
+          }`}>
+            Prop
+          </span>
+        </button>
+
         {/* Watchlist Button */}
         <button
           onClick={() => setWatchlistOpen(true)}
@@ -183,6 +207,14 @@ function HomeContent() {
             onSelectStation={handleWatchlistSelect}
           />
         )}
+      </AnimatePresence>
+
+      {/* Propagation Overlay Panel */}
+      <AnimatePresence>
+        <PropagationOverlay
+          visible={propVisible}
+          onIonosondesLoaded={handleIonosondesLoaded}
+        />
       </AnimatePresence>
 
       {/* Search & Filter */}

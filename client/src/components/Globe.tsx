@@ -11,6 +11,8 @@ import { useEffect, useRef, useCallback } from "react";
 import * as THREE from "three";
 import { useRadio } from "@/contexts/RadioContext";
 import type { Station } from "@/lib/types";
+import type { IonosondeStation } from "@/lib/propagationService";
+import { getMufColor, getFof2Color } from "@/lib/propagationService";
 
 function latLngToVector3(lat: number, lng: number, radius: number): THREE.Vector3 {
   const phi = (90 - lat) * (Math.PI / 180);
@@ -30,8 +32,13 @@ const TYPE_COLORS: Record<string, number> = {
 
 const GLOBE_RADIUS = 5;
 
-export default function Globe() {
+interface GlobeProps {
+  ionosondes?: IonosondeStation[];
+}
+
+export default function Globe({ ionosondes = [] }: GlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const ionoGroupRef = useRef<THREE.Group | null>(null);
   const sceneRef = useRef<{
     scene: THREE.Scene;
     camera: THREE.PerspectiveCamera;
@@ -199,6 +206,11 @@ export default function Globe() {
     // Marker group
     const markerGroup = new THREE.Group();
     scene.add(markerGroup);
+
+    // Ionosonde overlay group
+    const ionoGroup = new THREE.Group();
+    scene.add(ionoGroup);
+    ionoGroupRef.current = ionoGroup;
 
     // Ring group for selected station pulse
     const ringGroup = new THREE.Group();
@@ -631,6 +643,66 @@ export default function Globe() {
       }
     }
   }, [selectedStation, createRingPulse]);
+
+  // Render ionosonde markers on globe
+  useEffect(() => {
+    const ionoGroup = ionoGroupRef.current;
+    if (!ionoGroup) return;
+
+    // Clear existing ionosonde markers
+    while (ionoGroup.children.length > 0) {
+      const child = ionoGroup.children[0];
+      ionoGroup.remove(child);
+      if (child instanceof THREE.Mesh) {
+        child.geometry.dispose();
+        if (child.material instanceof THREE.Material) child.material.dispose();
+      }
+    }
+
+    if (ionosondes.length === 0) return;
+
+    // Diamond-shaped marker for ionosondes (rotated square)
+    const diamondGeo = new THREE.CircleGeometry(0.06, 4);
+
+    // Halo ring around each ionosonde
+    const haloGeo = new THREE.RingGeometry(0.08, 0.12, 16);
+
+    ionosondes.forEach((iono) => {
+      if (iono.mufd == null && iono.fof2 == null) return;
+      const colorStr = iono.mufd != null ? getMufColor(iono.mufd) : getFof2Color(iono.fof2!);
+      const color = new THREE.Color(colorStr);
+      const pos = latLngToVector3(iono.lat, iono.lon, GLOBE_RADIUS * 1.012);
+      const stale = iono.ageMinutes > 120;
+
+      // Diamond marker
+      const markerMat = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: stale ? 0.3 : 0.9,
+        side: THREE.DoubleSide,
+        depthTest: true,
+      });
+      const marker = new THREE.Mesh(diamondGeo, markerMat);
+      marker.position.copy(pos);
+      marker.lookAt(0, 0, 0);
+      // Rotate 45 degrees to make diamond shape
+      marker.rotateZ(Math.PI / 4);
+      ionoGroup.add(marker);
+
+      // Glow halo
+      const haloMat = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: stale ? 0.08 : 0.25,
+        side: THREE.DoubleSide,
+        depthTest: false,
+      });
+      const halo = new THREE.Mesh(haloGeo, haloMat);
+      halo.position.copy(pos);
+      halo.lookAt(0, 0, 0);
+      ionoGroup.add(halo);
+    });
+  }, [ionosondes]);
 
   // Auto-rotate globe to continent/region when globeTarget changes
   useEffect(() => {
