@@ -4,9 +4,15 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import { checkReceiverStatus, getStatusCacheSize, clearStatusCache } from "./receiverStatus";
+import {
+  startBatchPrecheck,
+  getBatchJobStatus,
+  getBatchResultsSince,
+  cancelBatchJob,
+  type BatchReceiver,
+} from "./batchPrecheck";
 
 export const appRouter = router({
-  // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
@@ -73,6 +79,58 @@ export const appRouter = router({
           };
         });
       }),
+
+    /**
+     * Start a batch pre-check job for all receivers.
+     * Processes receivers in throttled waves of 15 concurrent checks.
+     * Returns a jobId for polling results.
+     */
+    startBatchPrecheck: publicProcedure
+      .input(
+        z.object({
+          receivers: z.array(
+            z.object({
+              receiverUrl: z.string().url(),
+              receiverType: z.enum(["KiwiSDR", "OpenWebRX", "WebSDR"]),
+              stationLabel: z.string(),
+            })
+          ),
+        })
+      )
+      .mutation(({ input }) => {
+        const jobId = startBatchPrecheck(input.receivers as BatchReceiver[]);
+        return { jobId };
+      }),
+
+    /**
+     * Poll batch pre-check results.
+     * Returns all results accumulated so far, plus progress info.
+     */
+    batchPrecheckStatus: publicProcedure.query(() => {
+      return getBatchJobStatus();
+    }),
+
+    /**
+     * Poll incremental batch results since a given timestamp.
+     * More efficient than fetching all results every time.
+     */
+    batchPrecheckSince: publicProcedure
+      .input(
+        z.object({
+          since: z.number(),
+        })
+      )
+      .query(({ input }) => {
+        return getBatchResultsSince(input.since);
+      }),
+
+    /**
+     * Cancel the current batch pre-check job.
+     */
+    cancelBatchPrecheck: publicProcedure.mutation(() => {
+      cancelBatchJob();
+      return { cancelled: true };
+    }),
 
     /**
      * Get cache stats for monitoring.

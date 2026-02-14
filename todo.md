@@ -1,0 +1,7 @@
+- [x] Review current station data loading and Globe dot rendering architecture
+- [x] Build backend batch status pre-check endpoint with throttled concurrency
+- [x] Build frontend batch check trigger on globe load
+- [x] Update Globe dot colors in real-time as status results arrive
+- [x] Write vitest tests for batch endpoint
+- [x] Test end-to-end in browser
+- [x] Save checkpoint and push to GitHub
