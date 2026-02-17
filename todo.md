@@ -23,3 +23,8 @@
 - [x] Build tRPC endpoints for querying uptime history and trends
 - [x] Write vitest tests for persistence and query endpoints
 - [x] Save checkpoint and push to GitHub
+- [x] Review StationPanel structure and uptime endpoint
+- [x] Build UptimeSparkline component (SVG-based)
+- [x] Integrate sparklines into StationPanel for each receiver
+- [x] Test in browser and write vitest tests
+- [x] Save checkpoint and push to GitHub

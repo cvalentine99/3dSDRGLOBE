@@ -19,6 +19,7 @@ import {
 import { detectBands, BAND_DEFINITIONS } from "@/lib/types";
 import { useMemo, useState } from "react";
 import SignalStrength from "@/components/SignalStrength";
+import UptimeSparkline from "@/components/UptimeSparkline";
 import SigintLogViewer from "@/components/SigintLogViewer";
 import {
   crossReferenceFrequencies,
@@ -256,6 +257,10 @@ export default function StationPanel() {
                             </span>
                           )}
                         </div>
+                        {/* Uptime sparkline */}
+                        <div className="mt-2">
+                          <UptimeSparkline receiverUrl={receiver.url} compact />
+                        </div>
                       </div>
                       <ChevronRight className={`w-4 h-4 mt-1 shrink-0 transition-transform ${
                         isSelected ? "text-primary" : "text-muted-foreground group-hover:translate-x-0.5"
@@ -275,6 +280,13 @@ export default function StationPanel() {
                   stationLabel={selectedStation.label}
                   onOpenLog={() => setShowLogViewer(true)}
                 />
+              </div>
+            )}
+
+            {/* Detailed Uptime History */}
+            {selectedReceiver && (
+              <div className="px-4 pb-3 border-b border-white/5">
+                <UptimeSparkline receiverUrl={selectedReceiver.url} hoursBack={24} />
               </div>
             )}
 
