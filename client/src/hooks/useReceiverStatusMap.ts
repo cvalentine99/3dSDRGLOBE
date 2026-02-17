@@ -2,6 +2,9 @@
  * useReceiverStatusMap — Hook that triggers batch pre-check on load
  * and polls for results, exposing a Map<normalizedUrl, online> for
  * the Globe component to color dots green/red.
+ *
+ * Also handles auto-refresh: when the server starts a new 30-min cycle,
+ * this hook detects the new results and updates the globe automatically.
  */
 import { useState, useEffect, useRef, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
@@ -12,6 +15,13 @@ export interface ReceiverStatusEntry {
   checkedAt: number;
 }
 
+export interface AutoRefreshInfo {
+  active: boolean;
+  cycleCount: number;
+  nextRefreshAt: number | null;
+  lastRefreshCompletedAt: number | null;
+}
+
 // Normalize URL to match backend cache keys
 function normalizeUrl(url: string): string {
   return url.replace(/\/+$/, "");
@@ -20,17 +30,27 @@ function normalizeUrl(url: string): string {
 export function useReceiverStatusMap(stations: Station[], loading: boolean) {
   const [statusMap, setStatusMap] = useState<Map<string, ReceiverStatusEntry>>(new Map());
   const [progress, setProgress] = useState({ checked: 0, total: 0, running: false });
+  const [autoRefresh, setAutoRefresh] = useState<AutoRefreshInfo>({
+    active: false,
+    cycleCount: 0,
+    nextRefreshAt: null,
+    lastRefreshCompletedAt: null,
+  });
   const jobStartedRef = useRef(false);
   const pollSinceRef = useRef(0);
+  const lastCycleCountRef = useRef(0);
 
   const startMutation = trpc.receiver.startBatchPrecheck.useMutation();
 
-  // Poll for incremental results
+  // Poll for incremental results — keep polling even after initial scan
+  // completes so we pick up auto-refresh results
   const pollQuery = trpc.receiver.batchPrecheckSince.useQuery(
     { since: pollSinceRef.current },
     {
-      enabled: progress.running || (jobStartedRef.current && progress.checked < progress.total),
-      refetchInterval: 2000, // Poll every 2 seconds
+      enabled: jobStartedRef.current,
+      // Poll every 2s while a batch is running, every 30s when idle
+      // (to detect auto-refresh cycles starting)
+      refetchInterval: progress.running ? 2000 : 30000,
       refetchIntervalInBackground: false,
     }
   );
@@ -74,7 +94,20 @@ export function useReceiverStatusMap(stations: Station[], loading: boolean) {
   useEffect(() => {
     if (!pollQuery.data) return;
 
-    const { results, checked, total, running } = pollQuery.data;
+    const { results, checked, total, running, autoRefresh: arStatus } = pollQuery.data;
+
+    // Detect a new auto-refresh cycle starting
+    if (arStatus && arStatus.cycleCount > lastCycleCountRef.current) {
+      console.log(
+        `[AutoRefresh] New cycle detected: #${arStatus.cycleCount}`
+      );
+      lastCycleCountRef.current = arStatus.cycleCount;
+    }
+
+    // Update auto-refresh info
+    if (arStatus) {
+      setAutoRefresh(arStatus);
+    }
 
     // Merge new results into the status map
     const newEntries = Object.entries(results);
@@ -128,6 +161,7 @@ export function useReceiverStatusMap(stations: Station[], loading: boolean) {
   return {
     statusMap,
     progress,
+    autoRefresh,
     getStatus,
     isStationOnline,
   };

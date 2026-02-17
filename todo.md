@@ -10,3 +10,9 @@
 - [x] Fix backend status checker to use correct APIs for ALL receiver types (no HEAD-only checks)
 - [x] Test with real receivers and verify correct data returned
 - [x] Save checkpoint and push to GitHub
+- [x] Review current batch pre-check architecture
+- [x] Implement server-side auto-refresh scheduler (30-min interval)
+- [x] Store receiver URLs server-side so auto-refresh doesn't depend on frontend
+- [x] Update frontend to poll for fresh results and update globe dots automatically
+- [x] Write vitest tests for auto-refresh
+- [x] Save checkpoint and push to GitHub
