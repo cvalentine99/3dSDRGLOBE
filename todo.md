@@ -16,3 +16,10 @@
 - [x] Update frontend to poll for fresh results and update globe dots automatically
 - [x] Write vitest tests for auto-refresh
 - [x] Save checkpoint and push to GitHub
+- [x] Review current schema and scan data structure
+- [x] Design and create database tables for receiver status history
+- [x] Push database migration
+- [x] Build server-side persistence — save results after each batch cycle
+- [x] Build tRPC endpoints for querying uptime history and trends
+- [x] Write vitest tests for persistence and query endpoints
+- [x] Save checkpoint and push to GitHub

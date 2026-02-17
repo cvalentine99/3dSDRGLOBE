@@ -3,10 +3,11 @@
  *
  * Stores the receiver list from the first batch pre-check and
  * automatically re-scans all receivers every REFRESH_INTERVAL_MS.
+ * After each scan completes, results are persisted to the database.
  *
  * Architecture:
  * 1. First batch pre-check from frontend registers the receiver list
- * 2. After the first scan completes, the scheduler starts a 30-min timer
+ * 2. After the first scan completes, results are persisted to DB, then scheduler starts
  * 3. On each tick, it clears stale cache entries and re-runs the batch
  * 4. Frontend polls pick up fresh results automatically
  * 5. The cycle counter tracks how many auto-refresh cycles have completed
@@ -18,6 +19,10 @@ import {
   type BatchReceiver,
 } from "./batchPrecheck";
 import { clearStatusCache } from "./receiverStatus";
+import {
+  persistScanResults,
+  type ScanResultForPersistence,
+} from "./statusPersistence";
 
 /* ── Configuration ────────────────────────────────── */
 
@@ -34,6 +39,8 @@ let lastRefreshStartedAt: number | null = null;
 let lastRefreshCompletedAt: number | null = null;
 let nextRefreshAt: number | null = null;
 let isSchedulerActive = false;
+let currentCycleStartedAt: number | null = null;
+let currentJobId: string | null = null;
 
 /* ── Public API ───────────────────────────────────── */
 
@@ -46,6 +53,7 @@ let isSchedulerActive = false;
 export function registerReceiversForAutoRefresh(receivers: BatchReceiver[]): void {
   // Store the receiver list (deduplicated by batchPrecheck.ts)
   storedReceivers = receivers;
+  currentCycleStartedAt = Date.now();
 
   console.log(
     `[AutoRefresh] Registered ${receivers.length} receivers for auto-refresh`
@@ -123,12 +131,14 @@ export function resetAutoRefreshState(): void {
   lastRefreshCompletedAt = null;
   nextRefreshAt = null;
   isSchedulerActive = false;
+  currentCycleStartedAt = null;
+  currentJobId = null;
 }
 
 /* ── Internal ─────────────────────────────────────── */
 
 /**
- * Watch for the current batch job to complete, then start the scheduler.
+ * Watch for the current batch job to complete, then persist results and start the scheduler.
  */
 function startCompletionWatcher(): void {
   // Clear any existing watcher
@@ -139,17 +149,66 @@ function startCompletionWatcher(): void {
   completionChecker = setInterval(() => {
     const status = getBatchJobStatus();
 
-    // If the batch is done (not running and has results), start the timer
+    // If the batch is done (not running and has results), persist and start the timer
     if (!status.running && status.checked > 0 && status.checked >= status.total) {
       if (completionChecker) {
         clearInterval(completionChecker);
         completionChecker = null;
       }
 
-      lastRefreshCompletedAt = Date.now();
+      const completedAt = Date.now();
+      lastRefreshCompletedAt = completedAt;
+
+      // Persist scan results to the database
+      persistCompletedScan(status, completedAt);
+
       startScheduler();
     }
   }, COMPLETION_CHECK_INTERVAL_MS);
+}
+
+/**
+ * Persist the completed scan results to the database.
+ */
+async function persistCompletedScan(
+  status: ReturnType<typeof getBatchJobStatus>,
+  completedAt: number
+): Promise<void> {
+  try {
+    // Build the persistence data from the batch results + stored receivers
+    const results: ScanResultForPersistence[] = [];
+
+    // Create a lookup from stored receivers for station labels and types
+    const receiverLookup = new Map<string, BatchReceiver>();
+    for (const r of storedReceivers) {
+      const key = r.receiverUrl.replace(/\/+$/, "");
+      receiverLookup.set(key, r);
+    }
+
+    // Map batch results to persistence format
+    for (const [url, result] of Object.entries(status.results)) {
+      const receiver = receiverLookup.get(url);
+      results.push({
+        receiverUrl: receiver?.receiverUrl || url,
+        receiverType: (receiver?.receiverType || "KiwiSDR") as "KiwiSDR" | "OpenWebRX" | "WebSDR",
+        stationLabel: receiver?.stationLabel || "Unknown",
+        online: result.online,
+        checkedAt: result.checkedAt,
+      });
+    }
+
+    const cycleId = currentJobId || status.jobId || `cycle-${completedAt}`;
+    const startedAt = currentCycleStartedAt || (completedAt - 60000); // fallback
+
+    await persistScanResults(results, {
+      cycleId,
+      cycleNumber: cycleCount,
+      startedAt,
+      completedAt,
+    });
+  } catch (err: any) {
+    console.error("[AutoRefresh] Failed to persist scan results:", err.message);
+  }
 }
 
 /**
@@ -189,6 +248,7 @@ function startScheduler(): void {
 function runRefreshCycle(): void {
   cycleCount++;
   lastRefreshStartedAt = Date.now();
+  currentCycleStartedAt = Date.now();
   nextRefreshAt = Date.now() + REFRESH_INTERVAL_MS;
 
   console.log(
@@ -201,9 +261,10 @@ function runRefreshCycle(): void {
 
   // Start a new batch pre-check with the stored receiver list
   const jobId = startBatchPrecheck(storedReceivers);
+  currentJobId = jobId;
 
   console.log(`[AutoRefresh] Batch job ${jobId} started`);
 
-  // Watch for completion to update lastRefreshCompletedAt
+  // Watch for completion to persist results and update lastRefreshCompletedAt
   startCompletionWatcher();
 }

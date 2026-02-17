@@ -17,6 +17,12 @@ import {
   stopAutoRefresh,
   forceRefresh,
 } from "./autoRefresh";
+import {
+  getAllReceiverStatuses,
+  getReceiverHistory,
+  getRecentScanCycles,
+  getAggregateStats,
+} from "./statusPersistence";
 
 export const appRouter = router({
   system: systemRouter,
@@ -185,6 +191,57 @@ export const appRouter = router({
       return {
         cacheSize: getStatusCacheSize(),
       };
+    }),
+  }),
+
+  /**
+   * Uptime history and trend endpoints.
+   * Query persisted scan data from the database.
+   */
+  uptime: router({
+    /**
+     * Get all receivers with their latest status and uptime percentages.
+     * Used for the main receiver list with uptime badges.
+     */
+    allReceivers: publicProcedure.query(async () => {
+      return await getAllReceiverStatuses();
+    }),
+
+    /**
+     * Get status history for a specific receiver over a time range.
+     * Used for rendering uptime trend sparklines/charts.
+     */
+    receiverHistory: publicProcedure
+      .input(
+        z.object({
+          receiverUrl: z.string(),
+          hoursBack: z.number().min(1).max(720).default(24), // 1 hour to 30 days
+        })
+      )
+      .query(async ({ input }) => {
+        return await getReceiverHistory(input.receiverUrl, input.hoursBack);
+      }),
+
+    /**
+     * Get recent scan cycle summaries.
+     * Used for the scan history timeline.
+     */
+    recentScans: publicProcedure
+      .input(
+        z.object({
+          limit: z.number().min(1).max(200).default(48),
+        })
+      )
+      .query(async ({ input }) => {
+        return await getRecentScanCycles(input.limit);
+      }),
+
+    /**
+     * Get aggregate stats across all receivers.
+     * Used for the dashboard overview.
+     */
+    aggregateStats: publicProcedure.query(async () => {
+      return await getAggregateStats();
     }),
   }),
 });
