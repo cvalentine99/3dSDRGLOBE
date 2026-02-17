@@ -11,6 +11,12 @@ import {
   cancelBatchJob,
   type BatchReceiver,
 } from "./batchPrecheck";
+import {
+  registerReceiversForAutoRefresh,
+  getAutoRefreshStatus,
+  stopAutoRefresh,
+  forceRefresh,
+} from "./autoRefresh";
 
 export const appRouter = router({
   system: systemRouter,
@@ -83,6 +89,7 @@ export const appRouter = router({
     /**
      * Start a batch pre-check job for all receivers.
      * Processes receivers in throttled waves of 15 concurrent checks.
+     * Also registers the receiver list for auto-refresh (every 30 min).
      * Returns a jobId for polling results.
      */
     startBatchPrecheck: publicProcedure
@@ -98,7 +105,12 @@ export const appRouter = router({
         })
       )
       .mutation(({ input }) => {
-        const jobId = startBatchPrecheck(input.receivers as BatchReceiver[]);
+        const receivers = input.receivers as BatchReceiver[];
+        const jobId = startBatchPrecheck(receivers);
+
+        // Register receivers for auto-refresh scheduler
+        registerReceiversForAutoRefresh(receivers);
+
         return { jobId };
       }),
 
@@ -113,6 +125,8 @@ export const appRouter = router({
     /**
      * Poll incremental batch results since a given timestamp.
      * More efficient than fetching all results every time.
+     * Also returns auto-refresh metadata so the frontend knows
+     * when the next cycle will happen.
      */
     batchPrecheckSince: publicProcedure
       .input(
@@ -121,7 +135,17 @@ export const appRouter = router({
         })
       )
       .query(({ input }) => {
-        return getBatchResultsSince(input.since);
+        const batchResults = getBatchResultsSince(input.since);
+        const autoRefresh = getAutoRefreshStatus();
+        return {
+          ...batchResults,
+          autoRefresh: {
+            active: autoRefresh.active,
+            cycleCount: autoRefresh.cycleCount,
+            nextRefreshAt: autoRefresh.nextRefreshAt,
+            lastRefreshCompletedAt: autoRefresh.lastRefreshCompletedAt,
+          },
+        };
       }),
 
     /**
@@ -130,6 +154,28 @@ export const appRouter = router({
     cancelBatchPrecheck: publicProcedure.mutation(() => {
       cancelBatchJob();
       return { cancelled: true };
+    }),
+
+    /**
+     * Get auto-refresh scheduler status.
+     */
+    autoRefreshStatus: publicProcedure.query(() => {
+      return getAutoRefreshStatus();
+    }),
+
+    /**
+     * Force an immediate auto-refresh cycle.
+     */
+    forceRefresh: publicProcedure.mutation(() => {
+      return forceRefresh();
+    }),
+
+    /**
+     * Stop the auto-refresh scheduler.
+     */
+    stopAutoRefresh: publicProcedure.mutation(() => {
+      stopAutoRefresh();
+      return { stopped: true };
     }),
 
     /**
