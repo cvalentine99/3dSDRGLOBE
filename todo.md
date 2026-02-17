@@ -28,3 +28,4 @@
 - [x] Integrate sparklines into StationPanel for each receiver
 - [x] Test in browser and write vitest tests
 - [x] Save checkpoint and push to GitHub
+- [x] Add clickable external link icon to each receiver card to open web interface in new tab

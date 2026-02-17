@@ -262,9 +262,21 @@ export default function StationPanel() {
                           <UptimeSparkline receiverUrl={receiver.url} compact />
                         </div>
                       </div>
-                      <ChevronRight className={`w-4 h-4 mt-1 shrink-0 transition-transform ${
-                        isSelected ? "text-primary" : "text-muted-foreground group-hover:translate-x-0.5"
-                      }`} />
+                      <div className="flex flex-col items-center gap-1.5 shrink-0 mt-0.5">
+                        <a
+                          href={receiver.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-1 rounded-md hover:bg-white/10 transition-colors text-muted-foreground/50 hover:text-cyan-400"
+                          title="Open receiver in new tab"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                        <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${
+                          isSelected ? "text-primary" : "text-muted-foreground group-hover:translate-x-0.5"
+                        }`} />
+                      </div>
                     </div>
                   </button>
                 );
