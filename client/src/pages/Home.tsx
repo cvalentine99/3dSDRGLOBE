@@ -3,7 +3,7 @@
  * Design: "Ether" — Dark atmospheric immersion
  * Full-viewport globe with floating UI overlays
  */
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, Component, type ReactNode } from "react";
 import { RadioProvider, useRadio } from "@/contexts/RadioContext";
 import Globe from "@/components/Globe";
 import { useReceiverStatusMap } from "@/hooks/useReceiverStatusMap";
@@ -27,6 +27,45 @@ import { Radar, Bell, Eye, Activity } from "lucide-react";
 import { getUnacknowledgedCount } from "@/lib/alertService";
 import { getWatchlistCount, getOnlineCount } from "@/lib/watchlistService";
 import type { IonosondeStation } from "@/lib/propagationService";
+
+/** Local error boundary specifically for the Globe component to catch WebGL crashes */
+class GlobeErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error.message };
+  }
+  componentDidCatch(error: Error) {
+    console.error("[GlobeErrorBoundary] Caught WebGL/Three.js crash:", error);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="absolute inset-0 w-full h-full z-[5] flex items-center justify-center">
+          <div className="max-w-md text-center px-6 py-8 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/15 border border-red-500/25 flex items-center justify-center">
+              <svg className="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-semibold text-white/90 mb-2">3D Globe Crashed</h2>
+            <p className="text-sm text-white/50 mb-4">{this.state.error || "An unexpected error occurred in the 3D renderer."}</p>
+            <p className="text-xs text-white/30 mb-4">The rest of the app still works. Use the search panel or station list to browse receivers.</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 text-xs font-medium text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 rounded-lg hover:bg-cyan-500/20 transition-colors"
+            >
+              Reload Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const SPACE_BG = "https://private-us-east-1.manuscdn.com/sessionFile/vNaLpF1RBh0KpESEYFZ0O6/sandbox/jetyLTlTEnk4uuIRFGjEIW-img-1_1770744518000_na1fn_c3BhY2UtYmc.jpg?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvdk5hTHBGMVJCaDBLcEVTRVlGWjBPNi9zYW5kYm94L2pldHlMVGxURW5rNHV1SVJGR2pFSVctaW1nLTFfMTc3MDc0NDUxODAwMF9uYTFmbl9jM0JoWTJVdFltYy5qcGc~eC1vc3MtcHJvY2Vzcz1pbWFnZS9yZXNpemUsd18xOTIwLGhfMTkyMC9mb3JtYXQsd2VicC9xdWFsaXR5LHFfODAiLCJDb25kaXRpb24iOnsiRGF0ZUxlc3NUaGFuIjp7IkFXUzpFcG9jaFRpbWUiOjE3OTg3NjE2MDB9fX1dfQ__&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=oLsKLTDZuMfoSSrBgke-CjTMYV~7c6H6FjxCJ4T6rvv3cXvumKs9xEu4U9UsS1~PU3FHd-YJ-kfGKUTehPSvHy9u5Q0aGQ5~4lj0nLupUgiraYK7CvieHNb1nUVTSqW045sQZuXoUqptovMJaCgW9m6b6cVrk8mfKsAqPHKA1yFtO8Wj2RYeENPMvELvCyVIo~IjFn3jmIE6VO5MAAUaXr4fng1RicMAPHzysVpYWrvTsrp8ldVH02Z2oFtdcipjkIhAYJAeWNku9Hsg5RBcO8W9DrUMNFyKmW4Dq7LkBQ9XWUZo2lBZDfPHtNrKllwHc4xZUrX0tcNLIVRDxX0rCg__";
 
@@ -105,8 +144,10 @@ function HomeContent() {
         {loading && <LoadingScreen />}
       </AnimatePresence>
 
-      {/* 3D Globe */}
-      <Globe ionosondes={propVisible ? ionosondesRef.current : []} isStationOnline={isStationOnline} />
+      {/* 3D Globe — wrapped in local error boundary to isolate WebGL crashes */}
+      <GlobeErrorBoundary>
+        <Globe ionosondes={propVisible ? ionosondesRef.current : []} isStationOnline={isStationOnline} />
+      </GlobeErrorBoundary>
 
       {/* Batch pre-check progress / auto-refresh indicator */}
       <div className="absolute bottom-2 right-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/50 backdrop-blur-sm border border-white/10">

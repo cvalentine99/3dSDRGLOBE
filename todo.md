@@ -32,4 +32,5 @@
 - [x] Auto-detect receiver type from URL and apply optimal iframe embed settings
 - [x] Write vitest tests for receiver type auto-detection
 - [x] Test all receiver types in browser
-- [ ] Save checkpoint and push to GitHub
+- [x] Save checkpoint and push to GitHub
+- [x] Fix runtime crash on published site (WebGL context failure — added detection, try-catch, fallback UI, and local error boundary)

@@ -7,12 +7,23 @@
  * - Ring pulse effect on selected station
  * - Smooth orbit controls with auto-rotate
  */
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import * as THREE from "three";
 import { useRadio } from "@/contexts/RadioContext";
 import type { Station } from "@/lib/types";
 import type { IonosondeStation } from "@/lib/propagationService";
 import { getMufColor, getFof2Color } from "@/lib/propagationService";
+
+/** Detect whether the browser supports WebGL */
+function isWebGLAvailable(): boolean {
+  try {
+    const canvas = document.createElement("canvas");
+    const gl = canvas.getContext("webgl2") || canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+    return gl instanceof WebGLRenderingContext || gl instanceof WebGL2RenderingContext;
+  } catch {
+    return false;
+  }
+}
 
 function latLngToVector3(lat: number, lng: number, radius: number): THREE.Vector3 {
   const phi = (90 - lat) * (Math.PI / 180);
@@ -45,6 +56,7 @@ interface GlobeProps {
 export default function Globe({ ionosondes = [], isStationOnline }: GlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ionoGroupRef = useRef<THREE.Group | null>(null);
+  const [webglError, setWebglError] = useState<string | null>(null);
   const sceneRef = useRef<{
     scene: THREE.Scene;
     camera: THREE.PerspectiveCamera;
@@ -75,15 +87,29 @@ export default function Globe({ ionosondes = [], isStationOnline }: GlobeProps) 
     const width = container.clientWidth;
     const height = container.clientHeight;
 
+    // Pre-check WebGL availability before Three.js tries to create a context
+    if (!isWebGLAvailable()) {
+      setWebglError("WebGL is not available in your browser. Try closing other GPU-intensive tabs, updating your graphics drivers, or using a different browser.");
+      return;
+    }
+
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
     camera.position.set(0, 0, 14);
 
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: true,
-      powerPreference: "high-performance",
-    });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        powerPreference: "high-performance",
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown WebGL error";
+      console.error("[Globe] WebGL initialization failed:", message);
+      setWebglError(`WebGL initialization failed: ${message}. Try closing other tabs or restarting your browser.`);
+      return;
+    }
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -754,6 +780,30 @@ export default function Globe({ ionosondes = [], isStationOnline }: GlobeProps) 
 
     clearGlobeTarget();
   }, [globeTarget, clearGlobeTarget]);
+
+  // WebGL fallback UI
+  if (webglError) {
+    return (
+      <div className="absolute inset-0 w-full h-full z-[5] flex items-center justify-center bg-background">
+        <div className="max-w-md text-center px-6 py-8 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/15 border border-amber-500/25 flex items-center justify-center">
+            <svg className="w-8 h-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-semibold text-white/90 mb-2">3D Globe Unavailable</h2>
+          <p className="text-sm text-white/50 mb-4">{webglError}</p>
+          <p className="text-xs text-white/30">Use the search panel on the left or the station list to browse receivers.</p>
+          <button
+            onClick={() => { setWebglError(null); }}
+            className="mt-4 px-4 py-2 text-xs font-medium text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 rounded-lg hover:bg-cyan-500/20 transition-colors"
+          >
+            Retry WebGL
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
