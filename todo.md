@@ -1,0 +1,35 @@
+- [x] Review current station data loading and Globe dot rendering architecture
+- [x] Build backend batch status pre-check endpoint with throttled concurrency
+- [x] Build frontend batch check trigger on globe load
+- [x] Update Globe dot colors in real-time as status results arrive
+- [x] Write vitest tests for batch endpoint
+- [x] Test end-to-end in browser
+- [x] Save checkpoint and push to GitHub
+- [x] Research real OpenWebRX API endpoints by examining live receivers
+- [x] Research real WebSDR API endpoints by examining live receivers
+- [x] Fix backend status checker to use correct APIs for ALL receiver types (no HEAD-only checks)
+- [x] Test with real receivers and verify correct data returned
+- [x] Save checkpoint and push to GitHub
+- [x] Review current batch pre-check architecture
+- [x] Implement server-side auto-refresh scheduler (30-min interval)
+- [x] Store receiver URLs server-side so auto-refresh doesn't depend on frontend
+- [x] Update frontend to poll for fresh results and update globe dots automatically
+- [x] Write vitest tests for auto-refresh
+- [x] Save checkpoint and push to GitHub
+- [x] Review current schema and scan data structure
+- [x] Design and create database tables for receiver status history
+- [x] Push database migration
+- [x] Build server-side persistence — save results after each batch cycle
+- [x] Build tRPC endpoints for querying uptime history and trends
+- [x] Write vitest tests for persistence and query endpoints
+- [x] Save checkpoint and push to GitHub
+- [x] Review StationPanel structure and uptime endpoint
+- [x] Build UptimeSparkline component (SVG-based)
+- [x] Integrate sparklines into StationPanel for each receiver
+- [x] Test in browser and write vitest tests
+- [x] Save checkpoint and push to GitHub
+- [x] Add clickable external link icon to each receiver card to open web interface in new tab
+- [x] Auto-detect receiver type from URL and apply optimal iframe embed settings
+- [x] Write vitest tests for receiver type auto-detection
+- [x] Test all receiver types in browser
+- [ ] Save checkpoint and push to GitHub
