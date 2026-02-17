@@ -29,3 +29,7 @@
 - [x] Test in browser and write vitest tests
 - [x] Save checkpoint and push to GitHub
 - [x] Add clickable external link icon to each receiver card to open web interface in new tab
+- [x] Auto-detect receiver type from URL and apply optimal iframe embed settings
+- [x] Write vitest tests for receiver type auto-detection
+- [x] Test all receiver types in browser
+- [ ] Save checkpoint and push to GitHub

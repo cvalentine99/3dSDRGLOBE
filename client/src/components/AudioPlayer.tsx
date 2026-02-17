@@ -1,6 +1,6 @@
 /**
  * AudioPlayer.tsx — Enhanced receiver embed with smart auto-tune, quick-tune presets,
- * recording guidance, and click-to-start overlay
+ * recording guidance, auto-detection, and optimal iframe settings per receiver type
  * Design: "Ether" — frosted glass with cinematic controls
  */
 import { useRadio } from "@/contexts/RadioContext";
@@ -8,8 +8,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Radio, ExternalLink, X, Volume2, Globe, Play, Disc,
   ChevronDown, ChevronUp, Zap, Crosshair, Mic, Info,
+  Scan, Check, AlertTriangle,
 } from "lucide-react";
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   buildTunedUrl,
   suggestMode,
@@ -17,8 +18,14 @@ import {
   getRecordingInfo,
   QUICK_TUNE_PRESETS,
   parseFrequencyToKhz,
+  detectReceiverType,
+  getOptimalIframeConfig,
+  getClickToStartMessage,
   type SDRMode,
   type TuneParams,
+  type ReceiverTypeId,
+  type DetectionResult,
+  type IframeConfig,
 } from "@/lib/receiverUrls";
 import { crossReferenceFrequencies } from "@/lib/frequencyCrossRef";
 
@@ -40,6 +47,18 @@ const TYPE_BG: Record<string, string> = {
   WebSDR: "bg-primary/10",
 };
 
+const CONFIDENCE_COLORS: Record<string, string> = {
+  high: "text-green-400",
+  medium: "text-amber-400",
+  low: "text-red-400/70",
+};
+
+const CONFIDENCE_BG: Record<string, string> = {
+  high: "bg-green-400/10 border-green-400/20",
+  medium: "bg-amber-400/10 border-amber-400/20",
+  low: "bg-red-400/10 border-red-400/20",
+};
+
 export default function AudioPlayer() {
   const { selectedReceiver, selectedStation, selectStation, setShowPanel } = useRadio();
   const [showEmbed, setShowEmbed] = useState(false);
@@ -52,6 +71,25 @@ export default function AudioPlayer() {
   const [iframeKey, setIframeKey] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  // Auto-detect receiver type from URL
+  const detection: DetectionResult | null = useMemo(() => {
+    if (!selectedReceiver) return null;
+    return detectReceiverType(selectedReceiver.url, selectedReceiver.label);
+  }, [selectedReceiver]);
+
+  // Use the known type from data, but show detection result for verification
+  const effectiveType: ReceiverTypeId = selectedReceiver?.type as ReceiverTypeId || detection?.type || "KiwiSDR";
+
+  // Get optimal iframe config for the detected/known type
+  const iframeConfig: IframeConfig = useMemo(() => {
+    return getOptimalIframeConfig(effectiveType);
+  }, [effectiveType]);
+
+  // Get click-to-start message
+  const startMessage = useMemo(() => {
+    return getClickToStartMessage(effectiveType);
+  }, [effectiveType]);
+
   // Get military frequencies for this station
   const milFreqs = useMemo(() => {
     if (!selectedStation) return [];
@@ -62,16 +100,22 @@ export default function AudioPlayer() {
   const embedUrl = useMemo(() => {
     if (!selectedReceiver) return "";
     if (tuneParams) {
-      return buildTunedUrl(selectedReceiver.url, selectedReceiver.type, tuneParams);
+      return buildTunedUrl(selectedReceiver.url, effectiveType, tuneParams);
     }
     return selectedReceiver.url;
-  }, [selectedReceiver, tuneParams]);
+  }, [selectedReceiver, tuneParams, effectiveType]);
 
   // Recording info for current receiver type
   const recordingInfo = useMemo(() => {
     if (!selectedReceiver) return null;
-    return getRecordingInfo(selectedReceiver.type);
-  }, [selectedReceiver]);
+    return getRecordingInfo(effectiveType);
+  }, [selectedReceiver, effectiveType]);
+
+  // Reset iframe state when receiver changes
+  useEffect(() => {
+    setIframeStarted(false);
+    setIframeKey((k) => k + 1);
+  }, [selectedReceiver?.url]);
 
   // Tune to a specific frequency
   const tuneTo = useCallback((freqKhz: number, mode?: SDRMode) => {
@@ -113,7 +157,10 @@ export default function AudioPlayer() {
               exit={{ height: 0, opacity: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
               className="mb-2 glass-panel rounded-2xl overflow-hidden relative"
-              style={{ maxHeight: "600px", minHeight: "350px" }}
+              style={{
+                maxHeight: "600px",
+                minHeight: `${iframeConfig.minHeight}px`,
+              }}
             >
               {/* Embed header */}
               <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/5">
@@ -123,6 +170,19 @@ export default function AudioPlayer() {
                   {tuneParams && (
                     <span className="text-[10px] font-mono text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded-full">
                       {formatFrequency(tuneParams.frequencyKhz)} {tuneParams.mode?.toUpperCase()}
+                    </span>
+                  )}
+                  {/* Auto-detected type badge */}
+                  {detection && (
+                    <span
+                      className={`text-[9px] font-mono px-1.5 py-0.5 rounded-full border flex items-center gap-1 ${CONFIDENCE_BG[detection.confidence]}`}
+                      title={`Auto-detected: ${detection.reason}`}
+                    >
+                      <Scan className="w-2.5 h-2.5" />
+                      <span className={`${TYPE_COLOR[effectiveType]}`}>{effectiveType}</span>
+                      <span className={`${CONFIDENCE_COLORS[detection.confidence]}`}>
+                        {detection.confidence === "high" ? "✓" : detection.confidence === "medium" ? "~" : "?"}
+                      </span>
                     </span>
                   )}
                 </div>
@@ -309,7 +369,7 @@ export default function AudioPlayer() {
                 )}
               </AnimatePresence>
 
-              {/* Click-to-start overlay */}
+              {/* Click-to-start overlay with type-specific messaging */}
               {!iframeStarted && (
                 <div
                   className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-10 cursor-pointer"
@@ -321,34 +381,42 @@ export default function AudioPlayer() {
                       <Play className="w-10 h-10 text-primary ml-1" />
                     </div>
                     <div className="text-center">
-                      <p className="text-sm font-medium text-white/90">Click to Start Receiver</p>
+                      <p className="text-sm font-medium text-white/90">{startMessage.title}</p>
                       <p className="text-xs text-white/50 mt-1 max-w-xs">
-                        {selectedReceiver.type === "KiwiSDR"
-                          ? "The KiwiSDR interface will load. Click the waterfall to start audio."
-                          : selectedReceiver.type === "OpenWebRX"
-                          ? "OpenWebRX will load. Click the 'Start' button to begin streaming."
-                          : "WebSDR will load. Select a band and click the waterfall to tune."}
+                        {startMessage.subtitle}
                       </p>
                       {tuneParams && (
                         <p className="text-[10px] font-mono text-cyan-400/80 mt-2">
                           Pre-tuned to {formatFrequency(tuneParams.frequencyKhz)} {tuneParams.mode?.toUpperCase()}
                         </p>
                       )}
+                      {/* Type-specific tips */}
+                      <div className="mt-3 space-y-1">
+                        {iframeConfig.tips.slice(0, 2).map((tip, i) => (
+                          <p key={i} className="text-[9px] text-white/30 font-mono">
+                            {tip}
+                          </p>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Iframe */}
+              {/* Iframe with optimal settings per receiver type */}
               {iframeStarted && (
                 <iframe
                   key={iframeKey}
                   ref={iframeRef}
                   src={embedUrl}
-                  className="w-full"
+                  className={`w-full ${iframeConfig.containerClass}`}
                   style={{ height: "calc(100% - 41px)" }}
-                  title="Radio Receiver"
-                  sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                  title={`${effectiveType} Radio Receiver`}
+                  sandbox={iframeConfig.sandbox}
+                  allow={iframeConfig.allow}
+                  scrolling={iframeConfig.scrolling}
+                  loading={iframeConfig.loading}
+                  referrerPolicy={iframeConfig.referrerPolicy as React.HTMLAttributeReferrerPolicy}
                 />
               )}
             </motion.div>
@@ -360,12 +428,12 @@ export default function AudioPlayer() {
           {/* Station indicator */}
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <div className="relative">
-              <div className={`w-10 h-10 rounded-xl ${TYPE_BG[selectedReceiver.type] || "bg-primary/10"} flex items-center justify-center`}>
-                <Radio className={`w-5 h-5 ${TYPE_COLOR[selectedReceiver.type] || "text-primary"}`} />
+              <div className={`w-10 h-10 rounded-xl ${TYPE_BG[effectiveType] || "bg-primary/10"} flex items-center justify-center`}>
+                <Radio className={`w-5 h-5 ${TYPE_COLOR[effectiveType] || "text-primary"}`} />
               </div>
               {/* Pulsing live indicator */}
-              <div className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full ${TYPE_DOT[selectedReceiver.type] || "bg-primary"}`}>
-                <div className={`absolute inset-0 rounded-full ${TYPE_DOT[selectedReceiver.type] || "bg-primary"} animate-ping opacity-75`} />
+              <div className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full ${TYPE_DOT[effectiveType] || "bg-primary"}`}>
+                <div className={`absolute inset-0 rounded-full ${TYPE_DOT[effectiveType] || "bg-primary"} animate-ping opacity-75`} />
               </div>
             </div>
             <div className="min-w-0">
@@ -374,8 +442,24 @@ export default function AudioPlayer() {
               </p>
               <div className="flex items-center gap-2">
                 <p className="text-xs text-muted-foreground truncate font-mono">
-                  {selectedReceiver.type} • {selectedReceiver.version || "Live"}
+                  {effectiveType} • {selectedReceiver.version || "Live"}
                 </p>
+                {/* Detection confidence indicator */}
+                {detection && detection.type === selectedReceiver.type && detection.confidence === "high" && (
+                  <span className="text-[8px] font-mono text-green-400/50 flex items-center gap-0.5" title={detection.reason}>
+                    <Check className="w-2.5 h-2.5" />
+                    verified
+                  </span>
+                )}
+                {detection && detection.type !== selectedReceiver.type && (
+                  <span
+                    className="text-[8px] font-mono text-amber-400/50 flex items-center gap-0.5"
+                    title={`URL pattern suggests ${detection.type} (${detection.reason}), but data says ${selectedReceiver.type}`}
+                  >
+                    <AlertTriangle className="w-2.5 h-2.5" />
+                    type mismatch
+                  </span>
+                )}
                 {tuneParams && (
                   <span className="text-[9px] font-mono text-cyan-400/80 bg-cyan-400/10 border border-cyan-400/15 px-1.5 py-0.5 rounded-full shrink-0">
                     {formatFrequency(tuneParams.frequencyKhz)}

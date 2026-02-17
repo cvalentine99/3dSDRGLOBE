@@ -1,8 +1,11 @@
 /**
- * receiverUrls.ts — Smart URL builder for SDR receivers
+ * receiverUrls.ts — Smart URL builder and auto-detection for SDR receivers
  * 
  * Builds auto-tuned URLs for KiwiSDR, OpenWebRX, and WebSDR receivers
  * with frequency, mode, and other parameters pre-filled.
+ * 
+ * Auto-detects receiver type from URL patterns (port, hostname, path)
+ * and provides optimal iframe embed configuration per type.
  * 
  * KiwiSDR:   http://host:port/#f=<freq_kHz><mode>,z=<zoom>
  * OpenWebRX: http://host:port/#freq=<freq_Hz>&mod=<mode>
@@ -11,11 +14,285 @@
 
 export type SDRMode = "am" | "amn" | "usb" | "lsb" | "cw" | "cwn" | "nbfm" | "wfm" | "iq" | "drm";
 
+export type ReceiverTypeId = "KiwiSDR" | "OpenWebRX" | "WebSDR";
+
 export interface TuneParams {
   frequencyKhz: number;
   mode?: SDRMode;
   zoom?: number;  // KiwiSDR only: 0-14
 }
+
+/* ── Auto-Detection ─────────────────────────────────── */
+
+/**
+ * Detection result with confidence level.
+ * High confidence = strong URL signal (e.g., "kiwisdr" in hostname).
+ * Medium = port-based heuristic.
+ * Low = fallback guess.
+ */
+export interface DetectionResult {
+  type: ReceiverTypeId;
+  confidence: "high" | "medium" | "low";
+  reason: string;
+}
+
+/**
+ * Auto-detect receiver type from a URL.
+ * 
+ * Uses a multi-signal scoring approach:
+ *   1. Hostname keywords (kiwisdr, openwebrx, owrx, websdr)
+ *   2. Path keywords (/owrx, /openwebrx, /websdr)
+ *   3. Port heuristics (8073 = likely KiwiSDR, 890x = likely WebSDR)
+ *   4. Receiver label text (if provided)
+ * 
+ * Returns the most likely type with a confidence level.
+ */
+export function detectReceiverType(
+  url: string,
+  label?: string
+): DetectionResult {
+  try {
+    const parsed = new URL(url);
+    const host = (parsed.hostname || "").toLowerCase();
+    const path = (parsed.pathname || "").toLowerCase();
+    const port = parsed.port ? parseInt(parsed.port, 10) : (parsed.protocol === "https:" ? 443 : 80);
+    const labelLower = (label || "").toLowerCase();
+
+    // ── 1. Hostname keywords (highest confidence) ──
+    if (host.includes("kiwisdr") || host.includes("kiwi-sdr")) {
+      return { type: "KiwiSDR", confidence: "high", reason: "hostname contains 'kiwisdr'" };
+    }
+    if (host.includes("openwebrx") || host.includes("owrx")) {
+      return { type: "OpenWebRX", confidence: "high", reason: "hostname contains 'openwebrx/owrx'" };
+    }
+    if (host.includes("websdr") && !host.includes("openwebrx")) {
+      // "websdr" in hostname but NOT "openwebrx" (some OpenWebRX instances use websdr.* domains)
+      // Check if port suggests OpenWebRX
+      if (port === 8073 || port === 8074 || port === 8076 || port === 8077) {
+        return { type: "OpenWebRX", confidence: "medium", reason: "websdr hostname but OpenWebRX-typical port" };
+      }
+      return { type: "WebSDR", confidence: "high", reason: "hostname contains 'websdr'" };
+    }
+
+    // ── 2. Path keywords ──
+    if (path.includes("/owrx") || path.includes("/openwebrx")) {
+      return { type: "OpenWebRX", confidence: "high", reason: "path contains '/owrx' or '/openwebrx'" };
+    }
+    if (path.includes("/websdr")) {
+      return { type: "WebSDR", confidence: "high", reason: "path contains '/websdr'" };
+    }
+
+    // ── 3. Label text (medium confidence) ──
+    if (labelLower.includes("kiwisdr") || labelLower.includes("kiwi sdr")) {
+      return { type: "KiwiSDR", confidence: "medium", reason: "label mentions KiwiSDR" };
+    }
+    if (labelLower.includes("openwebrx") || labelLower.includes("owrx")) {
+      return { type: "OpenWebRX", confidence: "medium", reason: "label mentions OpenWebRX" };
+    }
+    if (labelLower.includes("websdr") || labelLower.includes("web sdr")) {
+      return { type: "WebSDR", confidence: "medium", reason: "label mentions WebSDR" };
+    }
+
+    // ── 4. Port heuristics (medium confidence) ──
+    // Port 8901-8910: almost exclusively WebSDR (56 WebSDR vs 3 OpenWebRX in dataset)
+    if (port >= 8901 && port <= 8910) {
+      return { type: "WebSDR", confidence: "medium", reason: `port ${port} is typical for WebSDR` };
+    }
+    // Port 8073: shared between KiwiSDR (730) and OpenWebRX (181) — lean KiwiSDR
+    if (port === 8073) {
+      return { type: "KiwiSDR", confidence: "medium", reason: "port 8073 is the default KiwiSDR port" };
+    }
+    // Port 8074-8079: mostly KiwiSDR (63+28+8+7+4+3 = 113 KiwiSDR vs ~30 OpenWebRX)
+    if (port >= 8074 && port <= 8079) {
+      return { type: "KiwiSDR", confidence: "medium", reason: `port ${port} is commonly used by KiwiSDR` };
+    }
+    // Port 8080-8090: mixed, but OpenWebRX slightly more common
+    if (port >= 8080 && port <= 8090) {
+      return { type: "OpenWebRX", confidence: "low", reason: `port ${port} — could be OpenWebRX or WebSDR` };
+    }
+    // Port 8100: WebSDR sometimes
+    if (port === 8100) {
+      return { type: "WebSDR", confidence: "low", reason: "port 8100 sometimes used by WebSDR" };
+    }
+
+    // ── 5. Default fallback ──
+    // Standard HTTP ports with no other signals — most common is OpenWebRX on 80/443
+    if (port === 80 || port === 443) {
+      return { type: "OpenWebRX", confidence: "low", reason: "standard port with no distinguishing signals" };
+    }
+
+    return { type: "KiwiSDR", confidence: "low", reason: "no distinguishing signals found" };
+  } catch {
+    return { type: "KiwiSDR", confidence: "low", reason: "could not parse URL" };
+  }
+}
+
+/* ── Optimal Iframe Configuration ───────────────────── */
+
+/**
+ * Iframe configuration optimized for each receiver type.
+ * Each receiver has different requirements for sandbox permissions,
+ * feature policies, and display characteristics.
+ */
+export interface IframeConfig {
+  /** Sandbox attribute string for the iframe */
+  sandbox: string;
+  /** Allow attribute string for feature policies */
+  allow: string;
+  /** Recommended minimum height in pixels */
+  minHeight: number;
+  /** Recommended aspect ratio (width:height) */
+  aspectRatio: string;
+  /** Whether to enable scrolling in the iframe */
+  scrolling: "auto" | "yes" | "no";
+  /** Loading strategy */
+  loading: "eager" | "lazy";
+  /** CSS class for the iframe container */
+  containerClass: string;
+  /** Description of what the user will see */
+  description: string;
+  /** Tips for optimal usage */
+  tips: string[];
+  /** Whether the receiver supports audio autoplay */
+  supportsAutoplay: boolean;
+  /** Whether the receiver needs user interaction to start */
+  needsClickToStart: boolean;
+  /** Referrer policy */
+  referrerPolicy: string;
+}
+
+/**
+ * Get optimal iframe configuration for a receiver type.
+ * 
+ * Each receiver type has different technical requirements:
+ * 
+ * - **KiwiSDR**: Needs audio context, WebSocket, and canvas for waterfall display.
+ *   Uses a custom JavaScript audio pipeline. Requires allow-scripts and allow-same-origin.
+ *   The waterfall display is canvas-based and benefits from larger viewport.
+ * 
+ * - **OpenWebRX**: Modern web app using WebSocket audio streaming and HTML5 canvas.
+ *   Needs audio context, WebSocket, and sometimes WebGL for spectrum display.
+ *   More responsive layout that adapts to container size.
+ * 
+ * - **WebSDR**: Classic Java-applet-era design using HTML5 audio and canvas waterfall.
+ *   Simpler requirements but needs forms for frequency input and mode selection.
+ *   Fixed-width layout that may need scrolling.
+ */
+export function getOptimalIframeConfig(receiverType: ReceiverTypeId): IframeConfig {
+  switch (receiverType) {
+    case "KiwiSDR":
+      return {
+        sandbox: "allow-scripts allow-same-origin allow-popups allow-forms allow-modals",
+        allow: "autoplay; microphone; fullscreen; web-share",
+        minHeight: 500,
+        aspectRatio: "16/9",
+        scrolling: "auto",
+        loading: "eager",
+        containerClass: "kiwisdr-embed",
+        description: "KiwiSDR waterfall display with real-time spectrum analysis",
+        tips: [
+          "Click the waterfall to tune to a frequency",
+          "Use the zoom slider to narrow the displayed bandwidth",
+          "The REC button records audio in WAV format",
+          "Keyboard: arrow keys adjust frequency, +/- adjusts zoom",
+        ],
+        supportsAutoplay: false,
+        needsClickToStart: true,
+        referrerPolicy: "no-referrer-when-downgrade",
+      };
+
+    case "OpenWebRX":
+      return {
+        sandbox: "allow-scripts allow-same-origin allow-popups allow-forms allow-modals",
+        allow: "autoplay; microphone; fullscreen; web-share",
+        minHeight: 450,
+        aspectRatio: "16/10",
+        scrolling: "auto",
+        loading: "eager",
+        containerClass: "openwebrx-embed",
+        description: "OpenWebRX spectrum display with digital mode decoding",
+        tips: [
+          "Click the spectrum to tune — drag to adjust bandwidth",
+          "Select mode (AM/USB/LSB/CW/NFM) from the controls",
+          "Digital modes (FT8, WSPR) decode automatically when selected",
+          "The secondary receiver panel allows monitoring two frequencies",
+        ],
+        supportsAutoplay: false,
+        needsClickToStart: true,
+        referrerPolicy: "no-referrer-when-downgrade",
+      };
+
+    case "WebSDR":
+      return {
+        sandbox: "allow-scripts allow-same-origin allow-popups allow-forms",
+        allow: "autoplay; fullscreen",
+        minHeight: 400,
+        aspectRatio: "4/3",
+        scrolling: "yes",
+        loading: "eager",
+        containerClass: "websdr-embed",
+        description: "WebSDR receiver with band selection and waterfall display",
+        tips: [
+          "Select a band from the tabs at the top",
+          "Click the waterfall to tune to a signal",
+          "Type a frequency in the input box and press Enter",
+          "Use the 'Audio recording: Start' button to record",
+        ],
+        supportsAutoplay: false,
+        needsClickToStart: true,
+        referrerPolicy: "no-referrer-when-downgrade",
+      };
+
+    default:
+      return {
+        sandbox: "allow-scripts allow-same-origin allow-popups allow-forms",
+        allow: "autoplay; fullscreen",
+        minHeight: 400,
+        aspectRatio: "16/9",
+        scrolling: "auto",
+        loading: "eager",
+        containerClass: "generic-embed",
+        description: "SDR receiver",
+        tips: ["Open in a new tab for the best experience"],
+        supportsAutoplay: false,
+        needsClickToStart: true,
+        referrerPolicy: "no-referrer-when-downgrade",
+      };
+  }
+}
+
+/**
+ * Get a human-readable click-to-start message for each receiver type.
+ */
+export function getClickToStartMessage(receiverType: ReceiverTypeId): {
+  title: string;
+  subtitle: string;
+} {
+  switch (receiverType) {
+    case "KiwiSDR":
+      return {
+        title: "Click to Load KiwiSDR",
+        subtitle: "The KiwiSDR waterfall interface will load. Click the spectrum to start listening.",
+      };
+    case "OpenWebRX":
+      return {
+        title: "Click to Load OpenWebRX",
+        subtitle: "OpenWebRX will load with spectrum display. Click 'Start' or the waterfall to begin.",
+      };
+    case "WebSDR":
+      return {
+        title: "Click to Load WebSDR",
+        subtitle: "WebSDR will load. Select a band tab and click the waterfall to tune and listen.",
+      };
+    default:
+      return {
+        title: "Click to Load Receiver",
+        subtitle: "The receiver interface will load. Follow on-screen instructions to start listening.",
+      };
+  }
+}
+
+/* ── Mode Mapping ───────────────────────────────────── */
 
 /**
  * Suggest the best mode for a given frequency in kHz
@@ -60,6 +337,8 @@ function websdrMode(mode: SDRMode): string {
   };
   return map[mode] || "am";
 }
+
+/* ── URL Builders ───────────────────────────────────── */
 
 /**
  * Build a tuned URL for a KiwiSDR receiver
@@ -110,6 +389,8 @@ export function buildTunedUrl(
   }
 }
 
+/* ── Display Helpers ────────────────────────────────── */
+
 /**
  * Format frequency for display
  */
@@ -140,6 +421,8 @@ export function parseFrequencyToKhz(freqStr: string): number | null {
   }
   return null;
 }
+
+/* ── Recording Info ─────────────────────────────────── */
 
 /**
  * Recording capabilities per receiver type
@@ -203,6 +486,8 @@ export function getRecordingInfo(receiverType: string): RecordingInfo {
       };
   }
 }
+
+/* ── Quick Tune Presets ─────────────────────────────── */
 
 /**
  * Common amateur/broadcast frequencies for quick-tune presets
