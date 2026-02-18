@@ -13,6 +13,7 @@ import {
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   buildTunedUrl,
+  appendKiwiIdentToUrl,
   suggestMode,
   formatFrequency,
   getRecordingInfo,
@@ -118,10 +119,16 @@ export default function AudioPlayer() {
   }, [selectedStation]);
 
   // Build the current embed URL
+  // For KiwiSDR: always append a random call sign (u=) to bypass the ident dialog,
+  // plus enable spectrum display (sp flag).
   const embedUrl = useMemo(() => {
     if (!selectedReceiver) return "";
     if (tuneParams) {
       return buildTunedUrl(selectedReceiver.url, effectiveType, tuneParams);
+    }
+    // Even without custom tuning, KiwiSDR benefits from auto-ident
+    if (effectiveType === "KiwiSDR") {
+      return appendKiwiIdentToUrl(selectedReceiver.url);
     }
     return selectedReceiver.url;
   }, [selectedReceiver, tuneParams, effectiveType]);
@@ -532,20 +539,42 @@ export default function AudioPlayer() {
 
               {/* Iframe with optimal settings per receiver type */}
               {iframeStarted && !isMixedContent && (
-                <iframe
-                  key={iframeKey}
-                  ref={iframeRef}
-                  src={embedUrl}
-                  className={`w-full ${iframeConfig.containerClass}`}
-                  style={{ height: "calc(100% - 41px)" }}
-                  title={`${effectiveType} Radio Receiver`}
-                  sandbox={iframeConfig.sandbox}
-                  allow={iframeConfig.allow}
-                  scrolling={iframeConfig.scrolling}
-                  loading={iframeConfig.loading}
-                  referrerPolicy={iframeConfig.referrerPolicy as React.HTMLAttributeReferrerPolicy}
-                  onError={() => setIframeLoadFailed(true)}
-                />
+                <>
+                  <iframe
+                    key={iframeKey}
+                    ref={iframeRef}
+                    src={embedUrl}
+                    className={`w-full ${iframeConfig.containerClass}`}
+                    style={{ height: "calc(100% - 41px)" }}
+                    title={`${effectiveType} Radio Receiver`}
+                    sandbox={iframeConfig.sandbox}
+                    allow={iframeConfig.allow}
+                    scrolling={iframeConfig.scrolling}
+                    loading={iframeConfig.loading}
+                    referrerPolicy={iframeConfig.referrerPolicy as React.HTMLAttributeReferrerPolicy}
+                    onError={() => setIframeLoadFailed(true)}
+                  />
+                  {/* Non-blocking hint bar — fades out after 8 seconds */}
+                  {!iframeLoadFailed && (
+                    <motion.div
+                      initial={{ opacity: 1 }}
+                      animate={{ opacity: 0 }}
+                      transition={{ delay: 8, duration: 1.5 }}
+                      className="absolute bottom-2 left-2 right-2 z-10 pointer-events-none"
+                    >
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-black/70 backdrop-blur-sm border border-white/10">
+                        <Info className="w-3.5 h-3.5 text-cyan-400/70 shrink-0" />
+                        <p className="text-[10px] font-mono text-white/60">
+                          {effectiveType === "KiwiSDR"
+                            ? "If you see a black screen, click inside the waterfall area to activate. Call sign was auto-filled."
+                            : effectiveType === "OpenWebRX"
+                            ? "Click the 'Start' button or anywhere in the dark area to activate the waterfall and audio."
+                            : "Click inside the receiver window to activate. Select a band tab if available."}
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+                </>
               )}
             </motion.div>
           )}
