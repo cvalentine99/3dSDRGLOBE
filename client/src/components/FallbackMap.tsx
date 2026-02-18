@@ -4,10 +4,19 @@
  * Renders an equirectangular world map with SDR station markers when
  * WebGL is unavailable or the context is lost. Zero Three.js dependency.
  * Activates/deactivates based on RenderMode events.
+ *
+ * Full interaction support:
+ *  - Click a single-station dot → select station + open panel
+ *  - Click a cluster dot → zoom into cluster and show picker list
+ *  - Hover dot → show tooltip with station info + set hoveredStation
+ *  - Selected station gets a pulsing ring highlight
+ *  - Pan (drag) and zoom (scroll wheel) the map
+ *  - Touch support for mobile (drag + pinch-zoom)
  */
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { onRenderModeChange, getRenderMode } from "@/lib/RenderMode";
 import type { Station } from "@/lib/types";
+import { detectBands, BAND_DEFINITIONS } from "@/lib/types";
 
 /** Equirectangular projection: lat/lng to pixel coordinates */
 function latLngToXY(
@@ -31,8 +40,12 @@ const TYPE_COLORS: Record<string, string> = {
 const STATUS_ONLINE = "#22c55e";
 const STATUS_OFFLINE = "#ef4444";
 
-/** Geographic clustering grid size in degrees */
-const CLUSTER_GRID_SIZE = 5;
+/** Geographic clustering grid size in degrees — adapts to zoom */
+function getClusterGridSize(zoom: number): number {
+  if (zoom >= 4) return 1;
+  if (zoom >= 2) return 2;
+  return 5;
+}
 
 interface ClusteredStation {
   lat: number;
@@ -43,13 +56,15 @@ interface ClusteredStation {
 }
 
 /**
- * Cluster stations by geographic grid when count exceeds threshold.
+ * Cluster stations by geographic grid. Grid size adapts to zoom level.
  */
 function clusterStations(
   stations: Station[],
+  gridSize: number,
   isStationOnline?: (station: Station) => boolean | null
 ): ClusteredStation[] {
-  if (stations.length <= 500) {
+  // At tight zoom or low station count, don't cluster
+  if (stations.length <= 500 && gridSize <= 2) {
     return stations.map((s) => {
       const [lng, lat] = s.location.coordinates;
       const primaryType = s.receivers[0]?.type || "WebSDR";
@@ -69,7 +84,7 @@ function clusterStations(
   const grid = new Map<string, { lats: number[]; lngs: number[]; stations: Station[] }>();
   stations.forEach((s) => {
     const [lng, lat] = s.location.coordinates;
-    const gridKey = `${Math.floor(lat / CLUSTER_GRID_SIZE)},${Math.floor(lng / CLUSTER_GRID_SIZE)}`;
+    const gridKey = `${Math.floor(lat / gridSize)},${Math.floor(lng / gridSize)}`;
     if (!grid.has(gridKey)) {
       grid.set(gridKey, { lats: [], lngs: [], stations: [] });
     }
@@ -94,13 +109,21 @@ function clusterStations(
       (a, b) => b[1] - a[1]
     )[0][0];
 
+    // Determine color — if all have same online status, use that
+    let color = TYPE_COLORS[dominantType] || TYPE_COLORS.WebSDR;
+    if (isStationOnline && cell.stations.length === 1) {
+      const status = isStationOnline(cell.stations[0]);
+      if (status === true) color = STATUS_ONLINE;
+      else if (status === false) color = STATUS_OFFLINE;
+    }
+
     const radius = Math.min(8, 2 + Math.log2(cell.stations.length) * 1.5);
 
     clusters.push({
       lat: avgLat,
       lng: avgLng,
       stations: cell.stations,
-      color: TYPE_COLORS[dominantType] || TYPE_COLORS.WebSDR,
+      color,
       radius,
     });
   });
@@ -108,43 +131,73 @@ function clusterStations(
   return clusters;
 }
 
-// Simplified world map SVG path — Natural Earth 110m coastlines (simplified)
-const WORLD_MAP_PATH = `M 174.8,-41.3 L 175.3,-37.2 L 173.8,-34.4 L 171.2,-34.2
-L 166.6,-46.0 L 168.4,-44.1 L 170.5,-43.3 L 172.5,-43.9 L 173.6,-42.5 Z
-M 150.7,-34.1 L 152.1,-32.4 L 153.3,-30.1 L 150.8,-27.5 L 153.0,-24.7
-L 152.3,-22.3 L 150.6,-22.5 L 148.8,-20.3 L 146.3,-19.0 L 144.5,-14.5
-L 141.8,-12.8 L 136.5,-12.1 L 132.5,-12.1 L 130.6,-11.4 L 128.2,-14.8
-L 125.1,-14.7 L 124.6,-16.6 L 123.5,-17.6 L 122.2,-18.0 L 118.9,-20.1
-L 116.3,-20.9 L 114.1,-22.2 L 113.5,-24.8 L 114.5,-27.5 L 113.5,-28.5
-L 114.6,-28.8 L 115.5,-30.7 L 115.5,-31.4 L 115.9,-33.4 L 117.3,-34.8
-L 118.3,-35.0 L 121.5,-33.8 L 123.3,-33.9 L 126.7,-31.9 L 129.2,-31.3
-L 131.1,-31.5 L 133.6,-32.0 L 134.5,-32.7 L 136.3,-33.8 L 137.5,-33.0
-L 138.1,-33.7 L 138.5,-35.0 L 138.5,-34.0 L 140.7,-37.0 L 141.8,-38.0
-L 142.9,-38.4 L 145.1,-38.5 L 146.0,-38.7 L 146.4,-39.3 L 147.5,-38.9
-L 148.1,-37.5 L 149.5,-37.6 L 150.1,-36.0 Z`;
-
 interface FallbackMapProps {
   stations: Station[];
+  selectedStation?: Station | null;
+  hoveredStation?: Station | null;
   isStationOnline?: (station: Station) => boolean | null;
   onSelectStation?: (station: Station) => void;
+  onHoverStation?: (station: Station | null) => void;
 }
 
 /**
  * 2D SVG fallback map that renders when WebGL is unavailable.
  * Shows all SDR stations as dots on an equirectangular world map projection.
+ * Full click/hover/zoom/pan interaction matching the 3D Globe behavior.
  */
 export default function FallbackMap({
   stations,
+  selectedStation,
+  hoveredStation,
   isStationOnline,
   onSelectStation,
+  onHoverStation,
 }: FallbackMapProps) {
   const [visible, setVisible] = useState(getRenderMode() === "fallback");
+  const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Tooltip state (positioned via mouse coords)
   const [tooltip, setTooltip] = useState<{
     x: number;
     y: number;
-    station: Station;
+    cluster: ClusteredStation;
   } | null>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
+
+  // Cluster picker state — when clicking a multi-station cluster
+  const [clusterPicker, setClusterPicker] = useState<{
+    x: number;
+    y: number;
+    stations: Station[];
+  } | null>(null);
+
+  // Pan & zoom state
+  const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: 960, h: 480 });
+  const [zoom, setZoom] = useState(1);
+  const dragRef = useRef<{
+    dragging: boolean;
+    startX: number;
+    startY: number;
+    startViewX: number;
+    startViewY: number;
+    moved: boolean;
+  }>({ dragging: false, startX: 0, startY: 0, startViewX: 0, startViewY: 0, moved: false });
+
+  // Touch state for pinch zoom
+  const touchRef = useRef<{ lastDist: number; lastCenter: { x: number; y: number } }>({
+    lastDist: 0,
+    lastCenter: { x: 0, y: 0 },
+  });
+
+  // Pulse animation for selected station
+  const [pulsePhase, setPulsePhase] = useState(0);
+  useEffect(() => {
+    if (!visible || !selectedStation) return;
+    const interval = setInterval(() => {
+      setPulsePhase((p) => (p + 1) % 60);
+    }, 50);
+    return () => clearInterval(interval);
+  }, [visible, selectedStation]);
 
   // Listen for render mode changes
   useEffect(() => {
@@ -154,46 +207,252 @@ export default function FallbackMap({
     return cleanup;
   }, []);
 
+  // Map dimensions
+  const MAP_W = 960;
+  const MAP_H = 480;
+
+  const gridSize = useMemo(() => getClusterGridSize(zoom), [zoom]);
+
   const clusters = useMemo(
-    () => clusterStations(stations, isStationOnline),
-    [stations, isStationOnline]
+    () => clusterStations(stations, gridSize, isStationOnline),
+    [stations, gridSize, isStationOnline]
   );
 
+  // Find the cluster containing the selected station for highlighting
+  const selectedClusterIdx = useMemo(() => {
+    if (!selectedStation) return -1;
+    return clusters.findIndex((c) =>
+      c.stations.some(
+        (s) =>
+          s.label === selectedStation.label &&
+          s.location.coordinates[0] === selectedStation.location.coordinates[0] &&
+          s.location.coordinates[1] === selectedStation.location.coordinates[1]
+      )
+    );
+  }, [clusters, selectedStation]);
+
+  // --- Pan handlers ---
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    // Only left button
+    if (e.button !== 0) return;
+    dragRef.current = {
+      dragging: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      startViewX: viewBox.x,
+      startViewY: viewBox.y,
+      moved: false,
+    };
+  }, [viewBox.x, viewBox.y]);
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (!dragRef.current.dragging) return;
+      const dx = e.clientX - dragRef.current.startX;
+      const dy = e.clientY - dragRef.current.startY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        dragRef.current.moved = true;
+      }
+
+      // Convert pixel delta to viewBox units
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const scaleX = viewBox.w / rect.width;
+      const scaleY = viewBox.h / rect.height;
+
+      setViewBox((prev) => ({
+        ...prev,
+        x: dragRef.current.startViewX - dx * scaleX,
+        y: dragRef.current.startViewY - dy * scaleY,
+      }));
+    },
+    [viewBox.w, viewBox.h]
+  );
+
+  const handleMouseUp = useCallback(() => {
+    dragRef.current.dragging = false;
+  }, []);
+
+  // --- Zoom handler ---
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      e.preventDefault();
+      const container = containerRef.current;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      // Mouse position in viewBox coordinates
+      const mouseXRatio = (e.clientX - rect.left) / rect.width;
+      const mouseYRatio = (e.clientY - rect.top) / rect.height;
+      const mouseVBX = viewBox.x + mouseXRatio * viewBox.w;
+      const mouseVBY = viewBox.y + mouseYRatio * viewBox.h;
+
+      const zoomFactor = e.deltaY > 0 ? 1.15 : 0.87;
+      const newW = Math.max(120, Math.min(MAP_W, viewBox.w * zoomFactor));
+      const newH = Math.max(60, Math.min(MAP_H, viewBox.h * zoomFactor));
+      const newZoom = MAP_W / newW;
+
+      // Keep mouse position stable
+      const newX = mouseVBX - mouseXRatio * newW;
+      const newY = mouseVBY - mouseYRatio * newH;
+
+      setViewBox({ x: newX, y: newY, w: newW, h: newH });
+      setZoom(newZoom);
+    },
+    [viewBox]
+  );
+
+  // --- Touch handlers ---
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (e.touches.length === 1) {
+        dragRef.current = {
+          dragging: true,
+          startX: e.touches[0].clientX,
+          startY: e.touches[0].clientY,
+          startViewX: viewBox.x,
+          startViewY: viewBox.y,
+          moved: false,
+        };
+      } else if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        touchRef.current.lastDist = Math.sqrt(dx * dx + dy * dy);
+        touchRef.current.lastCenter = {
+          x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+          y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+        };
+      }
+    },
+    [viewBox.x, viewBox.y]
+  );
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 1 && dragRef.current.dragging) {
+        const dx = e.touches[0].clientX - dragRef.current.startX;
+        const dy = e.touches[0].clientY - dragRef.current.startY;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+          dragRef.current.moved = true;
+        }
+        const container = containerRef.current;
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        const scaleX = viewBox.w / rect.width;
+        const scaleY = viewBox.h / rect.height;
+        setViewBox((prev) => ({
+          ...prev,
+          x: dragRef.current.startViewX - dx * scaleX,
+          y: dragRef.current.startViewY - dy * scaleY,
+        }));
+      } else if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (touchRef.current.lastDist > 0) {
+          const scale = touchRef.current.lastDist / dist;
+          const newW = Math.max(120, Math.min(MAP_W, viewBox.w * scale));
+          const newH = Math.max(60, Math.min(MAP_H, viewBox.h * scale));
+          setViewBox((prev) => ({ ...prev, w: newW, h: newH }));
+          setZoom(MAP_W / newW);
+        }
+        touchRef.current.lastDist = dist;
+      }
+    },
+    [viewBox.w, viewBox.h]
+  );
+
+  const handleTouchEnd = useCallback(() => {
+    dragRef.current.dragging = false;
+    touchRef.current.lastDist = 0;
+  }, []);
+
+  // --- Dot interaction handlers ---
   const handleDotHover = useCallback(
     (e: React.MouseEvent, cluster: ClusteredStation) => {
-      const station = cluster.stations[0];
-      setTooltip({
-        x: e.clientX,
-        y: e.clientY,
-        station,
-      });
+      setTooltip({ x: e.clientX, y: e.clientY, cluster });
+      // Set hovered station for the HoverTooltip system (single station only)
+      if (cluster.stations.length === 1 && onHoverStation) {
+        onHoverStation(cluster.stations[0]);
+      }
     },
-    []
+    [onHoverStation]
   );
 
   const handleDotLeave = useCallback(() => {
     setTooltip(null);
-  }, []);
+    if (onHoverStation) {
+      onHoverStation(null);
+    }
+  }, [onHoverStation]);
 
   const handleDotClick = useCallback(
-    (cluster: ClusteredStation) => {
-      if (cluster.stations.length === 1 && onSelectStation) {
-        onSelectStation(cluster.stations[0]);
+    (e: React.MouseEvent, cluster: ClusteredStation) => {
+      e.stopPropagation();
+      // Dismiss cluster picker if clicking a different dot
+      setClusterPicker(null);
+
+      if (cluster.stations.length === 1) {
+        // Single station — select it directly
+        if (onSelectStation) {
+          onSelectStation(cluster.stations[0]);
+        }
+      } else {
+        // Multi-station cluster — show picker dropdown
+        setClusterPicker({
+          x: e.clientX,
+          y: e.clientY,
+          stations: cluster.stations,
+        });
       }
     },
     [onSelectStation]
   );
 
+  const handlePickerSelect = useCallback(
+    (station: Station) => {
+      setClusterPicker(null);
+      if (onSelectStation) {
+        onSelectStation(station);
+      }
+    },
+    [onSelectStation]
+  );
+
+  // Close picker when clicking background
+  const handleBackgroundClick = useCallback(() => {
+    if (!dragRef.current.moved) {
+      setClusterPicker(null);
+    }
+  }, []);
+
+  // Reset view
+  const handleResetView = useCallback(() => {
+    setViewBox({ x: 0, y: 0, w: MAP_W, h: MAP_H });
+    setZoom(1);
+  }, []);
+
   if (!visible) return null;
 
-  // Map dimensions (match the viewport)
-  const MAP_W = 960;
-  const MAP_H = 480;
+  // Pulse animation value (0..1 sine wave)
+  const pulseValue = Math.sin((pulsePhase / 60) * Math.PI * 2) * 0.5 + 0.5;
 
   return (
     <div
+      ref={containerRef}
       className="absolute inset-0 z-[6] bg-[#0a0e14]"
-      style={{ contain: "layout paint" }}
+      style={{ contain: "layout paint", cursor: dragRef.current.dragging ? "grabbing" : "grab" }}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      onWheel={handleWheel}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onClick={handleBackgroundClick}
     >
       {/* Status banner */}
       <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-center gap-2 py-2 bg-amber-500/15 border-b border-amber-500/25 backdrop-blur-sm">
@@ -213,18 +472,26 @@ export default function FallbackMap({
         <span className="text-xs font-mono text-amber-300/90">
           WebGL unavailable — 3D globe suspended. Showing 2D station map.
         </span>
+        {zoom > 1.1 && (
+          <button
+            onClick={(e) => { e.stopPropagation(); handleResetView(); }}
+            className="ml-2 px-2 py-0.5 text-[10px] font-mono text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 rounded hover:bg-cyan-500/20 transition-colors"
+          >
+            Reset View
+          </button>
+        )}
       </div>
 
       {/* SVG Map */}
       <svg
         ref={svgRef}
-        viewBox={`0 0 ${MAP_W} ${MAP_H}`}
+        viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
         className="w-full h-full"
         preserveAspectRatio="xMidYMid meet"
         style={{ paddingTop: "32px" }}
       >
         {/* Background */}
-        <rect width={MAP_W} height={MAP_H} fill="#0a0e14" />
+        <rect x={-200} y={-200} width={MAP_W + 400} height={MAP_H + 400} fill="#0a0e14" />
 
         {/* Grid lines */}
         {Array.from({ length: 7 }, (_, i) => {
@@ -256,15 +523,6 @@ export default function FallbackMap({
           );
         })}
 
-        {/* Simplified continent outlines */}
-        <path
-          d={WORLD_MAP_PATH}
-          fill="none"
-          stroke="rgba(100,180,200,0.15)"
-          strokeWidth={0.5}
-          transform={`scale(${MAP_W / 360},${MAP_H / 180}) translate(180,90)`}
-        />
-
         {/* Continent shapes — simplified filled polygons */}
         {/* North America */}
         <ellipse cx={200} cy={140} rx={80} ry={60} fill="rgba(100,180,200,0.04)" stroke="rgba(100,180,200,0.1)" strokeWidth={0.5} />
@@ -288,30 +546,56 @@ export default function FallbackMap({
             MAP_H
           );
           const isMulti = cluster.stations.length > 1;
+          const isSelected = i === selectedClusterIdx;
+          const dotRadius = cluster.radius / Math.max(1, zoom * 0.5);
+
           return (
             <g key={i}>
+              {/* Selected station pulsing ring */}
+              {isSelected && (
+                <>
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r={dotRadius * (2 + pulseValue * 2)}
+                    fill="none"
+                    stroke="#ff6b6b"
+                    strokeWidth={0.8 / zoom}
+                    opacity={0.6 - pulseValue * 0.4}
+                  />
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r={dotRadius * (3 + pulseValue * 1.5)}
+                    fill="none"
+                    stroke="#ff6b6b"
+                    strokeWidth={0.5 / zoom}
+                    opacity={0.3 - pulseValue * 0.2}
+                  />
+                </>
+              )}
               {/* Glow */}
               <circle
                 cx={x}
                 cy={y}
-                r={cluster.radius * 2}
-                fill={cluster.color}
-                opacity={0.1}
+                r={dotRadius * 2}
+                fill={isSelected ? "#ff6b6b" : cluster.color}
+                opacity={isSelected ? 0.25 : 0.1}
               />
               {/* Dot */}
               <circle
                 cx={x}
                 cy={y}
-                r={cluster.radius}
-                fill={cluster.color}
-                opacity={0.8}
-                stroke={cluster.color}
-                strokeWidth={0.5}
-                strokeOpacity={0.5}
+                r={dotRadius}
+                fill={isSelected ? "#ff6b6b" : cluster.color}
+                opacity={isSelected ? 1 : 0.8}
+                stroke={isSelected ? "#ff6b6b" : cluster.color}
+                strokeWidth={isSelected ? 1 / zoom : 0.5 / zoom}
+                strokeOpacity={isSelected ? 0.8 : 0.5}
                 style={{ cursor: "pointer" }}
-                onMouseEnter={(e) => handleDotHover(e, cluster)}
+                onMouseEnter={(e) => { e.stopPropagation(); handleDotHover(e, cluster); }}
                 onMouseLeave={handleDotLeave}
-                onClick={() => handleDotClick(cluster)}
+                onClick={(e) => handleDotClick(e, cluster)}
               />
               {/* Cluster count badge */}
               {isMulti && cluster.stations.length > 2 && (
@@ -321,7 +605,7 @@ export default function FallbackMap({
                   textAnchor="middle"
                   dominantBaseline="central"
                   fill="white"
-                  fontSize={cluster.radius < 4 ? 4 : 5}
+                  fontSize={Math.max(3, (cluster.radius < 4 ? 4 : 5) / Math.max(1, zoom * 0.5))}
                   fontFamily="JetBrains Mono, monospace"
                   style={{ pointerEvents: "none" }}
                 >
@@ -336,35 +620,82 @@ export default function FallbackMap({
       {/* Tooltip */}
       {tooltip && (
         <div
-          className="fixed z-50 px-3 py-2 rounded-lg bg-black/90 border border-white/15 backdrop-blur-sm pointer-events-none"
+          className="fixed z-50 pointer-events-none"
           style={{
             left: tooltip.x + 12,
             top: tooltip.y - 8,
-            maxWidth: 280,
+            maxWidth: 300,
           }}
         >
-          <div className="text-xs font-semibold text-white/90 truncate">
-            {tooltip.station.label}
+          <div className="px-3 py-2 rounded-lg bg-black/90 border border-white/15 backdrop-blur-sm">
+            {tooltip.cluster.stations.length === 1 ? (
+              <SingleStationTooltip
+                station={tooltip.cluster.stations[0]}
+                isStationOnline={isStationOnline}
+              />
+            ) : (
+              <ClusterTooltip cluster={tooltip.cluster} />
+            )}
           </div>
-          <div className="flex items-center gap-2 mt-1">
-            <span
-              className="inline-block w-2 h-2 rounded-full"
-              style={{
-                backgroundColor:
-                  TYPE_COLORS[tooltip.station.receivers[0]?.type] || "#888",
-              }}
-            />
-            <span className="text-[10px] text-white/60">
-              {tooltip.station.receivers[0]?.type || "Unknown"}
-            </span>
-            <span className="text-[10px] text-white/40">
-              {tooltip.station.receivers.length} receiver
-              {tooltip.station.receivers.length !== 1 ? "s" : ""}
-            </span>
-          </div>
-          <div className="text-[9px] text-white/30 mt-1 font-mono">
-            {tooltip.station.location.coordinates[1].toFixed(2)},{" "}
-            {tooltip.station.location.coordinates[0].toFixed(2)}
+        </div>
+      )}
+
+      {/* Cluster picker dropdown */}
+      {clusterPicker && (
+        <div
+          className="fixed z-50"
+          style={{
+            left: clusterPicker.x,
+            top: clusterPicker.y + 8,
+            maxWidth: 320,
+            maxHeight: 300,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="rounded-lg bg-black/95 border border-white/15 backdrop-blur-md overflow-hidden shadow-xl">
+            <div className="px-3 py-2 border-b border-white/10">
+              <span className="text-[10px] font-mono text-white/50 uppercase tracking-wider">
+                {clusterPicker.stations.length} stations in this area
+              </span>
+            </div>
+            <div className="overflow-y-auto" style={{ maxHeight: 240 }}>
+              {clusterPicker.stations.map((station, idx) => {
+                const primaryType = station.receivers[0]?.type || "WebSDR";
+                const typeColor = TYPE_COLORS[primaryType] || "#888";
+                let statusDot: string | null = null;
+                if (isStationOnline) {
+                  const status = isStationOnline(station);
+                  if (status === true) statusDot = STATUS_ONLINE;
+                  else if (status === false) statusDot = STATUS_OFFLINE;
+                }
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => handlePickerSelect(station)}
+                    className="w-full text-left px-3 py-2 hover:bg-white/5 transition-colors flex items-center gap-2 group border-b border-white/5 last:border-0"
+                  >
+                    <span
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: statusDot || typeColor }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs text-white/90 truncate group-hover:text-white">
+                        {station.label}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[9px] font-mono text-white/40">{primaryType}</span>
+                        <span className="text-[9px] font-mono text-white/30">
+                          {station.receivers.length} rx
+                        </span>
+                      </div>
+                    </div>
+                    <svg className="w-3 h-3 text-white/20 group-hover:text-cyan-400 flex-shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -382,12 +713,123 @@ export default function FallbackMap({
         ))}
       </div>
 
-      {/* Station count */}
-      <div className="absolute bottom-4 left-4 z-10 px-3 py-1.5 rounded-lg bg-black/50 border border-white/10">
+      {/* Station count + zoom level */}
+      <div className="absolute bottom-4 left-4 z-10 flex items-center gap-3 px-3 py-1.5 rounded-lg bg-black/50 border border-white/10">
         <span className="text-[10px] font-mono text-white/50">
           {stations.length} stations
         </span>
+        {zoom > 1.1 && (
+          <span className="text-[10px] font-mono text-cyan-400/60">
+            {zoom.toFixed(1)}x
+          </span>
+        )}
       </div>
     </div>
+  );
+}
+
+/** Tooltip content for a single station */
+function SingleStationTooltip({
+  station,
+  isStationOnline,
+}: {
+  station: Station;
+  isStationOnline?: (station: Station) => boolean | null;
+}) {
+  const bands = detectBands(station).map((b) => {
+    const def = BAND_DEFINITIONS.find((d) => d.id === b);
+    return def ? def.label : b;
+  });
+
+  let statusLabel: string | null = null;
+  let statusColor: string | null = null;
+  if (isStationOnline) {
+    const status = isStationOnline(station);
+    if (status === true) {
+      statusLabel = "Online";
+      statusColor = STATUS_ONLINE;
+    } else if (status === false) {
+      statusLabel = "Offline";
+      statusColor = STATUS_OFFLINE;
+    }
+  }
+
+  return (
+    <>
+      <div className="text-xs font-semibold text-white/90 truncate">
+        {station.label}
+      </div>
+      <div className="flex items-center gap-2 mt-1">
+        {station.receivers
+          .map((r) => r.type)
+          .filter((v, i, a) => a.indexOf(v) === i)
+          .map((type) => (
+            <div key={type} className="flex items-center gap-1">
+              <span
+                className="inline-block w-2 h-2 rounded-full"
+                style={{ backgroundColor: TYPE_COLORS[type] || "#888" }}
+              />
+              <span className="text-[10px] text-white/60">{type}</span>
+            </div>
+          ))}
+        <span className="text-[10px] text-white/40">
+          {station.receivers.length} receiver
+          {station.receivers.length !== 1 ? "s" : ""}
+        </span>
+        {statusLabel && (
+          <span className="text-[10px] font-medium" style={{ color: statusColor! }}>
+            {statusLabel}
+          </span>
+        )}
+      </div>
+      {bands.length > 0 && (
+        <div className="flex items-center gap-1 mt-1 flex-wrap">
+          {bands.map((b) => (
+            <span
+              key={b}
+              className="text-[8px] font-mono text-cyan-300/70 bg-cyan-500/10 px-1 py-0.5 rounded"
+            >
+              {b}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="text-[9px] text-white/30 mt-1 font-mono">
+        {station.location.coordinates[1].toFixed(2)},{" "}
+        {station.location.coordinates[0].toFixed(2)}
+      </div>
+      <div className="text-[9px] text-cyan-400/50 mt-0.5">Click to select</div>
+    </>
+  );
+}
+
+/** Tooltip content for a multi-station cluster */
+function ClusterTooltip({ cluster }: { cluster: ClusteredStation }) {
+  const typeCounts: Record<string, number> = {};
+  cluster.stations.forEach((s) => {
+    const t = s.receivers[0]?.type || "WebSDR";
+    typeCounts[t] = (typeCounts[t] || 0) + 1;
+  });
+
+  return (
+    <>
+      <div className="text-xs font-semibold text-white/90">
+        {cluster.stations.length} stations
+      </div>
+      <div className="flex items-center gap-2 mt-1">
+        {Object.entries(typeCounts).map(([type, count]) => (
+          <div key={type} className="flex items-center gap-1">
+            <span
+              className="inline-block w-2 h-2 rounded-full"
+              style={{ backgroundColor: TYPE_COLORS[type] || "#888" }}
+            />
+            <span className="text-[10px] text-white/60">
+              {count} {type}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="text-[9px] text-cyan-400/50 mt-1">Click to browse stations</div>
+    </>
   );
 }

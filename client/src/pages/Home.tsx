@@ -86,7 +86,7 @@ function formatCountdown(targetMs: number): string {
 }
 
 function HomeContent() {
-  const { loading, stations, selectedStation, filteredStations, selectStation, setShowPanel } = useRadio();
+  const { loading, stations, selectedStation, hoveredStation, filteredStations, selectStation, setShowPanel, setHoveredStation } = useRadio();
   const { isStationOnline, progress: batchProgress, autoRefresh } = useReceiverStatusMap(stations, loading);
   const { highlightedStation, highlightedIndex, isKeyNavActive } = useKeyboardNav();
   const [milRfOpen, setMilRfOpen] = useState(false);
@@ -155,11 +155,14 @@ function HomeContent() {
       {/* 2D Fallback Map — shown when WebGL context is lost or unavailable */}
       <FallbackMap
         stations={filteredStations}
+        selectedStation={selectedStation}
+        hoveredStation={hoveredStation}
         isStationOnline={isStationOnline}
         onSelectStation={(station) => {
           selectStation(station);
           setShowPanel(true);
         }}
+        onHoverStation={setHoveredStation}
       />
 
       {/* Batch pre-check progress / auto-refresh indicator */}

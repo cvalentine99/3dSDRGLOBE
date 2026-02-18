@@ -35,3 +35,6 @@
 - [x] Save checkpoint and push to GitHub
 - [x] Fix runtime crash on published site (WebGL context failure — added detection, try-catch, fallback UI, and local error boundary)
 - [x] Sync WebGL resilience branch (claude/review-webgl-resilience-7QWEH) — FallbackMap, FPSGovernor, RenderMode, WebGLContextManager, updated Globe + Home
+- [x] Implement FallbackMap click events for station selection (matching Globe behavior)
+- [x] Add hover tooltips on FallbackMap station dots
+- [x] Write vitest tests for FallbackMap interaction logic
