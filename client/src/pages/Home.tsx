@@ -15,6 +15,8 @@ import StatsOverlay from "@/components/StatsOverlay";
 import LoadingScreen from "@/components/LoadingScreen";
 import Legend from "@/components/Legend";
 import StationList from "@/components/StationList";
+import FallbackMap from "@/components/FallbackMap";
+import { setRenderMode } from "@/lib/RenderMode";
 import KeyboardNavIndicator from "@/components/KeyboardNavIndicator";
 import MilitaryRfPanel from "@/components/MilitaryRfPanel";
 import AlertSettings from "@/components/AlertSettings";
@@ -39,6 +41,7 @@ class GlobeErrorBoundary extends Component<{ children: ReactNode }, { hasError: 
   }
   componentDidCatch(error: Error) {
     console.error("[GlobeErrorBoundary] Caught WebGL/Three.js crash:", error);
+    setRenderMode("fallback", "Globe component crashed");
   }
   render() {
     if (this.state.hasError) {
@@ -148,6 +151,16 @@ function HomeContent() {
       <GlobeErrorBoundary>
         <Globe ionosondes={propVisible ? ionosondesRef.current : []} isStationOnline={isStationOnline} />
       </GlobeErrorBoundary>
+
+      {/* 2D Fallback Map — shown when WebGL context is lost or unavailable */}
+      <FallbackMap
+        stations={filteredStations}
+        isStationOnline={isStationOnline}
+        onSelectStation={(station) => {
+          selectStation(station);
+          setShowPanel(true);
+        }}
+      />
 
       {/* Batch pre-check progress / auto-refresh indicator */}
       <div className="absolute bottom-2 right-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/50 backdrop-blur-sm border border-white/10">

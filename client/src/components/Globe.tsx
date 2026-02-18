@@ -13,6 +13,9 @@ import { useRadio } from "@/contexts/RadioContext";
 import type { Station } from "@/lib/types";
 import type { IonosondeStation } from "@/lib/propagationService";
 import { getMufColor, getFof2Color } from "@/lib/propagationService";
+import { WebGLContextManager } from "@/lib/WebGLContextManager";
+import { FPSGovernor, type QualityLevel, type QualityConfig } from "@/lib/FPSGovernor";
+import { setRenderMode } from "@/lib/RenderMode";
 
 /** Detect whether the browser supports WebGL */
 function isWebGLAvailable(): boolean {
@@ -57,11 +60,16 @@ export default function Globe({ ionosondes = [], isStationOnline }: GlobeProps) 
   const containerRef = useRef<HTMLDivElement>(null);
   const ionoGroupRef = useRef<THREE.Group | null>(null);
   const [webglError, setWebglError] = useState<string | null>(null);
+  const contextManagerRef = useRef<WebGLContextManager | null>(null);
+  const fpsGovernorRef = useRef<FPSGovernor | null>(null);
   const sceneRef = useRef<{
     scene: THREE.Scene;
     camera: THREE.PerspectiveCamera;
     renderer: THREE.WebGLRenderer;
     globe: THREE.Mesh;
+    globeMaterial: THREE.MeshPhongMaterial;
+    outerAtmosphere: THREE.Mesh;
+    innerAtmosphere: THREE.Mesh;
     markerGroup: THREE.Group;
     markerMeshes: { mesh: THREE.Mesh; station: Station; baseScale: number }[];
     ringGroup: THREE.Group;
@@ -90,6 +98,7 @@ export default function Globe({ ionosondes = [], isStationOnline }: GlobeProps) 
     // Pre-check WebGL availability before Three.js tries to create a context
     if (!isWebGLAvailable()) {
       setWebglError("WebGL is not available in your browser. Try closing other GPU-intensive tabs, updating your graphics drivers, or using a different browser.");
+      setRenderMode("fallback", "WebGL not available in browser");
       return;
     }
 
@@ -108,6 +117,7 @@ export default function Globe({ ionosondes = [], isStationOnline }: GlobeProps) 
       const message = err instanceof Error ? err.message : "Unknown WebGL error";
       console.error("[Globe] WebGL initialization failed:", message);
       setWebglError(`WebGL initialization failed: ${message}. Try closing other tabs or restarting your browser.`);
+      setRenderMode("fallback", "WebGL initialization failed");
       return;
     }
     renderer.setSize(width, height);
@@ -174,7 +184,8 @@ export default function Globe({ ionosondes = [], isStationOnline }: GlobeProps) 
       transparent: true,
       depthWrite: false,
     });
-    scene.add(new THREE.Mesh(atmosphereGeometry, atmosphereMaterial));
+    const outerAtmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+    scene.add(outerAtmosphere);
 
     // Inner atmosphere
     const innerAtmGeometry = new THREE.SphereGeometry(GLOBE_RADIUS * 1.01, 64, 64);
@@ -199,7 +210,8 @@ export default function Globe({ ionosondes = [], isStationOnline }: GlobeProps) 
       transparent: true,
       depthWrite: false,
     });
-    scene.add(new THREE.Mesh(innerAtmGeometry, innerAtmMaterial));
+    const innerAtmosphere = new THREE.Mesh(innerAtmGeometry, innerAtmMaterial);
+    scene.add(innerAtmosphere);
 
     // Lighting
     scene.add(new THREE.AmbientLight(0x8899aa, 2.0));
@@ -256,6 +268,9 @@ export default function Globe({ ionosondes = [], isStationOnline }: GlobeProps) 
       camera,
       renderer,
       globe,
+      globeMaterial,
+      outerAtmosphere,
+      innerAtmosphere,
       markerGroup,
       markerMeshes: [],
       ringGroup,
@@ -276,11 +291,103 @@ export default function Globe({ ionosondes = [], isStationOnline }: GlobeProps) 
     // Set raycaster threshold for easier picking
     sceneRef.current.raycaster.params.Points = { threshold: 0.1 };
 
+    // --- WebGL Context Manager ---
+    contextManagerRef.current = new WebGLContextManager(renderer, {
+      onContextLost: () => {
+        console.warn("[Globe] WebGL context lost — pausing render loop");
+        // The animation loop checks sceneRef for a null-guard; we signal via a flag
+      },
+      onContextRestored: (newRenderer) => {
+        if (!sceneRef.current) return;
+        const s = sceneRef.current;
+        // Apply current renderer settings to the new one
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        newRenderer.setSize(w, h);
+        newRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        newRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+        newRenderer.toneMappingExposure = 1.4;
+        s.renderer = newRenderer;
+        if (fpsGovernorRef.current) {
+          fpsGovernorRef.current.setRenderer(newRenderer);
+          fpsGovernorRef.current.reset();
+        }
+        console.log("[Globe] WebGL context restored — renderer re-initialized");
+      },
+      onPermanentFallback: () => {
+        console.error("[Globe] Permanent fallback — WebGL context could not be restored");
+      },
+    });
+
+    // --- FPS Governor ---
+    fpsGovernorRef.current = new FPSGovernor({
+      onQualityChange: (level: QualityLevel, config: QualityConfig) => {
+        if (!sceneRef.current) return;
+        const s = sceneRef.current;
+
+        // Swap globe geometry
+        const oldGeo = s.globe.geometry;
+        s.globe.geometry = new THREE.SphereGeometry(
+          GLOBE_RADIUS,
+          config.globeSegments,
+          config.globeSegments
+        );
+        oldGeo.dispose();
+
+        // Toggle atmosphere visibility
+        s.outerAtmosphere.visible = config.atmosphereEnabled;
+        s.innerAtmosphere.visible = config.atmosphereEnabled;
+
+        // Adjust pixel ratio for LOW quality
+        s.renderer.setPixelRatio(
+          Math.min(window.devicePixelRatio, config.maxPixelRatio)
+        );
+
+        if (level === "QUALITY_LOW") {
+          console.warn(
+            "[FPSGovernor] GPU performance critical — consider closing other browser tabs"
+          );
+        }
+      },
+    });
+    fpsGovernorRef.current.setRenderer(renderer);
+    fpsGovernorRef.current.attachHUD(container);
+
     return () => {
+      if (contextManagerRef.current) {
+        contextManagerRef.current.dispose();
+        contextManagerRef.current = null;
+      }
+      if (fpsGovernorRef.current) {
+        fpsGovernorRef.current.dispose();
+        fpsGovernorRef.current = null;
+      }
+      // Dispose all Three.js scene resources
+      scene.traverse((obj) => {
+        if (obj instanceof THREE.Mesh || obj instanceof THREE.Points) {
+          obj.geometry.dispose();
+          const mat = obj.material;
+          if (Array.isArray(mat)) {
+            mat.forEach((m) => {
+              if (m.map) m.map.dispose();
+              m.dispose();
+            });
+          } else if (mat instanceof THREE.Material) {
+            if ("map" in mat && (mat as THREE.MeshPhongMaterial).map) {
+              (mat as THREE.MeshPhongMaterial).map!.dispose();
+            }
+            if ("bumpMap" in mat && (mat as THREE.MeshPhongMaterial).bumpMap) {
+              (mat as THREE.MeshPhongMaterial).bumpMap!.dispose();
+            }
+            mat.dispose();
+          }
+        }
+      });
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
       }
+      sceneRef.current = null;
     };
   }, []);
 
@@ -365,6 +472,14 @@ export default function Globe({ ionosondes = [], isStationOnline }: GlobeProps) 
     const animate = () => {
       animationId = requestAnimationFrame(animate);
       if (!sceneRef.current) return;
+
+      // Skip rendering if context is lost
+      if (contextManagerRef.current?.contextLost) return;
+
+      // FPS governor tick
+      if (fpsGovernorRef.current) {
+        fpsGovernorRef.current.tick();
+      }
 
       const delta = s.clock.getDelta();
       const elapsed = s.clock.getElapsedTime();
