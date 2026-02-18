@@ -44,15 +44,6 @@ function hasMixedContentIssue(receiverUrl: string): boolean {
   }
 }
 
-/**
- * Upgrade an HTTP URL to HTTPS. Many SDR receivers support both protocols
- * even when listed with HTTP. We try HTTPS first to avoid mixed content
- * blocking, and fall back to "open in new tab" if HTTPS fails to load.
- */
-function upgradeToHttps(url: string): string {
-  return url.replace(/^http:\/\//i, "https://");
-}
-
 const TYPE_DOT: Record<string, string> = {
   OpenWebRX: "bg-cyan-400",
   WebSDR: "bg-primary",
@@ -117,12 +108,19 @@ export default function AudioPlayer() {
   }, [effectiveType]);
 
   // Detect mixed content (HTTPS page embedding HTTP receiver).
-  // When detected, we upgrade the URL to HTTPS and try loading it.
-  // If the HTTPS version fails, the iframe load failure handler shows
-  // a fallback with the original HTTP link for "open in new tab".
+  // Most SDR receivers only serve HTTP, so when this is true we skip the
+  // iframe entirely and open the receiver directly in a new tab instead.
   const isMixedContent = useMemo(() => {
     return selectedReceiver ? hasMixedContentIssue(selectedReceiver.url) : false;
   }, [selectedReceiver]);
+
+  // Track whether the receiver was opened in an external tab
+  const [openedExternal, setOpenedExternal] = useState(false);
+
+  // Reset external-open state when receiver changes
+  useEffect(() => {
+    setOpenedExternal(false);
+  }, [selectedReceiver?.url]);
 
   // Get military frequencies for this station
   const milFreqs = useMemo(() => {
@@ -130,36 +128,20 @@ export default function AudioPlayer() {
     return crossReferenceFrequencies(selectedStation);
   }, [selectedStation]);
 
-  // Build the current embed URL.
-  // When mixed content is detected, upgrade the base URL to HTTPS before building.
+  // Build the current embed URL
   // For KiwiSDR: always append a random call sign (u=) to bypass the ident dialog,
   // plus enable spectrum display (sp flag).
   const embedUrl = useMemo(() => {
     if (!selectedReceiver) return "";
-    const baseUrl = isMixedContent
-      ? upgradeToHttps(selectedReceiver.url)
-      : selectedReceiver.url;
-    if (tuneParams) {
-      return buildTunedUrl(baseUrl, effectiveType, tuneParams);
-    }
-    // Even without custom tuning, KiwiSDR benefits from auto-ident
-    if (effectiveType === "KiwiSDR") {
-      return appendKiwiIdentToUrl(baseUrl);
-    }
-    return baseUrl;
-  }, [selectedReceiver, tuneParams, effectiveType, isMixedContent]);
-
-  // Keep the original HTTP URL for "open in new tab" fallback
-  const originalHttpUrl = useMemo(() => {
-    if (!selectedReceiver || !isMixedContent) return "";
     if (tuneParams) {
       return buildTunedUrl(selectedReceiver.url, effectiveType, tuneParams);
     }
+    // Even without custom tuning, KiwiSDR benefits from auto-ident
     if (effectiveType === "KiwiSDR") {
       return appendKiwiIdentToUrl(selectedReceiver.url);
     }
     return selectedReceiver.url;
-  }, [selectedReceiver, tuneParams, effectiveType, isMixedContent]);
+  }, [selectedReceiver, tuneParams, effectiveType]);
 
   // Recording info for current receiver type
   const recordingInfo = useMemo(() => {
@@ -179,13 +161,10 @@ export default function AudioPlayer() {
   }, [selectedReceiver?.url]);
 
   // Detect iframe load failure via timeout — if the iframe hasn't signaled
-  // a successful load within a timeout, it's likely blocked (HTTPS upgrade failure,
-  // X-Frame-Options, etc.). Use a shorter timeout for HTTPS upgrades since those
-  // tend to fail fast (connection refused).
+  // a successful load within 15s, it's likely blocked (X-Frame-Options, etc.)
   useEffect(() => {
-    if (!iframeStarted) return;
+    if (!iframeStarted || isMixedContent) return;
     if (iframeLoadTimerRef.current) clearTimeout(iframeLoadTimerRef.current);
-    const timeout = isMixedContent ? 8000 : 15000;
     iframeLoadTimerRef.current = setTimeout(() => {
       // Check if the iframe is blank/empty (heuristic for load failure)
       const iframe = iframeRef.current;
@@ -201,23 +180,30 @@ export default function AudioPlayer() {
           // SecurityError = cross-origin frame loaded successfully (normal)
         }
       }
-    }, timeout);
+    }, 15000);
     return () => {
       if (iframeLoadTimerRef.current) clearTimeout(iframeLoadTimerRef.current);
     };
   }, [iframeStarted, iframeKey, isMixedContent]);
 
-  // Tune to a specific frequency
+  // Tune to a specific frequency.
+  // For mixed content (HTTP receivers on HTTPS page), open directly in a new tab.
   const tuneTo = useCallback((freqKhz: number, mode?: SDRMode) => {
     const params: TuneParams = {
       frequencyKhz: freqKhz,
       mode: mode || suggestMode(freqKhz),
     };
     setTuneParams(params);
-    setIframeKey((k) => k + 1);
-    setIframeStarted(false);
-    setIframeLoadFailed(false);
-  }, []);
+    if (isMixedContent && selectedReceiver) {
+      const url = buildTunedUrl(selectedReceiver.url, effectiveType, params);
+      window.open(url, "_blank", "noopener,noreferrer");
+      setOpenedExternal(true);
+    } else {
+      setIframeKey((k) => k + 1);
+      setIframeStarted(false);
+      setIframeLoadFailed(false);
+    }
+  }, [isMixedContent, selectedReceiver, effectiveType]);
 
   // Handle custom frequency input
   const handleCustomTune = useCallback(() => {
@@ -460,137 +446,187 @@ export default function AudioPlayer() {
                 )}
               </AnimatePresence>
 
-              {/* HTTPS upgrade info banner — shown when we auto-upgraded HTTP→HTTPS */}
-              {isMixedContent && iframeStarted && !iframeLoadFailed && (
-                <div className="absolute top-[41px] left-0 right-0 z-10 px-3 py-1.5 bg-amber-500/10 border-b border-amber-500/20 flex items-center gap-2">
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400/70 shrink-0" />
-                  <p className="text-[10px] font-mono text-amber-400/70 flex-1">
-                    Auto-upgraded to HTTPS for secure embedding.
-                    {originalHttpUrl && (
-                      <>
-                        {" "}If the receiver doesn't load,{" "}
-                        <a href={originalHttpUrl} target="_blank" rel="noopener noreferrer" className="underline text-primary hover:text-primary/80">
-                          open via HTTP in a new tab
-                        </a>.
-                      </>
-                    )}
-                  </p>
-                </div>
-              )}
-
-              {/* Click-to-start overlay with type-specific messaging */}
-              {!iframeStarted && (
+              {/* ── Mixed content: HTTP receiver on HTTPS page ── */}
+              {/* Instead of trying to iframe (which browsers block), open directly in a new tab */}
+              {isMixedContent && (
                 <div
-                  className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-10 cursor-pointer"
+                  className="absolute inset-0 flex flex-col items-center justify-center z-10"
                   style={{ top: "41px" }}
-                  onClick={() => setIframeStarted(true)}
                 >
-                  <div className="flex flex-col items-center gap-4">
-                    <div className="w-20 h-20 rounded-full bg-primary/20 border-2 border-primary/40 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Play className="w-10 h-10 text-primary ml-1" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-sm font-medium text-white/90">{startMessage.title}</p>
-                      <p className="text-xs text-white/50 mt-1 max-w-xs">
-                        {startMessage.subtitle}
-                      </p>
-                      {tuneParams && (
-                        <p className="text-[10px] font-mono text-cyan-400/80 mt-2">
-                          Pre-tuned to {formatFrequency(tuneParams.frequencyKhz)} {tuneParams.mode?.toUpperCase()}
+                  {!openedExternal ? (
+                    /* Pre-launch state — click to open receiver in new tab */
+                    <div
+                      className="flex flex-col items-center gap-4 cursor-pointer"
+                      onClick={() => {
+                        window.open(embedUrl, "_blank", "noopener,noreferrer");
+                        setOpenedExternal(true);
+                      }}
+                    >
+                      <div className="w-20 h-20 rounded-full bg-primary/20 border-2 border-primary/40 flex items-center justify-center hover:scale-105 transition-transform">
+                        <ExternalLink className="w-9 h-9 text-primary" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-white/90">Open {effectiveType} Receiver</p>
+                        <p className="text-xs text-white/50 mt-1 max-w-xs">
+                          This receiver runs on HTTP and opens in a new tab
+                          for full waterfall and signal feed access.
                         </p>
-                      )}
-                      {/* Type-specific tips */}
-                      <div className="mt-3 space-y-1">
-                        {iframeConfig.tips.slice(0, 2).map((tip, i) => (
-                          <p key={i} className="text-[9px] text-white/30 font-mono">
-                            {tip}
+                        {tuneParams && (
+                          <p className="text-[10px] font-mono text-cyan-400/80 mt-2">
+                            Pre-tuned to {formatFrequency(tuneParams.frequencyKhz)} {tuneParams.mode?.toUpperCase()}
                           </p>
-                        ))}
+                        )}
+                        <div className="mt-3 space-y-1">
+                          {iframeConfig.tips.slice(0, 2).map((tip, i) => (
+                            <p key={i} className="text-[9px] text-white/30 font-mono">
+                              {tip}
+                            </p>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Iframe load failure fallback */}
-              {iframeStarted && iframeLoadFailed && (
-                <div
-                  className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm z-10"
-                  style={{ top: "41px" }}
-                >
-                  <div className="flex flex-col items-center gap-4 max-w-sm px-6">
-                    <div className="w-16 h-16 rounded-full bg-red-500/20 border-2 border-red-500/40 flex items-center justify-center">
-                      <AlertTriangle className="w-8 h-8 text-red-400" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-sm font-medium text-white/90">
-                        {isMixedContent ? "HTTPS Connection Failed" : "Receiver Embed Blocked"}
-                      </p>
-                      <p className="text-xs text-white/50 mt-2 leading-relaxed">
-                        {isMixedContent
-                          ? "This receiver was auto-upgraded to HTTPS but doesn't support secure connections. Open it directly via HTTP in a new tab to access the waterfall and signal feed."
-                          : "This receiver may block iframe embedding (X-Frame-Options), or may be temporarily offline. Open it directly for full access to the waterfall and signal display."
-                        }
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
+                  ) : (
+                    /* Post-launch state — receiver is open in another tab */
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="w-16 h-16 rounded-full bg-green-400/15 border-2 border-green-400/30 flex items-center justify-center">
+                        <Radio className="w-8 h-8 text-green-400" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-white/90">Receiver Opened</p>
+                        <p className="text-xs text-white/50 mt-1 max-w-xs">
+                          The {effectiveType} receiver is running in another tab.
+                          Use Quick Tune above to re-open with a new frequency.
+                        </p>
+                      </div>
                       <a
-                        href={isMixedContent && originalHttpUrl ? originalHttpUrl : embedUrl}
+                        href={embedUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/20 border border-primary/30 text-primary hover:bg-primary/30 transition-all text-sm font-medium"
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 transition-all text-xs font-mono"
                       >
-                        <ExternalLink className="w-4 h-4" />
-                        Open in New Tab
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        Open Again
                       </a>
-                      <button
-                        onClick={() => { setIframeLoadFailed(false); setIframeKey((k) => k + 1); }}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 transition-all text-sm"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        Retry
-                      </button>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
-              {/* Iframe with optimal settings per receiver type */}
-              {iframeStarted && (
+              {/* ── Normal embeddable receiver (same protocol) ── */}
+              {!isMixedContent && (
                 <>
-                  <iframe
-                    key={iframeKey}
-                    ref={iframeRef}
-                    src={embedUrl}
-                    className={`w-full ${iframeConfig.containerClass}`}
-                    style={{ height: "calc(100% - 41px)" }}
-                    title={`${effectiveType} Radio Receiver`}
-                    sandbox={iframeConfig.sandbox}
-                    allow={iframeConfig.allow}
-                    scrolling={iframeConfig.scrolling}
-                    loading={iframeConfig.loading}
-                    referrerPolicy={iframeConfig.referrerPolicy as React.HTMLAttributeReferrerPolicy}
-                    onError={() => setIframeLoadFailed(true)}
-                  />
-                  {/* Non-blocking hint bar — fades out after 8 seconds */}
-                  {!iframeLoadFailed && (
-                    <motion.div
-                      initial={{ opacity: 1 }}
-                      animate={{ opacity: 0 }}
-                      transition={{ delay: 8, duration: 1.5 }}
-                      className="absolute bottom-2 left-2 right-2 z-10 pointer-events-none"
+                  {/* Click-to-start overlay with type-specific messaging */}
+                  {!iframeStarted && (
+                    <div
+                      className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-10 cursor-pointer"
+                      style={{ top: "41px" }}
+                      onClick={() => setIframeStarted(true)}
                     >
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-black/70 backdrop-blur-sm border border-white/10">
-                        <Info className="w-3.5 h-3.5 text-cyan-400/70 shrink-0" />
-                        <p className="text-[10px] font-mono text-white/60">
-                          {effectiveType === "KiwiSDR"
-                            ? "If you see a black screen, click inside the waterfall area to activate. Call sign was auto-filled."
-                            : effectiveType === "OpenWebRX"
-                            ? "Click the 'Start' button or anywhere in the dark area to activate the waterfall and audio."
-                            : "Click inside the receiver window to activate. Select a band tab if available."}
-                        </p>
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="w-20 h-20 rounded-full bg-primary/20 border-2 border-primary/40 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <Play className="w-10 h-10 text-primary ml-1" />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm font-medium text-white/90">{startMessage.title}</p>
+                          <p className="text-xs text-white/50 mt-1 max-w-xs">
+                            {startMessage.subtitle}
+                          </p>
+                          {tuneParams && (
+                            <p className="text-[10px] font-mono text-cyan-400/80 mt-2">
+                              Pre-tuned to {formatFrequency(tuneParams.frequencyKhz)} {tuneParams.mode?.toUpperCase()}
+                            </p>
+                          )}
+                          {/* Type-specific tips */}
+                          <div className="mt-3 space-y-1">
+                            {iframeConfig.tips.slice(0, 2).map((tip, i) => (
+                              <p key={i} className="text-[9px] text-white/30 font-mono">
+                                {tip}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
                       </div>
-                    </motion.div>
+                    </div>
+                  )}
+
+                  {/* Iframe load failure fallback */}
+                  {iframeStarted && iframeLoadFailed && (
+                    <div
+                      className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm z-10"
+                      style={{ top: "41px" }}
+                    >
+                      <div className="flex flex-col items-center gap-4 max-w-sm px-6">
+                        <div className="w-16 h-16 rounded-full bg-red-500/20 border-2 border-red-500/40 flex items-center justify-center">
+                          <AlertTriangle className="w-8 h-8 text-red-400" />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm font-medium text-white/90">Receiver Embed Blocked</p>
+                          <p className="text-xs text-white/50 mt-2 leading-relaxed">
+                            This receiver may block iframe embedding (X-Frame-Options),
+                            or may be temporarily offline. Open it directly for full access
+                            to the waterfall and signal display.
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={embedUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/20 border border-primary/30 text-primary hover:bg-primary/30 transition-all text-sm font-medium"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                            Open in New Tab
+                          </a>
+                          <button
+                            onClick={() => { setIframeLoadFailed(false); setIframeKey((k) => k + 1); }}
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 transition-all text-sm"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            Retry
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Iframe with optimal settings per receiver type */}
+                  {iframeStarted && (
+                    <>
+                      <iframe
+                        key={iframeKey}
+                        ref={iframeRef}
+                        src={embedUrl}
+                        className={`w-full ${iframeConfig.containerClass}`}
+                        style={{ height: "calc(100% - 41px)" }}
+                        title={`${effectiveType} Radio Receiver`}
+                        sandbox={iframeConfig.sandbox}
+                        allow={iframeConfig.allow}
+                        scrolling={iframeConfig.scrolling}
+                        loading={iframeConfig.loading}
+                        referrerPolicy={iframeConfig.referrerPolicy as React.HTMLAttributeReferrerPolicy}
+                        onError={() => setIframeLoadFailed(true)}
+                      />
+                      {/* Non-blocking hint bar — fades out after 8 seconds */}
+                      {!iframeLoadFailed && (
+                        <motion.div
+                          initial={{ opacity: 1 }}
+                          animate={{ opacity: 0 }}
+                          transition={{ delay: 8, duration: 1.5 }}
+                          className="absolute bottom-2 left-2 right-2 z-10 pointer-events-none"
+                        >
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-black/70 backdrop-blur-sm border border-white/10">
+                            <Info className="w-3.5 h-3.5 text-cyan-400/70 shrink-0" />
+                            <p className="text-[10px] font-mono text-white/60">
+                              {effectiveType === "KiwiSDR"
+                                ? "If you see a black screen, click inside the waterfall area to activate. Call sign was auto-filled."
+                                : effectiveType === "OpenWebRX"
+                                ? "Click the 'Start' button or anywhere in the dark area to activate the waterfall and audio."
+                                : "Click inside the receiver window to activate. Select a band tab if available."}
+                            </p>
+                          </div>
+                        </motion.div>
+                      )}
+                    </>
                   )}
                 </>
               )}
