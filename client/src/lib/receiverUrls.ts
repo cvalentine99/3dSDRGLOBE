@@ -182,7 +182,11 @@ export function getOptimalIframeConfig(receiverType: ReceiverTypeId): IframeConf
   switch (receiverType) {
     case "KiwiSDR":
       return {
-        sandbox: "allow-scripts allow-same-origin allow-popups allow-forms allow-modals",
+        // KiwiSDR needs: WebSocket for audio/waterfall streaming, AudioContext/AudioWorklet
+        // for audio processing, Canvas for waterfall rendering, localStorage for settings.
+        // allow-top-navigation-by-user-activation: some KiwiSDR versions redirect during init.
+        // allow-downloads: for REC (WAV recording) feature.
+        sandbox: "allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-downloads allow-top-navigation-by-user-activation",
         allow: "autoplay; microphone; fullscreen; web-share",
         minHeight: 500,
         aspectRatio: "16/9",
@@ -203,7 +207,11 @@ export function getOptimalIframeConfig(receiverType: ReceiverTypeId): IframeConf
 
     case "OpenWebRX":
       return {
-        sandbox: "allow-scripts allow-same-origin allow-popups allow-forms allow-modals",
+        // OpenWebRX needs: WebSocket for audio streaming, WebGL for spectrum display,
+        // AudioContext for playback, localStorage for user preferences.
+        // allow-top-navigation-by-user-activation: some versions redirect to login.
+        // allow-downloads: for audio recording feature.
+        sandbox: "allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-downloads allow-top-navigation-by-user-activation",
         allow: "autoplay; microphone; fullscreen; web-share",
         minHeight: 450,
         aspectRatio: "16/10",
@@ -224,7 +232,10 @@ export function getOptimalIframeConfig(receiverType: ReceiverTypeId): IframeConf
 
     case "WebSDR":
       return {
-        sandbox: "allow-scripts allow-same-origin allow-popups allow-forms",
+        // WebSDR needs: Canvas for waterfall, HTML5 audio, forms for frequency input.
+        // allow-top-navigation-by-user-activation: some WebSDR instances redirect.
+        // allow-downloads: for WAV recording feature.
+        sandbox: "allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-downloads allow-top-navigation-by-user-activation",
         allow: "autoplay; fullscreen",
         minHeight: 400,
         aspectRatio: "4/3",
@@ -245,7 +256,7 @@ export function getOptimalIframeConfig(receiverType: ReceiverTypeId): IframeConf
 
     default:
       return {
-        sandbox: "allow-scripts allow-same-origin allow-popups allow-forms",
+        sandbox: "allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-downloads allow-top-navigation-by-user-activation",
         allow: "autoplay; fullscreen",
         minHeight: 400,
         aspectRatio: "16/9",

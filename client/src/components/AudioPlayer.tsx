@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Radio, ExternalLink, X, Volume2, Globe, Play, Disc,
   ChevronDown, ChevronUp, Zap, Crosshair, Mic, Info,
-  Scan, Check, AlertTriangle,
+  Scan, Check, AlertTriangle, RefreshCw,
 } from "lucide-react";
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
@@ -28,6 +28,20 @@ import {
   type IframeConfig,
 } from "@/lib/receiverUrls";
 import { crossReferenceFrequencies } from "@/lib/frequencyCrossRef";
+
+/**
+ * Detect if embedding a URL will cause mixed content blocking.
+ * Browsers block HTTP iframes when the parent page is served over HTTPS.
+ */
+function hasMixedContentIssue(receiverUrl: string): boolean {
+  try {
+    const pageProtocol = window.location.protocol; // "https:" or "http:"
+    const receiverProtocol = new URL(receiverUrl).protocol;
+    return pageProtocol === "https:" && receiverProtocol === "http:";
+  } catch {
+    return false;
+  }
+}
 
 const TYPE_DOT: Record<string, string> = {
   OpenWebRX: "bg-cyan-400",
@@ -69,7 +83,9 @@ export default function AudioPlayer() {
   const [customMode, setCustomMode] = useState<SDRMode>("usb");
   const [iframeStarted, setIframeStarted] = useState(false);
   const [iframeKey, setIframeKey] = useState(0);
+  const [iframeLoadFailed, setIframeLoadFailed] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const iframeLoadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-detect receiver type from URL
   const detection: DetectionResult | null = useMemo(() => {
@@ -89,6 +105,11 @@ export default function AudioPlayer() {
   const startMessage = useMemo(() => {
     return getClickToStartMessage(effectiveType);
   }, [effectiveType]);
+
+  // Detect mixed content (HTTPS page embedding HTTP receiver)
+  const isMixedContent = useMemo(() => {
+    return selectedReceiver ? hasMixedContentIssue(selectedReceiver.url) : false;
+  }, [selectedReceiver]);
 
   // Get military frequencies for this station
   const milFreqs = useMemo(() => {
@@ -114,8 +135,39 @@ export default function AudioPlayer() {
   // Reset iframe state when receiver changes
   useEffect(() => {
     setIframeStarted(false);
+    setIframeLoadFailed(false);
     setIframeKey((k) => k + 1);
+    if (iframeLoadTimerRef.current) {
+      clearTimeout(iframeLoadTimerRef.current);
+      iframeLoadTimerRef.current = null;
+    }
   }, [selectedReceiver?.url]);
+
+  // Detect iframe load failure via timeout — if the iframe hasn't signaled
+  // a successful load within 15s, it's likely blocked (mixed content, X-Frame-Options, etc.)
+  useEffect(() => {
+    if (!iframeStarted || isMixedContent) return;
+    if (iframeLoadTimerRef.current) clearTimeout(iframeLoadTimerRef.current);
+    iframeLoadTimerRef.current = setTimeout(() => {
+      // Check if the iframe is blank/empty (heuristic for load failure)
+      const iframe = iframeRef.current;
+      if (iframe) {
+        try {
+          // Cross-origin iframes throw on contentDocument access — that's expected and means it loaded
+          const _doc = iframe.contentDocument;
+          // If we CAN access it and it's empty/about:blank, it likely failed
+          if (_doc && (_doc.URL === "about:blank" || !_doc.body?.childElementCount)) {
+            setIframeLoadFailed(true);
+          }
+        } catch {
+          // SecurityError = cross-origin frame loaded successfully (normal)
+        }
+      }
+    }, 15000);
+    return () => {
+      if (iframeLoadTimerRef.current) clearTimeout(iframeLoadTimerRef.current);
+    };
+  }, [iframeStarted, iframeKey, isMixedContent]);
 
   // Tune to a specific frequency
   const tuneTo = useCallback((freqKhz: number, mode?: SDRMode) => {
@@ -126,6 +178,7 @@ export default function AudioPlayer() {
     setTuneParams(params);
     setIframeKey((k) => k + 1);
     setIframeStarted(false);
+    setIframeLoadFailed(false);
   }, []);
 
   // Handle custom frequency input
@@ -369,8 +422,42 @@ export default function AudioPlayer() {
                 )}
               </AnimatePresence>
 
+              {/* Mixed content warning — HTTPS page cannot embed HTTP receivers */}
+              {isMixedContent && (
+                <div
+                  className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm z-10"
+                  style={{ top: "41px" }}
+                >
+                  <div className="flex flex-col items-center gap-4 max-w-sm px-6">
+                    <div className="w-16 h-16 rounded-full bg-amber-500/20 border-2 border-amber-500/40 flex items-center justify-center">
+                      <AlertTriangle className="w-8 h-8 text-amber-400" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-white/90">Secure Connection Required</p>
+                      <p className="text-xs text-white/50 mt-2 leading-relaxed">
+                        This receiver uses HTTP but the app is served over HTTPS.
+                        Browsers block mixed content for security. Open the receiver
+                        directly in a new tab to access the waterfall and signal feed.
+                      </p>
+                    </div>
+                    <a
+                      href={embedUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary/20 border border-primary/30 text-primary hover:bg-primary/30 transition-all text-sm font-medium"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Open in New Tab
+                    </a>
+                    <p className="text-[9px] text-white/25 font-mono text-center">
+                      Tip: Signal intelligence data still works via the backend proxy
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Click-to-start overlay with type-specific messaging */}
-              {!iframeStarted && (
+              {!iframeStarted && !isMixedContent && (
                 <div
                   className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-10 cursor-pointer"
                   style={{ top: "41px" }}
@@ -403,8 +490,48 @@ export default function AudioPlayer() {
                 </div>
               )}
 
+              {/* Iframe load failure fallback */}
+              {iframeStarted && iframeLoadFailed && !isMixedContent && (
+                <div
+                  className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm z-10"
+                  style={{ top: "41px" }}
+                >
+                  <div className="flex flex-col items-center gap-4 max-w-sm px-6">
+                    <div className="w-16 h-16 rounded-full bg-red-500/20 border-2 border-red-500/40 flex items-center justify-center">
+                      <AlertTriangle className="w-8 h-8 text-red-400" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-white/90">Receiver Embed Blocked</p>
+                      <p className="text-xs text-white/50 mt-2 leading-relaxed">
+                        This receiver may block iframe embedding (X-Frame-Options),
+                        or may be temporarily offline. Open it directly for full access
+                        to the waterfall and signal display.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={embedUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/20 border border-primary/30 text-primary hover:bg-primary/30 transition-all text-sm font-medium"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Open in New Tab
+                      </a>
+                      <button
+                        onClick={() => { setIframeLoadFailed(false); setIframeKey((k) => k + 1); }}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 transition-all text-sm"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        Retry
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Iframe with optimal settings per receiver type */}
-              {iframeStarted && (
+              {iframeStarted && !isMixedContent && (
                 <iframe
                   key={iframeKey}
                   ref={iframeRef}
@@ -417,6 +544,7 @@ export default function AudioPlayer() {
                   scrolling={iframeConfig.scrolling}
                   loading={iframeConfig.loading}
                   referrerPolicy={iframeConfig.referrerPolicy as React.HTMLAttributeReferrerPolicy}
+                  onError={() => setIframeLoadFailed(true)}
                 />
               )}
             </motion.div>
