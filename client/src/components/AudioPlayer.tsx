@@ -31,7 +31,7 @@ import {
 import { crossReferenceFrequencies } from "@/lib/frequencyCrossRef";
 
 /**
- * Detect if embedding a URL will cause mixed content blocking.
+ * Detect if embedding a URL would cause mixed content blocking.
  * Browsers block HTTP iframes when the parent page is served over HTTPS.
  */
 function hasMixedContentIssue(receiverUrl: string): boolean {
@@ -42,6 +42,15 @@ function hasMixedContentIssue(receiverUrl: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Upgrade an HTTP URL to HTTPS. Many SDR receivers support both protocols
+ * even when listed with HTTP. We try HTTPS first to avoid mixed content
+ * blocking, and fall back to "open in new tab" if HTTPS fails to load.
+ */
+function upgradeToHttps(url: string): string {
+  return url.replace(/^http:\/\//i, "https://");
 }
 
 const TYPE_DOT: Record<string, string> = {
@@ -107,7 +116,10 @@ export default function AudioPlayer() {
     return getClickToStartMessage(effectiveType);
   }, [effectiveType]);
 
-  // Detect mixed content (HTTPS page embedding HTTP receiver)
+  // Detect mixed content (HTTPS page embedding HTTP receiver).
+  // When detected, we upgrade the URL to HTTPS and try loading it.
+  // If the HTTPS version fails, the iframe load failure handler shows
+  // a fallback with the original HTTP link for "open in new tab".
   const isMixedContent = useMemo(() => {
     return selectedReceiver ? hasMixedContentIssue(selectedReceiver.url) : false;
   }, [selectedReceiver]);
@@ -118,20 +130,36 @@ export default function AudioPlayer() {
     return crossReferenceFrequencies(selectedStation);
   }, [selectedStation]);
 
-  // Build the current embed URL
+  // Build the current embed URL.
+  // When mixed content is detected, upgrade the base URL to HTTPS before building.
   // For KiwiSDR: always append a random call sign (u=) to bypass the ident dialog,
   // plus enable spectrum display (sp flag).
   const embedUrl = useMemo(() => {
     if (!selectedReceiver) return "";
+    const baseUrl = isMixedContent
+      ? upgradeToHttps(selectedReceiver.url)
+      : selectedReceiver.url;
+    if (tuneParams) {
+      return buildTunedUrl(baseUrl, effectiveType, tuneParams);
+    }
+    // Even without custom tuning, KiwiSDR benefits from auto-ident
+    if (effectiveType === "KiwiSDR") {
+      return appendKiwiIdentToUrl(baseUrl);
+    }
+    return baseUrl;
+  }, [selectedReceiver, tuneParams, effectiveType, isMixedContent]);
+
+  // Keep the original HTTP URL for "open in new tab" fallback
+  const originalHttpUrl = useMemo(() => {
+    if (!selectedReceiver || !isMixedContent) return "";
     if (tuneParams) {
       return buildTunedUrl(selectedReceiver.url, effectiveType, tuneParams);
     }
-    // Even without custom tuning, KiwiSDR benefits from auto-ident
     if (effectiveType === "KiwiSDR") {
       return appendKiwiIdentToUrl(selectedReceiver.url);
     }
     return selectedReceiver.url;
-  }, [selectedReceiver, tuneParams, effectiveType]);
+  }, [selectedReceiver, tuneParams, effectiveType, isMixedContent]);
 
   // Recording info for current receiver type
   const recordingInfo = useMemo(() => {
@@ -151,10 +179,13 @@ export default function AudioPlayer() {
   }, [selectedReceiver?.url]);
 
   // Detect iframe load failure via timeout — if the iframe hasn't signaled
-  // a successful load within 15s, it's likely blocked (mixed content, X-Frame-Options, etc.)
+  // a successful load within a timeout, it's likely blocked (HTTPS upgrade failure,
+  // X-Frame-Options, etc.). Use a shorter timeout for HTTPS upgrades since those
+  // tend to fail fast (connection refused).
   useEffect(() => {
-    if (!iframeStarted || isMixedContent) return;
+    if (!iframeStarted) return;
     if (iframeLoadTimerRef.current) clearTimeout(iframeLoadTimerRef.current);
+    const timeout = isMixedContent ? 8000 : 15000;
     iframeLoadTimerRef.current = setTimeout(() => {
       // Check if the iframe is blank/empty (heuristic for load failure)
       const iframe = iframeRef.current;
@@ -170,7 +201,7 @@ export default function AudioPlayer() {
           // SecurityError = cross-origin frame loaded successfully (normal)
         }
       }
-    }, 15000);
+    }, timeout);
     return () => {
       if (iframeLoadTimerRef.current) clearTimeout(iframeLoadTimerRef.current);
     };
@@ -429,42 +460,26 @@ export default function AudioPlayer() {
                 )}
               </AnimatePresence>
 
-              {/* Mixed content warning — HTTPS page cannot embed HTTP receivers */}
-              {isMixedContent && (
-                <div
-                  className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm z-10"
-                  style={{ top: "41px" }}
-                >
-                  <div className="flex flex-col items-center gap-4 max-w-sm px-6">
-                    <div className="w-16 h-16 rounded-full bg-amber-500/20 border-2 border-amber-500/40 flex items-center justify-center">
-                      <AlertTriangle className="w-8 h-8 text-amber-400" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-sm font-medium text-white/90">Secure Connection Required</p>
-                      <p className="text-xs text-white/50 mt-2 leading-relaxed">
-                        This receiver uses HTTP but the app is served over HTTPS.
-                        Browsers block mixed content for security. Open the receiver
-                        directly in a new tab to access the waterfall and signal feed.
-                      </p>
-                    </div>
-                    <a
-                      href={embedUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary/20 border border-primary/30 text-primary hover:bg-primary/30 transition-all text-sm font-medium"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      Open in New Tab
-                    </a>
-                    <p className="text-[9px] text-white/25 font-mono text-center">
-                      Tip: Signal intelligence data still works via the backend proxy
-                    </p>
-                  </div>
+              {/* HTTPS upgrade info banner — shown when we auto-upgraded HTTP→HTTPS */}
+              {isMixedContent && iframeStarted && !iframeLoadFailed && (
+                <div className="absolute top-[41px] left-0 right-0 z-10 px-3 py-1.5 bg-amber-500/10 border-b border-amber-500/20 flex items-center gap-2">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400/70 shrink-0" />
+                  <p className="text-[10px] font-mono text-amber-400/70 flex-1">
+                    Auto-upgraded to HTTPS for secure embedding.
+                    {originalHttpUrl && (
+                      <>
+                        {" "}If the receiver doesn't load,{" "}
+                        <a href={originalHttpUrl} target="_blank" rel="noopener noreferrer" className="underline text-primary hover:text-primary/80">
+                          open via HTTP in a new tab
+                        </a>.
+                      </>
+                    )}
+                  </p>
                 </div>
               )}
 
               {/* Click-to-start overlay with type-specific messaging */}
-              {!iframeStarted && !isMixedContent && (
+              {!iframeStarted && (
                 <div
                   className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-10 cursor-pointer"
                   style={{ top: "41px" }}
@@ -498,7 +513,7 @@ export default function AudioPlayer() {
               )}
 
               {/* Iframe load failure fallback */}
-              {iframeStarted && iframeLoadFailed && !isMixedContent && (
+              {iframeStarted && iframeLoadFailed && (
                 <div
                   className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm z-10"
                   style={{ top: "41px" }}
@@ -508,16 +523,19 @@ export default function AudioPlayer() {
                       <AlertTriangle className="w-8 h-8 text-red-400" />
                     </div>
                     <div className="text-center">
-                      <p className="text-sm font-medium text-white/90">Receiver Embed Blocked</p>
+                      <p className="text-sm font-medium text-white/90">
+                        {isMixedContent ? "HTTPS Connection Failed" : "Receiver Embed Blocked"}
+                      </p>
                       <p className="text-xs text-white/50 mt-2 leading-relaxed">
-                        This receiver may block iframe embedding (X-Frame-Options),
-                        or may be temporarily offline. Open it directly for full access
-                        to the waterfall and signal display.
+                        {isMixedContent
+                          ? "This receiver was auto-upgraded to HTTPS but doesn't support secure connections. Open it directly via HTTP in a new tab to access the waterfall and signal feed."
+                          : "This receiver may block iframe embedding (X-Frame-Options), or may be temporarily offline. Open it directly for full access to the waterfall and signal display."
+                        }
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <a
-                        href={embedUrl}
+                        href={isMixedContent && originalHttpUrl ? originalHttpUrl : embedUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/20 border border-primary/30 text-primary hover:bg-primary/30 transition-all text-sm font-medium"
@@ -538,7 +556,7 @@ export default function AudioPlayer() {
               )}
 
               {/* Iframe with optimal settings per receiver type */}
-              {iframeStarted && !isMixedContent && (
+              {iframeStarted && (
                 <>
                   <iframe
                     key={iframeKey}
