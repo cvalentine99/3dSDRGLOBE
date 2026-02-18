@@ -10,6 +10,7 @@ import {
   ChevronDown, ChevronUp, Zap, Crosshair, Mic, Info,
   Scan, Check, AlertTriangle, RefreshCw,
 } from "lucide-react";
+import Waterfall from "./Waterfall";
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
   buildTunedUrl,
@@ -447,14 +448,23 @@ export default function AudioPlayer() {
               </AnimatePresence>
 
               {/* ── Mixed content: HTTP receiver on HTTPS page ── */}
-              {/* Instead of trying to iframe (which browsers block), open directly in a new tab */}
-              {isMixedContent && (
+              {/* KiwiSDR: native waterfall via WebSocket relay */}
+              {/* Other types: open directly in a new tab */}
+              {isMixedContent && effectiveType === "KiwiSDR" && (
+                <div style={{ height: "calc(100% - 41px)", marginTop: "0" }}>
+                  <Waterfall
+                    receiverUrl={selectedReceiver.url}
+                    height={undefined}
+                    fallbackUrl={embedUrl}
+                  />
+                </div>
+              )}
+              {isMixedContent && effectiveType !== "KiwiSDR" && (
                 <div
                   className="absolute inset-0 flex flex-col items-center justify-center z-10"
                   style={{ top: "41px" }}
                 >
                   {!openedExternal ? (
-                    /* Pre-launch state — click to open receiver in new tab */
                     <div
                       className="flex flex-col items-center gap-4 cursor-pointer"
                       onClick={() => {
@@ -486,7 +496,6 @@ export default function AudioPlayer() {
                       </div>
                     </div>
                   ) : (
-                    /* Post-launch state — receiver is open in another tab */
                     <div className="flex flex-col items-center gap-4">
                       <div className="w-16 h-16 rounded-full bg-green-400/15 border-2 border-green-400/30 flex items-center justify-center">
                         <Radio className="w-8 h-8 text-green-400" />
