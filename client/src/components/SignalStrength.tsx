@@ -96,7 +96,7 @@ function formatUptime(seconds: number): string {
 /* ── Component ────────────────────────────────────── */
 
 export default function SignalStrength({ receiverUrl, receiverType, stationLabel, onOpenLog }: Props) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true); // Auto-expand to show signal data immediately
   const [manualRefreshKey, setManualRefreshKey] = useState(0);
   const isKiwi = receiverType === "KiwiSDR";
 
@@ -264,14 +264,25 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
               )}
 
               {error && !statusData && (
-                <div className="flex items-center gap-2 py-3 px-2 rounded bg-red-500/10 border border-red-500/20">
-                  <WifiOff className="w-4 h-4 text-red-400/70 shrink-0" />
-                  <div>
-                    <p className="text-[10px] text-red-400/80 font-medium">Connection Failed</p>
+                <div className="flex items-start gap-2 py-3 px-2 rounded bg-red-500/10 border border-red-500/20">
+                  <WifiOff className="w-4 h-4 text-red-400/70 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-[10px] text-red-400/80 font-medium">Signal Check Failed</p>
                     <p className="text-[9px] text-red-400/50 mt-0.5">{error}</p>
                     <p className="text-[9px] text-white/30 mt-1">
-                      Receiver may be offline, behind a firewall, or temporarily unreachable.
+                      The backend proxy could not reach this receiver. It may be offline,
+                      behind a firewall, or the proxy pool may be temporarily exhausted.
                     </p>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        refetch();
+                      }}
+                      className="mt-2 flex items-center gap-1 text-[9px] font-mono text-cyan-400/60 hover:text-cyan-400/90 transition-colors"
+                    >
+                      <RefreshCw className="w-2.5 h-2.5" />
+                      Retry signal check
+                    </button>
                   </div>
                 </div>
               )}

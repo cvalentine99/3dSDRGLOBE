@@ -269,13 +269,15 @@ describe("getClickToStartMessage", () => {
 /* ── buildTunedUrl with detected type ───────────────── */
 
 describe("buildTunedUrl uses correct format per type", () => {
-  it("builds KiwiSDR URL with hash fragment", () => {
+  it("builds KiwiSDR URL with query params and auto-fill ident", () => {
     const url = buildTunedUrl("http://kiwisdr.example.com:8073/", "KiwiSDR", {
       frequencyKhz: 7200,
       mode: "lsb",
     });
-    expect(url).toContain("#f=7200.00lsb");
-    expect(url).toContain(",z=10");
+    expect(url).toContain("?f=7200.00lsb");
+    expect(url).toContain("z10");
+    expect(url).toContain("&u=");
+    expect(url).toContain("&sp");
   });
 
   it("builds OpenWebRX URL with hash fragment in Hz", () => {
@@ -311,7 +313,9 @@ describe("end-to-end: detect type, get config, build URL", () => {
       frequencyKhz: 10000,
       mode: "am",
     });
-    expect(tunedUrl).toContain("#f=10000.00am");
+    expect(tunedUrl).toContain("?f=10000.00am");
+    expect(tunedUrl).toContain("&u=");
+    expect(tunedUrl).toContain("&sp");
   });
 
   it("WebSDR URL -> detect -> config -> tuned URL", () => {

@@ -182,7 +182,11 @@ export function getOptimalIframeConfig(receiverType: ReceiverTypeId): IframeConf
   switch (receiverType) {
     case "KiwiSDR":
       return {
-        sandbox: "allow-scripts allow-same-origin allow-popups allow-forms allow-modals",
+        // KiwiSDR needs: WebSocket for audio/waterfall streaming, AudioContext/AudioWorklet
+        // for audio processing, Canvas for waterfall rendering, localStorage for settings.
+        // allow-top-navigation-by-user-activation: some KiwiSDR versions redirect during init.
+        // allow-downloads: for REC (WAV recording) feature.
+        sandbox: "allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-downloads allow-top-navigation-by-user-activation",
         allow: "autoplay; microphone; fullscreen; web-share",
         minHeight: 500,
         aspectRatio: "16/9",
@@ -203,7 +207,11 @@ export function getOptimalIframeConfig(receiverType: ReceiverTypeId): IframeConf
 
     case "OpenWebRX":
       return {
-        sandbox: "allow-scripts allow-same-origin allow-popups allow-forms allow-modals",
+        // OpenWebRX needs: WebSocket for audio streaming, WebGL for spectrum display,
+        // AudioContext for playback, localStorage for user preferences.
+        // allow-top-navigation-by-user-activation: some versions redirect to login.
+        // allow-downloads: for audio recording feature.
+        sandbox: "allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-downloads allow-top-navigation-by-user-activation",
         allow: "autoplay; microphone; fullscreen; web-share",
         minHeight: 450,
         aspectRatio: "16/10",
@@ -224,7 +232,10 @@ export function getOptimalIframeConfig(receiverType: ReceiverTypeId): IframeConf
 
     case "WebSDR":
       return {
-        sandbox: "allow-scripts allow-same-origin allow-popups allow-forms",
+        // WebSDR needs: Canvas for waterfall, HTML5 audio, forms for frequency input.
+        // allow-top-navigation-by-user-activation: some WebSDR instances redirect.
+        // allow-downloads: for WAV recording feature.
+        sandbox: "allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-downloads allow-top-navigation-by-user-activation",
         allow: "autoplay; fullscreen",
         minHeight: 400,
         aspectRatio: "4/3",
@@ -245,7 +256,7 @@ export function getOptimalIframeConfig(receiverType: ReceiverTypeId): IframeConf
 
     default:
       return {
-        sandbox: "allow-scripts allow-same-origin allow-popups allow-forms",
+        sandbox: "allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-downloads allow-top-navigation-by-user-activation",
         allow: "autoplay; fullscreen",
         minHeight: 400,
         aspectRatio: "16/9",
@@ -272,22 +283,22 @@ export function getClickToStartMessage(receiverType: ReceiverTypeId): {
     case "KiwiSDR":
       return {
         title: "Click to Load KiwiSDR",
-        subtitle: "The KiwiSDR waterfall interface will load. Click the spectrum to start listening.",
+        subtitle: "The waterfall will load with a pre-filled call sign. If prompted, enter any name then click the waterfall to start listening.",
       };
     case "OpenWebRX":
       return {
         title: "Click to Load OpenWebRX",
-        subtitle: "OpenWebRX will load with spectrum display. Click 'Start' or the waterfall to begin.",
+        subtitle: "OpenWebRX will load — click anywhere on the dark area or the 'Start' button inside to activate the waterfall and audio.",
       };
     case "WebSDR":
       return {
         title: "Click to Load WebSDR",
-        subtitle: "WebSDR will load. Select a band tab and click the waterfall to tune and listen.",
+        subtitle: "WebSDR will load. Click inside the receiver window to activate audio, then click the waterfall to tune.",
       };
     default:
       return {
         title: "Click to Load Receiver",
-        subtitle: "The receiver interface will load. Follow on-screen instructions to start listening.",
+        subtitle: "The receiver will load. You may need to click inside the window to activate the waterfall and audio.",
       };
   }
 }
@@ -338,16 +349,38 @@ function websdrMode(mode: SDRMode): string {
   return map[mode] || "am";
 }
 
+/* ── Random Ident for KiwiSDR ──────────────────────── */
+
+/**
+ * Generate a random 6-character alphanumeric ident for KiwiSDR.
+ * This auto-fills the call sign dialog so users don't get blocked.
+ */
+function randomKiwiIdent(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let result = "";
+  for (let i = 0; i < 6; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
 /* ── URL Builders ───────────────────────────────────── */
 
 /**
- * Build a tuned URL for a KiwiSDR receiver
+ * Build a tuned URL for a KiwiSDR receiver.
+ *
+ * Correct KiwiSDR URL format (per official docs):
+ *   ?f=<freq_kHz><mode>z<zoom>&u=<ident>&sp
+ *
+ * The `u=` param auto-fills the call sign dialog (v1.431+).
+ * The `sp` flag enables the spectrum display on load.
  */
 export function buildKiwiUrl(baseUrl: string, params: TuneParams): string {
-  const url = baseUrl.replace(/\/$/, "").replace(/#.*$/, "");
+  const url = baseUrl.replace(/\/$/, "").replace(/[#?].*$/, "");
   const mode = kiwiMode(params.mode || suggestMode(params.frequencyKhz));
   const zoom = params.zoom ?? 10;
-  return `${url}/#f=${params.frequencyKhz.toFixed(2)}${mode},z=${zoom}`;
+  const ident = randomKiwiIdent();
+  return `${url}/?f=${params.frequencyKhz.toFixed(2)}${mode}z${zoom}&u=${ident}&sp`;
 }
 
 /**
@@ -387,6 +420,16 @@ export function buildTunedUrl(
     default:
       return baseUrl;
   }
+}
+
+/**
+ * Append KiwiSDR-specific params (call sign + spectrum) to a base receiver URL.
+ * Used when no custom tuning is applied but we still want to bypass the call sign dialog.
+ */
+export function appendKiwiIdentToUrl(baseUrl: string): string {
+  const ident = randomKiwiIdent();
+  const separator = baseUrl.includes("?") ? "&" : "/?";
+  return `${baseUrl.replace(/\/$/, "")}${separator}u=${ident}&sp`;
 }
 
 /* ── Display Helpers ────────────────────────────────── */

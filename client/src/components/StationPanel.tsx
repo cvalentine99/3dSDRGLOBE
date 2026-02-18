@@ -479,10 +479,10 @@ export default function StationPanel() {
                 <Info className="w-3.5 h-3.5 text-amber-400/50 shrink-0 mt-0.5" />
                 <p className="text-[10px] text-amber-400/60 leading-relaxed">
                   {selectedReceiver.type === "KiwiSDR"
-                    ? "Click the waterfall display to start audio. Use the frequency/mode controls to tune. The REC button records audio."
+                    ? "If prompted for a call sign, enter any name (e.g. 6 random characters). Then click the waterfall area to activate audio. The REC button records."
                     : selectedReceiver.type === "OpenWebRX"
-                    ? "Click the 'Start OpenWebRX' button to begin. Click the waterfall to tune. Some versions have a record button."
-                    : "Select a band tab, then click the waterfall to tune. Use the 'Audio recording: Start' button to record."}
+                    ? "Click the 'Start OpenWebRX' button or the dark area to activate. Then click the waterfall to tune. Some versions have a record button."
+                    : "Click inside the receiver window to activate audio. Select a band tab, then click the waterfall to tune."}
                 </p>
               </div>
               <a
