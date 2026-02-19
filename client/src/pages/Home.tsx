@@ -3,9 +3,9 @@
  * Design: "Ether" — Dark atmospheric immersion
  * Full-viewport globe with floating UI overlays
  */
-import { useState, useCallback, useRef, Component, type ReactNode } from "react";
+import { useState, useCallback, useRef, useMemo, Component, type ReactNode } from "react";
 import { RadioProvider, useRadio } from "@/contexts/RadioContext";
-import Globe from "@/components/Globe";
+import Globe, { type TdoaOverlayData } from "@/components/Globe";
 import { useReceiverStatusMap } from "@/hooks/useReceiverStatusMap";
 import StationPanel from "@/components/StationPanel";
 import AudioPlayer from "@/components/AudioPlayer";
@@ -93,6 +93,58 @@ function HomeContent() {
   const [propVisible, setPropVisible] = useState(false);
   const [tdoaOpen, setTdoaOpen] = useState(false);
   const [tdoaSelectedHosts, setTdoaSelectedHosts] = useState<any[]>([]);
+  const [tdoaResult, setTdoaResult] = useState<{
+    likelyLat: number;
+    likelyLon: number;
+    hosts: { lat: number; lon: number; h: string }[];
+    contours: any[];
+    jobId: string;
+  } | null>(null);
+
+  // Build TDoA overlay data for the globe
+  const tdoaOverlay = useMemo<TdoaOverlayData>(() => {
+    if (!tdoaOpen && !tdoaResult) return { visible: false };
+
+    const hosts = tdoaSelectedHosts.map((h: any) => ({
+      lat: h.lat,
+      lon: h.lon,
+      hostname: h.h || h.id || "",
+      selected: true,
+      status: "idle" as const,
+    }));
+
+    if (tdoaResult) {
+      return {
+        visible: true,
+        hosts: tdoaResult.hosts.map((h) => ({
+          lat: h.lat,
+          lon: h.lon,
+          hostname: h.h,
+          selected: true,
+          status: "ok" as const,
+        })),
+        targetLat: tdoaResult.likelyLat,
+        targetLon: tdoaResult.likelyLon,
+        contours: tdoaResult.contours,
+      };
+    }
+
+    return {
+      visible: tdoaOpen && hosts.length > 0,
+      hosts,
+    };
+  }, [tdoaOpen, tdoaSelectedHosts, tdoaResult]);
+
+  const handleTdoaReplay = useCallback((job: {
+    likelyLat: number;
+    likelyLon: number;
+    hosts: { lat: number; lon: number; h: string }[];
+    contours: any[];
+    jobId: string;
+  }) => {
+    setTdoaResult(job);
+    setTdoaOpen(true);
+  }, []);
   const ionosondesRef = useRef<IonosondeStation[]>([]);
   const unackAlerts = getUnacknowledgedCount();
   const watchCount = getWatchlistCount();
@@ -149,7 +201,11 @@ function HomeContent() {
 
       {/* 3D Globe — wrapped in local error boundary to isolate WebGL crashes */}
       <GlobeErrorBoundary>
-        <Globe ionosondes={propVisible ? ionosondesRef.current : []} isStationOnline={isStationOnline} />
+        <Globe
+          ionosondes={propVisible ? ionosondesRef.current : []}
+          isStationOnline={isStationOnline}
+          tdoaOverlay={tdoaOverlay}
+        />
       </GlobeErrorBoundary>
 
       {/* Batch pre-check progress / auto-refresh indicator */}
@@ -327,7 +383,10 @@ function HomeContent() {
       {/* TDoA Triangulation Panel */}
       <TDoAPanel
         isOpen={tdoaOpen}
-        onClose={() => setTdoaOpen(false)}
+        onClose={() => {
+          setTdoaOpen(false);
+          setTdoaResult(null);
+        }}
         selectedHosts={tdoaSelectedHosts}
         onToggleHost={(host) => {
           setTdoaSelectedHosts((prev) => {
@@ -338,6 +397,7 @@ function HomeContent() {
           });
         }}
         onClearHosts={() => setTdoaSelectedHosts([])}
+        onReplayJob={handleTdoaReplay}
       />
 
       {/* Propagation Overlay Panel */}

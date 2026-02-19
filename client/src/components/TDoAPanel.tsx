@@ -27,9 +27,11 @@ import {
   ChevronUp,
   Search,
   Signal,
+  History,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import TDoAHistory from "./TDoAHistory";
 
 /* ── Types ────────────────────────────────────────── */
 
@@ -85,7 +87,16 @@ interface TDoAPanelProps {
   onClearHosts: () => void;
   onResult?: (result: TdoaResult) => void;
   onJobStatusChange?: (status: JobStatus) => void;
+  onReplayJob?: (job: {
+    likelyLat: number;
+    likelyLon: number;
+    hosts: { lat: number; lon: number; h: string }[];
+    contours: any[];
+    jobId: string;
+  }) => void;
 }
+
+type PanelTab = "run" | "history";
 
 const REF_CATEGORIES: Record<string, string> = {
   v: "VLF/LF",
@@ -110,7 +121,11 @@ export default function TDoAPanel({
   onClearHosts,
   onResult,
   onJobStatusChange,
+  onReplayJob,
 }: TDoAPanelProps) {
+  // Tab state
+  const [activeTab, setActiveTab] = useState<PanelTab>("run");
+
   // Form state
   const [frequencyKhz, setFrequencyKhz] = useState<string>("10000");
   const [passbandHz, setPassbandHz] = useState<string>("1000");
@@ -387,8 +402,42 @@ export default function TDoAPanel({
               </button>
             </div>
 
+            {/* Tab navigation */}
+            <div className="flex border-b border-white/10 px-5">
+              <button
+                onClick={() => setActiveTab("run")}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider border-b-2 transition-colors ${
+                  activeTab === "run"
+                    ? "border-violet-400 text-violet-300"
+                    : "border-transparent text-white/40 hover:text-white/60"
+                }`}
+              >
+                <Crosshair className="w-3 h-3" />
+                Run
+              </button>
+              <button
+                onClick={() => setActiveTab("history")}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider border-b-2 transition-colors ${
+                  activeTab === "history"
+                    ? "border-violet-400 text-violet-300"
+                    : "border-transparent text-white/40 hover:text-white/60"
+                }`}
+              >
+                <History className="w-3 h-3" />
+                History
+              </button>
+            </div>
+
             {/* Scrollable body */}
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5 scrollbar-thin">
+
+            {/* History Tab */}
+            {activeTab === "history" && (
+              <TDoAHistory isOpen={isOpen && activeTab === "history"} onReplay={onReplayJob} />
+            )}
+
+            {/* Run Tab */}
+            {activeTab === "run" && (<>
               {/* ── Selected Hosts ───────────────────────── */}
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -813,9 +862,11 @@ export default function TDoAPanel({
                   <p className="text-[11px] text-white/60">{errorMessage}</p>
                 </motion.div>
               )}
+            </>)}
             </div>
 
             {/* ── Bottom Actions ──────────────────────── */}
+            {activeTab === "run" && (
             <div className="px-5 py-3 border-t border-white/10 flex gap-2">
               {isRunning ? (
                 <button
@@ -853,6 +904,7 @@ export default function TDoAPanel({
                 </>
               )}
             </div>
+            )}
           </div>
         </motion.div>
       )}

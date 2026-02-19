@@ -200,9 +200,25 @@ export async function submitTdoaJob(params: TdoaSubmitParams): Promise<TdoaJobSt
   queryParams.set("pi", buildPiParam(params));
 
   try {
-    await axios.get(`${SUBMIT_URL}?${queryParams.toString()}`, { timeout: 30000 });
-    job.status = "sampling";
-    console.log(`[TDoA] Job ${jobId} submitted with key ${key}`);
+    const resp = await axios.get(`${SUBMIT_URL}?${queryParams.toString()}`, {
+      timeout: 30000,
+      validateStatus: (s) => s < 500, // Don't throw on 4xx
+    });
+    if (resp.status === 401) {
+      job.status = "error";
+      job.error =
+        "TDoA server requires KiwiSDR-native authentication. " +
+        "Job submission is only available from within a KiwiSDR TDoA extension. " +
+        "GPS host browsing and reference transmitters still work.";
+      console.warn(`[TDoA] Job ${jobId} got 401 — server requires KiwiSDR auth token`);
+    } else if (resp.status >= 400) {
+      job.status = "error";
+      job.error = `Submit failed: HTTP ${resp.status}`;
+      console.error(`[TDoA] Job ${jobId} submit failed: HTTP ${resp.status}`);
+    } else {
+      job.status = "sampling";
+      console.log(`[TDoA] Job ${jobId} submitted with key ${key}`);
+    }
   } catch (err: any) {
     job.status = "error";
     job.error = `Submit failed: ${err.message}`;

@@ -16,6 +16,16 @@ import { getMufColor, getFof2Color } from "@/lib/propagationService";
 import { WebGLContextManager } from "@/lib/WebGLContextManager";
 import { FPSGovernor, type QualityLevel, type QualityConfig } from "@/lib/FPSGovernor";
 import { setRenderMode } from "@/lib/RenderMode";
+import {
+  createTdoaHostMarkers,
+  createBearingLines,
+  createTargetMarker,
+  createContourOverlay,
+  updateTdoaAnimations,
+  disposeTdoaGroup,
+  type TdoaHostMarkerData,
+  type ContourData,
+} from "./TDoAGlobeOverlay";
 
 /** Detect whether the browser supports WebGL */
 function isWebGLAvailable(): boolean {
@@ -51,14 +61,24 @@ const STATUS_ONLINE = 0x22c55e; // bright green
 const STATUS_OFFLINE = 0xef4444; // red
 const STATUS_UNKNOWN_ALPHA = 0.45; // dimmer for unchecked
 
+export interface TdoaOverlayData {
+  hosts?: TdoaHostMarkerData[];
+  targetLat?: number;
+  targetLon?: number;
+  contours?: ContourData[];
+  visible?: boolean;
+}
+
 interface GlobeProps {
   ionosondes?: IonosondeStation[];
   isStationOnline?: (station: Station) => boolean | null;
+  tdoaOverlay?: TdoaOverlayData;
 }
 
-export default function Globe({ ionosondes = [], isStationOnline }: GlobeProps) {
+export default function Globe({ ionosondes = [], isStationOnline, tdoaOverlay }: GlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ionoGroupRef = useRef<THREE.Group | null>(null);
+  const tdoaGroupRef = useRef<THREE.Group | null>(null);
   const [webglError, setWebglError] = useState<string | null>(null);
   const contextManagerRef = useRef<WebGLContextManager | null>(null);
   const fpsGovernorRef = useRef<FPSGovernor | null>(null);
@@ -255,6 +275,11 @@ export default function Globe({ ionosondes = [], isStationOnline }: GlobeProps) 
     const ionoGroup = new THREE.Group();
     scene.add(ionoGroup);
     ionoGroupRef.current = ionoGroup;
+
+    // TDoA overlay group
+    const tdoaGroup = new THREE.Group();
+    scene.add(tdoaGroup);
+    tdoaGroupRef.current = tdoaGroup;
 
     // Ring group for selected station pulse
     const ringGroup = new THREE.Group();
@@ -531,6 +556,11 @@ export default function Globe({ ionosondes = [], isStationOnline }: GlobeProps) 
           }
         }
       });
+
+      // Animate TDoA overlay
+      if (tdoaGroupRef.current && tdoaGroupRef.current.children.length > 0) {
+        updateTdoaAnimations(tdoaGroupRef.current, elapsed);
+      }
 
       s.renderer.render(s.scene, s.camera);
     };
@@ -870,6 +900,60 @@ export default function Globe({ ionosondes = [], isStationOnline }: GlobeProps) 
       ionoGroup.add(halo);
     });
   }, [ionosondes]);
+
+  // TDoA overlay: update host markers, bearing lines, contours, and target marker
+  useEffect(() => {
+    const tdoaGroup = tdoaGroupRef.current;
+    if (!tdoaGroup) return;
+
+    // Clear existing TDoA overlay
+    disposeTdoaGroup(tdoaGroup);
+
+    if (!tdoaOverlay?.visible) return;
+
+    // Host markers
+    if (tdoaOverlay.hosts && tdoaOverlay.hosts.length > 0) {
+      const hostMarkers = createTdoaHostMarkers(tdoaOverlay.hosts);
+      tdoaGroup.add(hostMarkers);
+    }
+
+    // Bearing lines from hosts to target
+    if (
+      tdoaOverlay.targetLat !== undefined &&
+      tdoaOverlay.targetLon !== undefined &&
+      tdoaOverlay.hosts
+    ) {
+      const hostCoords = tdoaOverlay.hosts
+        .filter((h) => h.selected)
+        .map((h) => ({ lat: h.lat, lon: h.lon }));
+      if (hostCoords.length > 0) {
+        const bearings = createBearingLines(
+          hostCoords,
+          tdoaOverlay.targetLat,
+          tdoaOverlay.targetLon
+        );
+        tdoaGroup.add(bearings);
+      }
+    }
+
+    // Contour polygons
+    if (tdoaOverlay.contours && tdoaOverlay.contours.length > 0) {
+      const contourGroup = createContourOverlay(tdoaOverlay.contours);
+      tdoaGroup.add(contourGroup);
+    }
+
+    // Target position marker
+    if (
+      tdoaOverlay.targetLat !== undefined &&
+      tdoaOverlay.targetLon !== undefined
+    ) {
+      const target = createTargetMarker(
+        tdoaOverlay.targetLat,
+        tdoaOverlay.targetLon
+      );
+      tdoaGroup.add(target);
+    }
+  }, [tdoaOverlay]);
 
   // Auto-rotate globe to continent/region when globeTarget changes
   useEffect(() => {

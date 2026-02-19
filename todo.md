@@ -48,5 +48,10 @@
 - [x] Add TDoA button to top nav bar in Home.tsx with violet theme
 - [x] Integrate TDoAPanel into Home.tsx with host selection state management
 - [x] Install missing ws package for WebSocket relay
-- [ ] TDoA job history panel (browse and replay past runs)
-- [ ] TDoA globe overlay integration (bearing lines, contour polygons, position marker)
+- [x] TDoA job history panel (browse and replay past runs)
+- [x] TDoA globe overlay integration (bearing lines, contour polygons, position marker)
+- [x] Test live TDoA pipeline against tdoa.kiwisdr.com (GPS hosts + refs work; job submission requires KiwiSDR-native auth token)
+- [x] Add TDoA job history panel (browse and replay past triangulation runs from tdoa_jobs table)
+- [x] Integrate TDoA globe overlay (bearing lines, contour polygons, most-likely-position marker on 3D globe)
+- [x] Improve TDoA error handling for 401 Unauthorized (KiwiSDR-native auth) with user-friendly message
+- [x] Add 401/4xx handling tests to tdoaService.test.ts (30 tests total, all passing)

@@ -235,13 +235,41 @@ describe("tdoaService", () => {
       expect(job.hostStatuses["g8jnj.kiwisdr.com"]).toBe("sampling");
     });
 
-    it("sets error status when submission fails", async () => {
+    it("sets error status when submission fails with network error", async () => {
       mockAxiosGet.mockRejectedValueOnce(new Error("Connection refused"));
 
       const job = await submitTdoaJob(mockSubmitParams);
 
       expect(job.status).toBe("error");
       expect(job.error).toContain("Submit failed");
+    });
+
+    it("handles 401 Unauthorized with KiwiSDR auth message", async () => {
+      mockAxiosGet.mockResolvedValueOnce({ status: 401, data: "401 - Unauthorized" });
+
+      const job = await submitTdoaJob(mockSubmitParams);
+
+      expect(job.status).toBe("error");
+      expect(job.error).toContain("KiwiSDR-native authentication");
+      expect(job.error).toContain("GPS host browsing");
+    });
+
+    it("handles other 4xx errors gracefully", async () => {
+      mockAxiosGet.mockResolvedValueOnce({ status: 403, data: "Forbidden" });
+
+      const job = await submitTdoaJob(mockSubmitParams);
+
+      expect(job.status).toBe("error");
+      expect(job.error).toContain("HTTP 403");
+    });
+
+    it("succeeds with 200 status", async () => {
+      mockAxiosGet.mockResolvedValueOnce({ status: 200, data: "OK" });
+
+      const job = await submitTdoaJob(mockSubmitParams);
+
+      expect(job.status).toBe("sampling");
+      expect(job.error).toBeUndefined();
     });
 
     it("includes known location in submission when provided", async () => {
