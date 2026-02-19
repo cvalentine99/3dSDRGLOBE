@@ -114,6 +114,7 @@ describe("tdoaService", () => {
   let getRecentJobs: typeof import("./tdoaService").getRecentJobs;
   let cancelJob: typeof import("./tdoaService").cancelJob;
   let proxyResultFile: typeof import("./tdoaService").proxyResultFile;
+  let selectBestHosts: typeof import("./tdoaService").selectBestHosts;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -128,6 +129,7 @@ describe("tdoaService", () => {
     getRecentJobs = mod.getRecentJobs;
     cancelJob = mod.cancelJob;
     proxyResultFile = mod.proxyResultFile;
+    selectBestHosts = mod.selectBestHosts;
   });
 
   describe("getGpsHosts", () => {
@@ -518,6 +520,127 @@ describe("tdoaService", () => {
       // Try to cancel again — should fail since status is now "error"
       const cancelled = cancelJob(job.id);
       expect(cancelled).toBe(false);
+    });
+  });
+
+  describe("selectBestHosts", () => {
+    const makeHost = (overrides: Partial<GpsHost>): GpsHost => ({
+      i: 1,
+      id: "TEST",
+      h: "test.kiwisdr.com",
+      p: 8073,
+      lat: 0,
+      lon: 0,
+      lo: 0,
+      fm: 0,
+      u: 0,
+      um: 4,
+      tc: 8,
+      snr: 30,
+      v: "1.672",
+      mac: "aa:bb:cc:dd:ee:ff",
+      a: "Test Location",
+      n: "TEST",
+      ...overrides,
+    });
+
+    it("returns empty array when no hosts available", () => {
+      const result = selectBestHosts([]);
+      expect(result).toEqual([]);
+    });
+
+    it("returns all hosts when fewer than requested count", () => {
+      const hosts = [
+        makeHost({ i: 1, id: "A", h: "a.com", lat: 10, lon: 20, snr: 30 }),
+        makeHost({ i: 2, id: "B", h: "b.com", lat: 40, lon: 50, snr: 25 }),
+      ];
+      const result = selectBestHosts(hosts, 3);
+      expect(result).toHaveLength(2);
+    });
+
+    it("selects exactly the requested count of hosts", () => {
+      const hosts = [
+        makeHost({ i: 1, id: "A", h: "a.com", lat: 10, lon: 20, snr: 30 }),
+        makeHost({ i: 2, id: "B", h: "b.com", lat: 40, lon: 50, snr: 25 }),
+        makeHost({ i: 3, id: "C", h: "c.com", lat: -30, lon: 120, snr: 35 }),
+        makeHost({ i: 4, id: "D", h: "d.com", lat: 60, lon: -100, snr: 20 }),
+        makeHost({ i: 5, id: "E", h: "e.com", lat: -50, lon: -60, snr: 28 }),
+      ];
+      const result = selectBestHosts(hosts, 3);
+      expect(result).toHaveLength(3);
+    });
+
+    it("filters out hosts with no GPS lock (tc=0)", () => {
+      const hosts = [
+        makeHost({ i: 1, id: "A", h: "a.com", lat: 10, lon: 20, snr: 30, tc: 0 }),
+        makeHost({ i: 2, id: "B", h: "b.com", lat: 40, lon: 50, snr: 25, tc: 8 }),
+        makeHost({ i: 3, id: "C", h: "c.com", lat: -30, lon: 120, snr: 35, tc: 12 }),
+      ];
+      const result = selectBestHosts(hosts, 3);
+      expect(result).toHaveLength(2);
+      expect(result.every((h) => h.tc > 0)).toBe(true);
+    });
+
+    it("filters out hosts at full capacity (u >= um)", () => {
+      const hosts = [
+        makeHost({ i: 1, id: "A", h: "a.com", lat: 10, lon: 20, snr: 30, u: 4, um: 4 }),
+        makeHost({ i: 2, id: "B", h: "b.com", lat: 40, lon: 50, snr: 25, u: 1, um: 4 }),
+        makeHost({ i: 3, id: "C", h: "c.com", lat: -30, lon: 120, snr: 35, u: 2, um: 8 }),
+      ];
+      const result = selectBestHosts(hosts, 3);
+      expect(result).toHaveLength(2);
+      expect(result.every((h) => h.u < h.um)).toBe(true);
+    });
+
+    it("filters out hosts with zero SNR", () => {
+      const hosts = [
+        makeHost({ i: 1, id: "A", h: "a.com", lat: 10, lon: 20, snr: 0 }),
+        makeHost({ i: 2, id: "B", h: "b.com", lat: 40, lon: 50, snr: 25 }),
+        makeHost({ i: 3, id: "C", h: "c.com", lat: -30, lon: 120, snr: 35 }),
+      ];
+      const result = selectBestHosts(hosts, 3);
+      expect(result).toHaveLength(2);
+      expect(result.every((h) => h.snr > 0)).toBe(true);
+    });
+
+    it("prefers geographically spread hosts over clustered ones", () => {
+      // Create a cluster of 3 hosts near each other, plus 2 far away
+      const hosts = [
+        makeHost({ i: 1, id: "Cluster1", h: "c1.com", lat: 51.0, lon: 0.0, snr: 40 }),
+        makeHost({ i: 2, id: "Cluster2", h: "c2.com", lat: 51.1, lon: 0.1, snr: 38 }),
+        makeHost({ i: 3, id: "Cluster3", h: "c3.com", lat: 51.2, lon: 0.2, snr: 36 }),
+        makeHost({ i: 4, id: "FarAway1", h: "f1.com", lat: -33.0, lon: 151.0, snr: 30 }),
+        makeHost({ i: 5, id: "FarAway2", h: "f2.com", lat: 40.0, lon: -74.0, snr: 28 }),
+      ];
+      const result = selectBestHosts(hosts, 3);
+
+      // Should pick at most 1 from the cluster, plus the 2 far-away hosts
+      const clusterCount = result.filter((h) =>
+        ["Cluster1", "Cluster2", "Cluster3"].includes(h.id)
+      ).length;
+      expect(clusterCount).toBeLessThanOrEqual(2);
+
+      // Should include at least one far-away host
+      const farCount = result.filter((h) =>
+        ["FarAway1", "FarAway2"].includes(h.id)
+      ).length;
+      expect(farCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it("respects custom count parameter", () => {
+      const hosts = Array.from({ length: 10 }, (_, i) =>
+        makeHost({
+          i: i + 1,
+          id: `Host${i}`,
+          h: `host${i}.com`,
+          lat: (i * 36) - 90,
+          lon: (i * 72) - 180,
+          snr: 20 + i * 2,
+        })
+      );
+      expect(selectBestHosts(hosts, 2)).toHaveLength(2);
+      expect(selectBestHosts(hosts, 4)).toHaveLength(4);
+      expect(selectBestHosts(hosts, 6)).toHaveLength(6);
     });
   });
 

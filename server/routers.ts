@@ -32,6 +32,7 @@ import {
   getRecentJobs,
   cancelJob,
   proxyResultFile,
+  selectBestHosts,
 } from "./tdoaService";
 import { tdoaJobs } from "../drizzle/schema";
 import { getDb } from "./db";
@@ -231,6 +232,21 @@ export const appRouter = router({
     getRefs: publicProcedure.query(async () => {
       return await getRefTransmitters();
     }),
+
+    /**
+     * Auto-select the best hosts for TDoA triangulation.
+     * Returns `count` hosts optimized for geographic spread and signal quality.
+     */
+    autoSelectHosts: publicProcedure
+      .input(
+        z.object({
+          count: z.number().min(2).max(6).default(3),
+        }).optional()
+      )
+      .query(async ({ input }) => {
+        const hosts = await getGpsHosts();
+        return selectBestHosts(hosts, input?.count ?? 3);
+      }),
 
     /**
      * Submit a new TDoA triangulation job.

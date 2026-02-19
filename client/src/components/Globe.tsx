@@ -952,6 +952,21 @@ export default function Globe({ ionosondes = [], isStationOnline, tdoaOverlay }:
         tdoaOverlay.targetLon
       );
       tdoaGroup.add(target);
+
+      // Auto-focus camera on the TDoA result position
+      const s = sceneRef.current;
+      if (s) {
+        s.targetSpherical.phi = (90 - tdoaOverlay.targetLat) * (Math.PI / 180);
+        s.targetSpherical.theta = -(tdoaOverlay.targetLon) * (Math.PI / 180);
+        // Zoom in closer for TDoA results
+        s.targetSpherical.radius = Math.min(s.targetSpherical.radius, 10);
+        // Pause auto-rotate briefly so user can see the result
+        s.autoRotate = false;
+        if (s.autoRotateTimer) clearTimeout(s.autoRotateTimer);
+        s.autoRotateTimer = setTimeout(() => {
+          if (!s.isDragging) s.autoRotate = true;
+        }, 15000); // Resume auto-rotate after 15 seconds
+      }
     }
   }, [tdoaOverlay]);
 

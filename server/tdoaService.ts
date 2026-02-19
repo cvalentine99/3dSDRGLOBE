@@ -385,6 +385,87 @@ export function cancelJob(jobId: string): boolean {
   return true;
 }
 
+/**
+ * Auto-select the best hosts for TDoA triangulation.
+ * Algorithm:
+ * 1. Filter to hosts with available capacity (u < um) and GPS lock (tc > 0)
+ * 2. Score each host by SNR (higher = better) and available channels
+ * 3. Greedily pick hosts that maximize geographic spread (great-circle distance)
+ * 4. Returns `count` hosts (default 3) optimized for triangulation geometry
+ */
+export function selectBestHosts(hosts: GpsHost[], count: number = 3): GpsHost[] {
+  // Filter to available hosts with GPS lock and user capacity
+  const available = hosts.filter(
+    (h) => h.tc > 0 && h.u < h.um && h.snr > 0
+  );
+
+  if (available.length <= count) return available;
+
+  // Score hosts: SNR weight + available channel bonus
+  const scored = available.map((h) => ({
+    host: h,
+    score: h.snr * 1.0 + (h.um - h.u) * 2 + h.tc * 0.5,
+  }));
+
+  // Sort by score descending
+  scored.sort((a, b) => b.score - a.score);
+
+  // Take top candidates (top 40% or at least 20)
+  const candidatePool = scored.slice(0, Math.max(20, Math.floor(scored.length * 0.4)));
+
+  // Greedy geographic spread selection
+  // Start with the highest-scored host
+  const selected: GpsHost[] = [candidatePool[0].host];
+
+  while (selected.length < count && candidatePool.length > 0) {
+    let bestIdx = -1;
+    let bestMinDist = -1;
+
+    for (let i = 0; i < candidatePool.length; i++) {
+      const candidate = candidatePool[i].host;
+      if (selected.some((s) => s.h === candidate.h)) continue;
+
+      // Minimum great-circle distance to any already-selected host
+      const minDist = Math.min(
+        ...selected.map((s) => haversineDistance(candidate.lat, candidate.lon, s.lat, s.lon))
+      );
+
+      // Weighted score: 70% geographic spread + 30% host quality
+      const normalizedScore = candidatePool[i].score / candidatePool[0].score;
+      const weighted = minDist * 0.7 + normalizedScore * 5000 * 0.3;
+
+      if (weighted > bestMinDist) {
+        bestMinDist = weighted;
+        bestIdx = i;
+      }
+    }
+
+    if (bestIdx >= 0) {
+      selected.push(candidatePool[bestIdx].host);
+      candidatePool.splice(bestIdx, 1);
+    } else {
+      break;
+    }
+  }
+
+  return selected;
+}
+
+/** Haversine distance in km between two lat/lon points */
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 export async function proxyResultFile(
   key: string,
   filename: string

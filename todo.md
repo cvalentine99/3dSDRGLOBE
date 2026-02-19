@@ -61,3 +61,10 @@
 - [x] Encode slashes in host IDs (K9DXI/1 → K9DXI-1) to match KiwiSDR extension behavior
 - [x] Verified live TDoA job completion: 3 hosts (Ireland, Canada, NZ), 2/3 GOOD, got likely_position lat=6.5 lng=-85
 - [x] Updated vitest tests: auth key in URL, slash encoding, status.json fallback detection (146 tests passing)
+- [x] Auto-select best hosts: server-side algorithm to pick 3 geographically spread hosts with high SNR and available capacity
+- [x] Auto-select best hosts: add tRPC endpoint and "Auto-Select" button in TDoAPanel
+- [x] Globe camera auto-focus: rotate and zoom globe to estimated position when TDoA job completes
+- [x] Globe camera auto-focus: also trigger on history job replay
+- [x] Export TDoA results: "Download Report" button that exports job results as JSON
+- [x] Write 8 vitest tests for selectBestHosts algorithm (empty, fewer, exact count, GPS filter, capacity filter, SNR filter, geographic spread, custom count)
+- [x] All 154 vitest tests passing, zero TypeScript errors
