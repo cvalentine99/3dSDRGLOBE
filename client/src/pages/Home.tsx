@@ -31,7 +31,7 @@ import TDoAPanel from "@/components/TDoAPanel";
 import KiwiWaterfall from "@/components/KiwiWaterfall";
 import TargetManager from "@/components/TargetManager";
 import { trpc } from "@/lib/trpc";
-import type { SavedTargetData, DriftTrailEntry } from "@/components/TDoAGlobeOverlay";
+import type { SavedTargetData, DriftTrailEntry, PredictionData } from "@/components/TDoAGlobeOverlay";
 
 /** Local error boundary specifically for the Globe component to catch WebGL crashes */
 class GlobeErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string | null }> {
@@ -163,6 +163,36 @@ function HomeContent() {
     return { historyByTarget, targetColors };
   }, [allHistoryQuery.data, targetsQuery.data]);
 
+  // Fetch predictions for all visible targets with enough history
+  const predictionsQuery = trpc.targets.predictAll.useQuery(undefined, {
+    refetchInterval: 60000,
+  });
+  const predictions = useMemo<PredictionData[]>(() => {
+    if (!predictionsQuery.data || !targetsQuery.data) return [];
+    const visibleTargets = new Set(
+      (targetsQuery.data as any[]).filter((t: any) => t.visible).map((t: any) => t.id)
+    );
+    return (predictionsQuery.data as any[])
+      .filter((p: any) => visibleTargets.has(p.targetId))
+      .map((p: any) => {
+        const target = (targetsQuery.data as any[]).find((t: any) => t.id === p.targetId);
+        return {
+          targetId: p.targetId,
+          predictedLat: p.predictedLat,
+          predictedLon: p.predictedLon,
+          ellipseMajor: p.ellipseMajor,
+          ellipseMinor: p.ellipseMinor,
+          ellipseRotation: p.ellipseRotation,
+          color: target?.color || '#ffffff',
+          label: target?.label || `Target ${p.targetId}`,
+          rSquaredLat: p.rSquaredLat,
+          rSquaredLon: p.rSquaredLon,
+          bearingDeg: p.bearingDeg,
+          velocityKmh: p.velocityKmh,
+        } as PredictionData;
+      });
+  }, [predictionsQuery.data, targetsQuery.data]);
+
   // Save target mutation (used from TDoA result)
   const trpcUtils = trpc.useUtils();
   const saveTargetMutation = trpc.targets.save.useMutation({
@@ -282,6 +312,7 @@ function HomeContent() {
           tdoaOverlay={tdoaOverlay}
           savedTargets={savedTargets}
           driftTrailData={driftTrailData}
+          predictions={predictions}
         />
       </GlobeErrorBoundary>
 

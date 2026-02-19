@@ -878,3 +878,246 @@ export function updateDriftTrailAnimations(group: THREE.Group, elapsedTime: numb
     }
   });
 }
+
+
+/* ── Prediction Ellipse Rendering ──────────────────── */
+
+export interface PredictionData {
+  targetId: number;
+  predictedLat: number;
+  predictedLon: number;
+  ellipseMajor: number; // degrees
+  ellipseMinor: number; // degrees
+  ellipseRotation: number; // degrees
+  color: string;
+  label: string;
+  rSquaredLat: number;
+  rSquaredLon: number;
+  bearingDeg: number;
+  velocityKmh: number;
+}
+
+/**
+ * Create prediction zone markers on the globe:
+ * - A crosshair marker at the predicted position
+ * - A confidence ellipse rendered as a ring of points on the globe surface
+ * - A bearing arrow showing predicted direction of movement
+ */
+export function createPredictionMarkers(
+  group: THREE.Group,
+  predictions: PredictionData[]
+): void {
+  // Clear existing prediction markers
+  const toRemove: THREE.Object3D[] = [];
+  group.traverse((child) => {
+    if (child.userData.type?.startsWith("prediction-")) {
+      toRemove.push(child);
+    }
+  });
+  toRemove.forEach((obj) => {
+    if (obj.parent) obj.parent.remove(obj);
+    if ((obj as any).geometry) (obj as any).geometry.dispose();
+    if ((obj as any).material) (obj as any).material.dispose();
+  });
+
+  for (const pred of predictions) {
+    const color = new THREE.Color(pred.color);
+    const avgR2 = (pred.rSquaredLat + pred.rSquaredLon) / 2;
+
+    // 1. Predicted position marker (diamond shape)
+    const diamondGeo = new THREE.CircleGeometry(0.04, 4);
+    const diamondMat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide,
+      depthTest: false,
+    });
+    const diamond = new THREE.Mesh(diamondGeo, diamondMat);
+    const pos = latLngToVector3(pred.predictedLat, pred.predictedLon, GLOBE_RADIUS + 0.015);
+    diamond.position.copy(pos);
+    diamond.lookAt(pos.clone().multiplyScalar(2));
+    diamond.rotation.z = Math.PI / 4; // Rotate to diamond shape
+    diamond.userData = { type: "prediction-diamond", targetId: pred.targetId };
+    diamond.renderOrder = 15;
+    group.add(diamond);
+
+    // 2. Outer ring for diamond
+    const ringGeo = new THREE.RingGeometry(0.035, 0.05, 4);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.4,
+      side: THREE.DoubleSide,
+      depthTest: false,
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.position.copy(pos);
+    ring.lookAt(pos.clone().multiplyScalar(2));
+    ring.rotation.z = Math.PI / 4;
+    ring.userData = { type: "prediction-ring", targetId: pred.targetId };
+    ring.renderOrder = 14;
+    group.add(ring);
+
+    // 3. Confidence ellipse — rendered as a closed curve on the globe surface
+    const ellipseSegments = 64;
+    const ellipsePoints: THREE.Vector3[] = [];
+    const rotRad = (pred.ellipseRotation * Math.PI) / 180;
+
+    for (let i = 0; i <= ellipseSegments; i++) {
+      const angle = (i / ellipseSegments) * Math.PI * 2;
+
+      // Ellipse in local lat/lon space
+      const localLat = pred.ellipseMajor * Math.cos(angle);
+      const localLon = pred.ellipseMinor * Math.sin(angle);
+
+      // Apply rotation
+      const rotLat = localLat * Math.cos(rotRad) - localLon * Math.sin(rotRad);
+      const rotLon = localLat * Math.sin(rotRad) + localLon * Math.cos(rotRad);
+
+      // Convert to globe coordinates
+      const eLat = pred.predictedLat + rotLat;
+      const eLon = pred.predictedLon + rotLon;
+
+      // Clamp
+      const clampedLat = Math.max(-89.9, Math.min(89.9, eLat));
+      const clampedLon = ((eLon + 180) % 360) - 180;
+
+      ellipsePoints.push(
+        latLngToVector3(clampedLat, clampedLon, GLOBE_RADIUS + 0.008)
+      );
+    }
+
+    // Ellipse outline
+    const ellipseGeo = new THREE.BufferGeometry().setFromPoints(ellipsePoints);
+    const ellipseMat = new THREE.LineBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.6,
+      depthTest: false,
+    });
+    const ellipseLine = new THREE.Line(ellipseGeo, ellipseMat);
+    ellipseLine.userData = { type: "prediction-ellipse", targetId: pred.targetId };
+    ellipseLine.renderOrder = 12;
+    group.add(ellipseLine);
+
+    // Dashed fill lines (cross-hatch inside ellipse for visual weight)
+    const dashCount = 8;
+    for (let d = 0; d < dashCount; d++) {
+      const t = (d + 1) / (dashCount + 1);
+      const scale = t;
+      const innerPoints: THREE.Vector3[] = [];
+
+      for (let i = 0; i <= 32; i++) {
+        const angle = (i / 32) * Math.PI * 2;
+        const localLat = pred.ellipseMajor * scale * Math.cos(angle);
+        const localLon = pred.ellipseMinor * scale * Math.sin(angle);
+        const rotLat = localLat * Math.cos(rotRad) - localLon * Math.sin(rotRad);
+        const rotLon = localLat * Math.sin(rotRad) + localLon * Math.cos(rotRad);
+        const eLat = Math.max(-89.9, Math.min(89.9, pred.predictedLat + rotLat));
+        const eLon = ((pred.predictedLon + rotLon + 180) % 360) - 180;
+        innerPoints.push(latLngToVector3(eLat, eLon, GLOBE_RADIUS + 0.006));
+      }
+
+      const innerGeo = new THREE.BufferGeometry().setFromPoints(innerPoints);
+      const innerMat = new THREE.LineBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.08 + (1 - t) * 0.12,
+        depthTest: false,
+      });
+      const innerLine = new THREE.Line(innerGeo, innerMat);
+      innerLine.userData = { type: "prediction-inner-ring", targetId: pred.targetId };
+      innerLine.renderOrder = 11;
+      group.add(innerLine);
+    }
+
+    // 4. Bearing arrow (direction of predicted movement)
+    if (pred.velocityKmh > 0.1) {
+      // Arrow extends from predicted position in the bearing direction
+      const arrowLength = Math.min(pred.ellipseMajor * 1.5, 5); // degrees
+      const bearingRad = (pred.bearingDeg * Math.PI) / 180;
+
+      const arrowEndLat = pred.predictedLat + arrowLength * Math.cos(bearingRad);
+      const arrowEndLon =
+        pred.predictedLon +
+        (arrowLength * Math.sin(bearingRad)) /
+          Math.cos((pred.predictedLat * Math.PI) / 180);
+
+      const arrowSegments = 16;
+      const arrowVecs: THREE.Vector3[] = [];
+      const clampedArrowEndLat = Math.max(-89.9, Math.min(89.9, arrowEndLat));
+      const clampedArrowEndLon = ((arrowEndLon + 180) % 360) - 180;
+      for (let s = 0; s <= arrowSegments; s++) {
+        const t = s / arrowSegments;
+        const pt = interpolateGreatCircle(
+          pred.predictedLat,
+          pred.predictedLon,
+          clampedArrowEndLat,
+          clampedArrowEndLon,
+          t
+        );
+        arrowVecs.push(latLngToVector3(pt.lat, pt.lon, GLOBE_RADIUS + 0.01));
+      }
+
+      const arrowGeo = new THREE.BufferGeometry().setFromPoints(arrowVecs);
+      const arrowMat = new THREE.LineBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.5,
+        depthTest: false,
+      });
+      const arrowLine = new THREE.Line(arrowGeo, arrowMat);
+      arrowLine.userData = { type: "prediction-arrow", targetId: pred.targetId };
+      arrowLine.renderOrder = 13;
+      group.add(arrowLine);
+
+      // Arrowhead
+      if (arrowVecs.length >= 2) {
+        const tip = arrowVecs[arrowVecs.length - 1];
+        const headGeo = new THREE.CircleGeometry(0.025, 3);
+        const headMat = new THREE.MeshBasicMaterial({
+          color,
+          transparent: true,
+          opacity: 0.6,
+          side: THREE.DoubleSide,
+          depthTest: false,
+        });
+        const head = new THREE.Mesh(headGeo, headMat);
+        head.position.copy(tip);
+        head.lookAt(tip.clone().multiplyScalar(2));
+        head.userData = { type: "prediction-arrowhead", targetId: pred.targetId };
+        head.renderOrder = 13;
+        group.add(head);
+      }
+    }
+  }
+}
+
+/**
+ * Animate prediction markers (pulse diamond, rotate ring).
+ */
+export function updatePredictionAnimations(group: THREE.Group, elapsedTime: number): void {
+  group.traverse((child) => {
+    if (child.userData.type === "prediction-diamond") {
+      if (child instanceof THREE.Mesh) {
+        const scale = 1 + Math.sin(elapsedTime * 2.5) * 0.25;
+        child.scale.set(scale, scale, 1);
+      }
+    }
+    if (child.userData.type === "prediction-ring") {
+      if (child instanceof THREE.Mesh) {
+        const scale = 1 + Math.sin(elapsedTime * 2.5 + Math.PI) * 0.2;
+        child.scale.set(scale, scale, 1);
+        (child.material as THREE.MeshBasicMaterial).opacity =
+          0.3 + Math.sin(elapsedTime * 2) * 0.15;
+      }
+    }
+    if (child.userData.type === "prediction-ellipse") {
+      if (child instanceof THREE.Line) {
+        (child.material as THREE.LineBasicMaterial).opacity =
+          0.4 + Math.sin(elapsedTime * 1.5) * 0.2;
+      }
+    }
+  });
+}

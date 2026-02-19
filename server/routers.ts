@@ -38,6 +38,94 @@ import { tdoaJobs, tdoaTargets, tdoaRecordings, tdoaTargetHistory, TARGET_CATEGO
 import { getDb } from "./db";
 import { desc, eq, asc } from "drizzle-orm";
 import { recordAllHosts, type RecordingResult } from "./kiwiRecorder";
+import { classifySignal, type ClassificationInput } from "./signalClassifier";
+import { predictPosition, type PredictionResult } from "./positionPredictor";
+
+/* ── Helper functions for CSV/KML import/export ── */
+
+function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function parseCsvLine(line: string): string[] {
+  const fields: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ",") {
+        fields.push(current.trim());
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+  }
+  fields.push(current.trim());
+  return fields;
+}
+
+interface KmlPlacemark {
+  name: string;
+  description: string | null;
+  lat: number;
+  lon: number;
+}
+
+function extractKmlPlacemarks(kml: string): KmlPlacemark[] {
+  const placemarks: KmlPlacemark[] = [];
+  const pmRegex = /<Placemark[\s\S]*?<\/Placemark>/gi;
+  let match;
+
+  while ((match = pmRegex.exec(kml)) !== null) {
+    const pm = match[0];
+
+    // Extract name
+    const nameMatch = pm.match(/<name>([\s\S]*?)<\/name>/i);
+    const name = nameMatch ? nameMatch[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim() : "";
+
+    // Extract description
+    const descMatch = pm.match(/<description>([\s\S]*?)<\/description>/i);
+    const description = descMatch ? descMatch[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim() : null;
+
+    // Extract coordinates from Point
+    const coordMatch = pm.match(/<Point>[\s\S]*?<coordinates>([\s\S]*?)<\/coordinates>[\s\S]*?<\/Point>/i);
+    if (!coordMatch) continue;
+
+    const coordStr = coordMatch[1].trim();
+    const parts = coordStr.split(",").map((s) => parseFloat(s.trim()));
+    if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) continue;
+
+    const lon = parts[0];
+    const lat = parts[1];
+
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) continue;
+
+    placemarks.push({ name, description, lat, lon });
+  }
+
+  return placemarks;
+}
 
 export const appRouter = router({
   system: systemRouter,
@@ -445,6 +533,303 @@ export const appRouter = router({
   }),
 
   targets: router({
+    /** Classify a signal using LLM analysis */
+    classify: publicProcedure
+      .input(
+        z.object({
+          frequencyKhz: z.number().nullable(),
+          mode: z.string().nullable().optional(),
+          lat: z.number(),
+          lon: z.number(),
+          label: z.string().nullable().optional(),
+          notes: z.string().nullable().optional(),
+          hostCount: z.number().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        return await classifySignal(input as ClassificationInput);
+      }),
+
+    /** Export all targets as CSV */
+    exportCsv: publicProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return { csv: "" };
+      const targets = await db.select().from(tdoaTargets).orderBy(desc(tdoaTargets.createdAt));
+      const history = await db.select().from(tdoaTargetHistory).orderBy(asc(tdoaTargetHistory.observedAt));
+
+      // Build CSV header
+      const lines: string[] = [
+        "id,label,latitude,longitude,frequency_khz,color,category,notes,visible,created_at,history_count",
+      ];
+
+      for (const t of targets) {
+        const histCount = history.filter((h) => h.targetId === t.id).length;
+        const row = [
+          t.id,
+          `"${(t.label || "").replace(/"/g, '""')}"`,
+          t.lat,
+          t.lon,
+          t.frequencyKhz || "",
+          t.color,
+          t.category,
+          `"${(t.notes || "").replace(/"/g, '""')}"`,
+          t.visible ? "true" : "false",
+          t.createdAt,
+          histCount,
+        ].join(",");
+        lines.push(row);
+      }
+
+      return { csv: lines.join("\n") };
+    }),
+
+    /** Export all targets as KML for Google Earth */
+    exportKml: publicProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return { kml: "" };
+      const targets = await db.select().from(tdoaTargets).orderBy(desc(tdoaTargets.createdAt));
+      const history = await db.select().from(tdoaTargetHistory).orderBy(asc(tdoaTargetHistory.observedAt));
+
+      const categoryStyles: Record<string, { icon: string; color: string }> = {
+        time_signal: { icon: "http://maps.google.com/mapfiles/kml/shapes/clock.png", color: "ff00ffff" },
+        broadcast: { icon: "http://maps.google.com/mapfiles/kml/shapes/radio.png", color: "ff00ff00" },
+        utility: { icon: "http://maps.google.com/mapfiles/kml/shapes/info.png", color: "ff0080ff" },
+        military: { icon: "http://maps.google.com/mapfiles/kml/shapes/target.png", color: "ff0000ff" },
+        amateur: { icon: "http://maps.google.com/mapfiles/kml/shapes/homegardenbusiness.png", color: "ffff8800" },
+        unknown: { icon: "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png", color: "ff888888" },
+        custom: { icon: "http://maps.google.com/mapfiles/kml/shapes/star.png", color: "ffff00ff" },
+      };
+
+      let kml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+      kml += `<kml xmlns="http://www.opengis.net/kml/2.2">\n`;
+      kml += `<Document>\n`;
+      kml += `  <name>Radio Globe — TDoA Targets</name>\n`;
+      kml += `  <description>Exported TDoA target positions from Valentine RF SigINT</description>\n\n`;
+
+      // Style definitions
+      for (const [cat, style] of Object.entries(categoryStyles)) {
+        kml += `  <Style id="style-${cat}">\n`;
+        kml += `    <IconStyle><color>${style.color}</color><scale>1.2</scale>\n`;
+        kml += `      <Icon><href>${style.icon}</href></Icon>\n`;
+        kml += `    </IconStyle>\n`;
+        kml += `  </Style>\n`;
+      }
+
+      // Folder for targets
+      kml += `\n  <Folder>\n    <name>Targets</name>\n`;
+
+      for (const t of targets) {
+        const cat = t.category || "unknown";
+        const freq = t.frequencyKhz ? `${t.frequencyKhz} kHz` : "Unknown freq";
+        kml += `    <Placemark>\n`;
+        kml += `      <name>${escapeXml(t.label)}</name>\n`;
+        kml += `      <description><![CDATA[`;
+        kml += `Category: ${cat}\nFrequency: ${freq}`;
+        if (t.notes) kml += `\nNotes: ${t.notes}`;
+        kml += `]]></description>\n`;
+        kml += `      <styleUrl>#style-${cat}</styleUrl>\n`;
+        kml += `      <Point><coordinates>${t.lon},${t.lat},0</coordinates></Point>\n`;
+        kml += `    </Placemark>\n`;
+      }
+
+      kml += `  </Folder>\n`;
+
+      // Folder for drift trails
+      const targetHistoryMap = new Map<number, typeof history>();
+      for (const h of history) {
+        if (!targetHistoryMap.has(h.targetId)) targetHistoryMap.set(h.targetId, []);
+        targetHistoryMap.get(h.targetId)!.push(h);
+      }
+
+      const targetsWithHistory = targets.filter(
+        (t) => (targetHistoryMap.get(t.id)?.length || 0) >= 2
+      );
+
+      if (targetsWithHistory.length > 0) {
+        kml += `\n  <Folder>\n    <name>Drift Trails</name>\n`;
+        for (const t of targetsWithHistory) {
+          const hist = targetHistoryMap.get(t.id) || [];
+          const coords = hist.map((h) => `${h.lon},${h.lat},0`).join(" ");
+          kml += `    <Placemark>\n`;
+          kml += `      <name>${escapeXml(t.label)} — Drift Trail</name>\n`;
+          kml += `      <Style><LineStyle><color>ff${t.color.slice(5, 7)}${t.color.slice(3, 5)}${t.color.slice(1, 3)}</color><width>2</width></LineStyle></Style>\n`;
+          kml += `      <LineString><coordinates>${coords}</coordinates></LineString>\n`;
+          kml += `    </Placemark>\n`;
+        }
+        kml += `  </Folder>\n`;
+      }
+
+      kml += `</Document>\n</kml>`;
+
+      return { kml };
+    }),
+
+    /** Import targets from CSV data */
+    importCsv: publicProcedure
+      .input(z.object({ csvData: z.string() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+
+        const lines = input.csvData.trim().split("\n");
+        if (lines.length < 2) throw new Error("CSV must have a header row and at least one data row");
+
+        // Parse header
+        const header = lines[0].toLowerCase().split(",").map((h) => h.trim());
+        const latIdx = header.findIndex((h) => h === "latitude" || h === "lat");
+        const lonIdx = header.findIndex((h) => h === "longitude" || h === "lon" || h === "lng");
+        const labelIdx = header.findIndex((h) => h === "label" || h === "name");
+        const freqIdx = header.findIndex((h) => h.includes("freq"));
+        const catIdx = header.findIndex((h) => h === "category" || h === "cat" || h === "type");
+        const colorIdx = header.findIndex((h) => h === "color");
+        const notesIdx = header.findIndex((h) => h === "notes" || h === "description");
+
+        if (latIdx === -1 || lonIdx === -1) {
+          throw new Error("CSV must contain 'latitude' and 'longitude' columns");
+        }
+
+        const validCategories = ["time_signal", "broadcast", "utility", "military", "amateur", "unknown", "custom"];
+        const imported: number[] = [];
+        const errors: string[] = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          try {
+            const fields = parseCsvLine(lines[i]);
+            const lat = parseFloat(fields[latIdx]);
+            const lon = parseFloat(fields[lonIdx]);
+
+            if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+              errors.push(`Row ${i + 1}: Invalid coordinates`);
+              continue;
+            }
+
+            const label = labelIdx >= 0 ? fields[labelIdx]?.trim() || `Import ${i}` : `Import ${i}`;
+            const freq = freqIdx >= 0 ? parseFloat(fields[freqIdx]) : NaN;
+            const cat = catIdx >= 0 ? fields[catIdx]?.trim().toLowerCase() : "unknown";
+            const color = colorIdx >= 0 && /^#[0-9a-fA-F]{6}$/.test(fields[colorIdx]?.trim()) ? fields[colorIdx].trim() : "#ff6b6b";
+            const notes = notesIdx >= 0 ? fields[notesIdx]?.trim() || null : null;
+
+            const [result] = await db.insert(tdoaTargets).values({
+              label,
+              lat: String(lat),
+              lon: String(lon),
+              frequencyKhz: !isNaN(freq) ? String(freq) : null,
+              color,
+              category: validCategories.includes(cat) ? cat as any : "unknown",
+              notes,
+              visible: true,
+              createdAt: Date.now(),
+            });
+
+            imported.push(Number(result.insertId));
+          } catch (err) {
+            errors.push(`Row ${i + 1}: ${(err as Error).message}`);
+          }
+        }
+
+        return { imported: imported.length, errors, ids: imported };
+      }),
+
+    /** Import targets from KML data */
+    importKml: publicProcedure
+      .input(z.object({ kmlData: z.string() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+
+        // Simple KML parser — extract Placemarks with coordinates
+        const placemarks = extractKmlPlacemarks(input.kmlData);
+
+        if (placemarks.length === 0) {
+          throw new Error("No valid Placemarks found in KML data");
+        }
+
+        const imported: number[] = [];
+        const errors: string[] = [];
+
+        for (let i = 0; i < placemarks.length; i++) {
+          try {
+            const pm = placemarks[i];
+            const [result] = await db.insert(tdoaTargets).values({
+              label: pm.name || `KML Import ${i + 1}`,
+              lat: String(pm.lat),
+              lon: String(pm.lon),
+              frequencyKhz: null,
+              color: "#06b6d4",
+              category: "unknown",
+              notes: pm.description || null,
+              visible: true,
+              createdAt: Date.now(),
+            });
+            imported.push(Number(result.insertId));
+          } catch (err) {
+            errors.push(`Placemark ${i + 1}: ${(err as Error).message}`);
+          }
+        }
+
+        return { imported: imported.length, errors, ids: imported };
+      }),
+
+    /** Predict future position based on drift history */
+    predict: publicProcedure
+      .input(z.object({ targetId: z.number() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return null;
+        const history = await db
+          .select()
+          .from(tdoaTargetHistory)
+          .where(eq(tdoaTargetHistory.targetId, input.targetId))
+          .orderBy(asc(tdoaTargetHistory.observedAt));
+
+        if (history.length < 2) return null;
+
+        const points = history.map((h) => ({
+          lat: parseFloat(h.lat),
+          lon: parseFloat(h.lon),
+          time: h.observedAt,
+        }));
+
+        return predictPosition(points);
+      }),
+
+    /** Predict positions for all targets that have enough history */
+    predictAll: publicProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      const allTargets = await db.select().from(tdoaTargets);
+      const results: Array<{
+        targetId: number;
+        predictedLat: number;
+        predictedLon: number;
+        ellipseMajor: number;
+        ellipseMinor: number;
+        ellipseRotation: number;
+        rSquaredLat: number;
+        rSquaredLon: number;
+        bearingDeg: number;
+        velocityKmh: number;
+      }> = [];
+      for (const target of allTargets) {
+        const history = await db
+          .select()
+          .from(tdoaTargetHistory)
+          .where(eq(tdoaTargetHistory.targetId, target.id))
+          .orderBy(asc(tdoaTargetHistory.observedAt));
+        if (history.length < 2) continue;
+        const points = history.map((h) => ({
+          lat: parseFloat(h.lat),
+          lon: parseFloat(h.lon),
+          time: h.observedAt,
+        }));
+        const pred = predictPosition(points);
+        if (pred) {
+          results.push({ targetId: target.id, ...pred });
+        }
+      }
+      return results;
+    }),
+
     /** List all saved TDoA targets */
     list: publicProcedure.query(async () => {
       const db = await getDb();

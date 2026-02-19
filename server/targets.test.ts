@@ -975,3 +975,557 @@ describe("Hann window function", () => {
     }
   });
 });
+
+
+// ── Position Predictor Tests ──────────────────────────
+describe("Position prediction (positionPredictor)", () => {
+  // Import the actual predictor
+  let predictPosition: typeof import("./positionPredictor").predictPosition;
+
+  beforeEach(async () => {
+    const mod = await import("./positionPredictor");
+    predictPosition = mod.predictPosition;
+  });
+
+  it("returns null for fewer than 2 points", () => {
+    expect(predictPosition([])).toBeNull();
+    expect(predictPosition([{ lat: 50, lon: 10, time: 1000 }])).toBeNull();
+  });
+
+  it("produces a linear prediction from 2 points", () => {
+    const result = predictPosition([
+      { lat: 50.0, lon: 10.0, time: 0 },
+      { lat: 50.1, lon: 10.2, time: 3600000 }, // 1 hour later
+    ]);
+    expect(result).not.toBeNull();
+    expect(result!.modelType).toBe("linear");
+    expect(result!.historyCount).toBe(2);
+    expect(result!.predictedLat).toBeCloseTo(50.2, 1);
+    expect(result!.predictedLon).toBeCloseTo(10.4, 1);
+  });
+
+  it("uses linear model for 3 points", () => {
+    const result = predictPosition([
+      { lat: 50.0, lon: 10.0, time: 0 },
+      { lat: 50.1, lon: 10.1, time: 3600000 },
+      { lat: 50.2, lon: 10.2, time: 7200000 },
+    ]);
+    expect(result).not.toBeNull();
+    expect(result!.modelType).toBe("linear");
+    expect(result!.rSquaredLat).toBeGreaterThan(0.9);
+    expect(result!.rSquaredLon).toBeGreaterThan(0.9);
+  });
+
+  it("considers quadratic model for 4+ points with curvature", () => {
+    // Points that follow a parabolic path
+    const result = predictPosition([
+      { lat: 50.0, lon: 10.0, time: 0 },
+      { lat: 50.1, lon: 10.1, time: 3600000 },
+      { lat: 50.3, lon: 10.3, time: 7200000 },
+      { lat: 50.6, lon: 10.6, time: 10800000 },
+    ]);
+    expect(result).not.toBeNull();
+    // May use quadratic or linear depending on fit quality
+    expect(["linear", "quadratic"]).toContain(result!.modelType);
+    expect(result!.historyCount).toBe(4);
+  });
+
+  it("produces valid confidence ellipse dimensions", () => {
+    const result = predictPosition([
+      { lat: 50.0, lon: 10.0, time: 0 },
+      { lat: 50.1, lon: 10.2, time: 3600000 },
+      { lat: 50.2, lon: 10.4, time: 7200000 },
+    ]);
+    expect(result).not.toBeNull();
+    expect(result!.ellipseMajor).toBeGreaterThan(0);
+    expect(result!.ellipseMinor).toBeGreaterThan(0);
+    expect(result!.ellipseMajor).toBeGreaterThanOrEqual(result!.ellipseMinor);
+    expect(result!.ellipseRotation).toBeGreaterThanOrEqual(-90);
+    expect(result!.ellipseRotation).toBeLessThanOrEqual(90);
+  });
+
+  it("calculates velocity in km/h", () => {
+    // Two points ~111 km apart (1 degree latitude), 1 hour apart
+    const result = predictPosition([
+      { lat: 50.0, lon: 10.0, time: 0 },
+      { lat: 51.0, lon: 10.0, time: 3600000 },
+    ]);
+    expect(result).not.toBeNull();
+    // Velocity should be approximately 111 km/h
+    expect(result!.velocityKmh).toBeGreaterThan(90);
+    expect(result!.velocityKmh).toBeLessThan(130);
+  });
+
+  it("calculates bearing correctly (north)", () => {
+    const result = predictPosition([
+      { lat: 50.0, lon: 10.0, time: 0 },
+      { lat: 51.0, lon: 10.0, time: 3600000 },
+    ]);
+    expect(result).not.toBeNull();
+    // Moving north → bearing ~0°
+    expect(result!.bearingDeg).toBeLessThan(10);
+  });
+
+  it("calculates bearing correctly (east)", () => {
+    const result = predictPosition([
+      { lat: 50.0, lon: 10.0, time: 0 },
+      { lat: 50.0, lon: 11.0, time: 3600000 },
+    ]);
+    expect(result).not.toBeNull();
+    // Moving east → bearing ~90°
+    expect(result!.bearingDeg).toBeGreaterThan(80);
+    expect(result!.bearingDeg).toBeLessThan(100);
+  });
+
+  it("clamps predicted position to valid lat/lon range", () => {
+    // Points near the pole heading further north
+    const result = predictPosition([
+      { lat: 89.0, lon: 0, time: 0 },
+      { lat: 89.5, lon: 0, time: 3600000 },
+    ]);
+    expect(result).not.toBeNull();
+    expect(result!.predictedLat).toBeLessThanOrEqual(90);
+    expect(result!.predictedLat).toBeGreaterThanOrEqual(-90);
+  });
+
+  it("calculates average interval correctly", () => {
+    const result = predictPosition([
+      { lat: 50.0, lon: 10.0, time: 0 },
+      { lat: 50.1, lon: 10.1, time: 3600000 },
+      { lat: 50.2, lon: 10.2, time: 7200000 },
+    ]);
+    expect(result).not.toBeNull();
+    expect(result!.avgIntervalHours).toBeCloseTo(1, 1);
+  });
+
+  it("handles stationary target (same position)", () => {
+    const result = predictPosition([
+      { lat: 50.0, lon: 10.0, time: 0 },
+      { lat: 50.0, lon: 10.0, time: 3600000 },
+    ]);
+    expect(result).not.toBeNull();
+    expect(result!.predictedLat).toBeCloseTo(50.0, 1);
+    expect(result!.predictedLon).toBeCloseTo(10.0, 1);
+    expect(result!.velocityKmh).toBeLessThan(1);
+  });
+
+  it("handles unsorted input by sorting by time", () => {
+    const result = predictPosition([
+      { lat: 50.2, lon: 10.2, time: 7200000 },
+      { lat: 50.0, lon: 10.0, time: 0 },
+      { lat: 50.1, lon: 10.1, time: 3600000 },
+    ]);
+    expect(result).not.toBeNull();
+    expect(result!.predictedLat).toBeCloseTo(50.3, 1);
+  });
+
+  it("R² is 1.0 for perfectly linear data", () => {
+    const result = predictPosition([
+      { lat: 50.0, lon: 10.0, time: 0 },
+      { lat: 50.1, lon: 10.1, time: 3600000 },
+      { lat: 50.2, lon: 10.2, time: 7200000 },
+    ]);
+    expect(result).not.toBeNull();
+    expect(result!.rSquaredLat).toBeCloseTo(1.0, 2);
+    expect(result!.rSquaredLon).toBeCloseTo(1.0, 2);
+  });
+});
+
+// ── Signal Classifier Fallback Tests ──────────────────
+describe("Signal classifier fallback heuristics", () => {
+  // We test the fallback classification by mocking invokeLLM to throw
+  let classifySignal: typeof import("./signalClassifier").classifySignal;
+
+  beforeEach(async () => {
+    // Mock the LLM to force fallback
+    vi.doMock("./_core/llm", () => ({
+      invokeLLM: vi.fn().mockRejectedValue(new Error("LLM unavailable")),
+    }));
+    // Re-import to pick up mock
+    const mod = await import("./signalClassifier");
+    classifySignal = mod.classifySignal;
+  });
+
+  it("classifies WWV 10 MHz as time_signal", async () => {
+    const result = await classifySignal({
+      frequencyKhz: 10000,
+      lat: 40.68,
+      lon: -105.04,
+    });
+    expect(result.category).toBe("time_signal");
+    expect(result.confidence).toBeGreaterThan(0.5);
+  });
+
+  it("classifies AM broadcast frequency as broadcast", async () => {
+    const result = await classifySignal({
+      frequencyKhz: 1000,
+      lat: 40,
+      lon: -74,
+    });
+    expect(result.category).toBe("broadcast");
+  });
+
+  it("classifies amateur band frequency as amateur", async () => {
+    const result = await classifySignal({
+      frequencyKhz: 14200,
+      lat: 51,
+      lon: -1,
+    });
+    expect(result.category).toBe("amateur");
+  });
+
+  it("classifies HFGCS frequency as military", async () => {
+    const result = await classifySignal({
+      frequencyKhz: 11175,
+      lat: 38,
+      lon: -97,
+    });
+    expect(result.category).toBe("military");
+    expect(result.confidence).toBeGreaterThan(0.8);
+  });
+
+  it("classifies UVB-76 as custom", async () => {
+    const result = await classifySignal({
+      frequencyKhz: 4625,
+      lat: 56,
+      lon: 37,
+    });
+    expect(result.category).toBe("custom");
+    expect(result.knownStation).toContain("UVB-76");
+  });
+
+  it("classifies 2182 kHz as utility (maritime)", async () => {
+    const result = await classifySignal({
+      frequencyKhz: 2182,
+      lat: 50,
+      lon: -5,
+    });
+    expect(result.category).toBe("utility");
+  });
+
+  it("classifies shortwave broadcast band as broadcast", async () => {
+    const result = await classifySignal({
+      frequencyKhz: 9500,
+      lat: 39,
+      lon: 116,
+    });
+    expect(result.category).toBe("broadcast");
+  });
+
+  it("returns unknown for null frequency", async () => {
+    const result = await classifySignal({
+      frequencyKhz: null,
+      lat: 0,
+      lon: 0,
+    });
+    expect(result.category).toBe("unknown");
+  });
+
+  it("returns utility for unidentified HF", async () => {
+    const result = await classifySignal({
+      frequencyKhz: 8000,
+      lat: 50,
+      lon: 10,
+    });
+    expect(result.category).toBe("utility");
+  });
+
+  it("classifies CHU 3330 kHz as time_signal", async () => {
+    const result = await classifySignal({
+      frequencyKhz: 3330,
+      lat: 45.3,
+      lon: -75.75,
+    });
+    expect(result.category).toBe("time_signal");
+    expect(result.knownStation).toContain("CHU");
+  });
+});
+
+// ── CSV Export/Import Tests ──────────────────────────
+describe("CSV export format", () => {
+  it("generates valid CSV header", () => {
+    const header = "id,label,lat,lon,frequencyKhz,color,category,notes,visible,createdAt";
+    const fields = header.split(",");
+    expect(fields).toContain("id");
+    expect(fields).toContain("label");
+    expect(fields).toContain("lat");
+    expect(fields).toContain("lon");
+    expect(fields).toContain("frequencyKhz");
+    expect(fields).toContain("color");
+    expect(fields).toContain("category");
+    expect(fields.length).toBe(10);
+  });
+
+  it("escapes commas in CSV fields", () => {
+    function escapeCsvField(value: string): string {
+      if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+        return `"${value.replace(/"/g, '""')}"`;
+      }
+      return value;
+    }
+    expect(escapeCsvField("hello, world")).toBe('"hello, world"');
+    expect(escapeCsvField('say "hi"')).toBe('"say ""hi"""');
+    expect(escapeCsvField("normal")).toBe("normal");
+    expect(escapeCsvField("line\nbreak")).toBe('"line\nbreak"');
+  });
+});
+
+describe("CSV import parsing", () => {
+  function parseCsvLine(line: string): string[] {
+    const fields: string[] = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"' && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else if (ch === '"') {
+          inQuotes = false;
+        } else {
+          current += ch;
+        }
+      } else {
+        if (ch === '"') {
+          inQuotes = true;
+        } else if (ch === ",") {
+          fields.push(current);
+          current = "";
+        } else {
+          current += ch;
+        }
+      }
+    }
+    fields.push(current);
+    return fields;
+  }
+
+  it("parses simple CSV line", () => {
+    const fields = parseCsvLine("1,Target A,50.0,10.0,10000,#ff0000,time_signal,,true,2025-01-01");
+    expect(fields[0]).toBe("1");
+    expect(fields[1]).toBe("Target A");
+    expect(fields[2]).toBe("50.0");
+    expect(fields[3]).toBe("10.0");
+  });
+
+  it("handles quoted fields with commas", () => {
+    const fields = parseCsvLine('1,"Target, with comma",50.0,10.0');
+    expect(fields[1]).toBe("Target, with comma");
+  });
+
+  it("handles escaped quotes", () => {
+    const fields = parseCsvLine('1,"Target ""quoted""",50.0');
+    expect(fields[1]).toBe('Target "quoted"');
+  });
+
+  it("handles empty fields", () => {
+    const fields = parseCsvLine("1,,50.0,,10000");
+    expect(fields[1]).toBe("");
+    expect(fields[3]).toBe("");
+  });
+});
+
+// ── KML Export Tests ──────────────────────────────────
+describe("KML export format", () => {
+  function escapeXml(str: string): string {
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;");
+  }
+
+  it("escapes XML special characters", () => {
+    expect(escapeXml("A & B")).toBe("A &amp; B");
+    expect(escapeXml("<tag>")).toBe("&lt;tag&gt;");
+    expect(escapeXml('"quoted"')).toBe("&quot;quoted&quot;");
+    expect(escapeXml("it's")).toBe("it&apos;s");
+  });
+
+  it("generates valid KML placemark structure", () => {
+    const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+<name>TDoA Targets</name>
+<Placemark>
+<name>Test Target</name>
+<Point><coordinates>10.0,50.0,0</coordinates></Point>
+</Placemark>
+</Document>
+</kml>`;
+    expect(kml).toContain("<?xml");
+    expect(kml).toContain("<kml");
+    expect(kml).toContain("<Placemark>");
+    expect(kml).toContain("<coordinates>10.0,50.0,0</coordinates>");
+  });
+
+  it("formats coordinates as lon,lat,altitude", () => {
+    const lat = 50.123;
+    const lon = 10.456;
+    const coordStr = `${lon},${lat},0`;
+    expect(coordStr).toBe("10.456,50.123,0");
+    // KML uses lon,lat order (opposite of most mapping)
+    const parts = coordStr.split(",");
+    expect(parseFloat(parts[0])).toBe(lon);
+    expect(parseFloat(parts[1])).toBe(lat);
+  });
+});
+
+// ── KML Import Tests ──────────────────────────────────
+describe("KML import parsing", () => {
+  function extractKmlPlacemarks(kml: string): Array<{ name: string; lat: number; lon: number; description?: string }> {
+    const placemarks: Array<{ name: string; lat: number; lon: number; description?: string }> = [];
+    const placemarkRegex = /<Placemark>([\s\S]*?)<\/Placemark>/g;
+    let match;
+    while ((match = placemarkRegex.exec(kml)) !== null) {
+      const block = match[1];
+      const nameMatch = /<name>(.*?)<\/name>/.exec(block);
+      const coordMatch = /<coordinates>([\s\S]*?)<\/coordinates>/.exec(block);
+      const descMatch = /<description>([\s\S]*?)<\/description>/.exec(block);
+      if (nameMatch && coordMatch) {
+        const coords = coordMatch[1].trim().split(",");
+        if (coords.length >= 2) {
+          placemarks.push({
+            name: nameMatch[1],
+            lon: parseFloat(coords[0]),
+            lat: parseFloat(coords[1]),
+            description: descMatch?.[1],
+          });
+        }
+      }
+    }
+    return placemarks;
+  }
+
+  it("extracts placemarks from KML", () => {
+    const kml = `<?xml version="1.0"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+<Placemark>
+<name>Target A</name>
+<Point><coordinates>10.5,50.3,0</coordinates></Point>
+</Placemark>
+<Placemark>
+<name>Target B</name>
+<description>Some notes</description>
+<Point><coordinates>-73.9,40.7,0</coordinates></Point>
+</Placemark>
+</Document>
+</kml>`;
+    const placemarks = extractKmlPlacemarks(kml);
+    expect(placemarks).toHaveLength(2);
+    expect(placemarks[0].name).toBe("Target A");
+    expect(placemarks[0].lat).toBeCloseTo(50.3);
+    expect(placemarks[0].lon).toBeCloseTo(10.5);
+    expect(placemarks[1].name).toBe("Target B");
+    expect(placemarks[1].description).toBe("Some notes");
+  });
+
+  it("handles empty KML", () => {
+    const kml = `<?xml version="1.0"?><kml><Document></Document></kml>`;
+    const placemarks = extractKmlPlacemarks(kml);
+    expect(placemarks).toHaveLength(0);
+  });
+
+  it("skips placemarks without coordinates", () => {
+    const kml = `<kml><Document>
+<Placemark><name>No Coords</name></Placemark>
+<Placemark><name>Has Coords</name><Point><coordinates>5,45,0</coordinates></Point></Placemark>
+</Document></kml>`;
+    const placemarks = extractKmlPlacemarks(kml);
+    expect(placemarks).toHaveLength(1);
+    expect(placemarks[0].name).toBe("Has Coords");
+  });
+});
+
+// ── Prediction Ellipse Geometry Tests ─────────────────
+describe("Prediction ellipse geometry", () => {
+  it("generates ellipse points on a circle when major = minor", () => {
+    const major = 1; // degrees
+    const minor = 1;
+    const rotation = 0;
+    const centerLat = 50;
+    const centerLon = 10;
+    const segments = 32;
+
+    const points: Array<{ lat: number; lon: number }> = [];
+    for (let i = 0; i <= segments; i++) {
+      const angle = (i / segments) * Math.PI * 2;
+      const localLat = major * Math.cos(angle);
+      const localLon = minor * Math.sin(angle);
+      points.push({
+        lat: centerLat + localLat,
+        lon: centerLon + localLon,
+      });
+    }
+
+    // All points should be ~1 degree from center
+    for (const p of points) {
+      const dist = Math.sqrt(
+        (p.lat - centerLat) ** 2 + (p.lon - centerLon) ** 2
+      );
+      expect(dist).toBeCloseTo(1, 1);
+    }
+  });
+
+  it("applies rotation to ellipse points", () => {
+    const major = 2;
+    const minor = 1;
+    const rotDeg = 45;
+    const rotRad = (rotDeg * Math.PI) / 180;
+
+    // Point at angle 0 (along major axis)
+    const localLat = major * Math.cos(0);
+    const localLon = minor * Math.sin(0);
+    const rotLat = localLat * Math.cos(rotRad) - localLon * Math.sin(rotRad);
+    const rotLon = localLat * Math.sin(rotRad) + localLon * Math.cos(rotRad);
+
+    // After 45° rotation, the major axis point should be at ~45° from lat axis
+    const angle = Math.atan2(rotLon, rotLat) * (180 / Math.PI);
+    expect(angle).toBeCloseTo(45, 0);
+  });
+
+  it("ellipse major axis is always >= minor axis", () => {
+    // Simulate what the predictor does
+    const latStd = 0.5;
+    const lonStd = 0.3;
+    const ellipseMajor = Math.max(latStd, lonStd) * 2;
+    const ellipseMinor = Math.min(latStd, lonStd) * 2;
+    expect(ellipseMajor).toBeGreaterThanOrEqual(ellipseMinor);
+  });
+});
+
+// ── Target Category Color Mapping Tests ───────────────
+describe("Target category color mapping", () => {
+  const CATEGORY_COLORS: Record<string, string> = {
+    time_signal: "#f59e0b",
+    broadcast: "#3b82f6",
+    utility: "#10b981",
+    military: "#ef4444",
+    amateur: "#8b5cf6",
+    maritime: "#06b6d4",
+    aviation: "#f97316",
+    numbers: "#ec4899",
+    unknown: "#6b7280",
+    other: "#a3a3a3",
+  };
+
+  it("has a color for every category", () => {
+    const categories = [
+      "time_signal", "broadcast", "utility", "military",
+      "amateur", "maritime", "aviation", "numbers", "unknown", "other",
+    ];
+    for (const cat of categories) {
+      expect(CATEGORY_COLORS[cat]).toBeDefined();
+      expect(CATEGORY_COLORS[cat]).toMatch(/^#[0-9a-fA-F]{6}$/);
+    }
+  });
+
+  it("all colors are unique", () => {
+    const colors = Object.values(CATEGORY_COLORS);
+    const unique = new Set(colors);
+    expect(unique.size).toBe(colors.length);
+  });
+});

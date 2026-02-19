@@ -28,10 +28,13 @@ import {
   updateSavedTargetAnimations,
   createDriftTrails,
   updateDriftTrailAnimations,
+  createPredictionMarkers,
+  updatePredictionAnimations,
   type TdoaHostMarkerData,
   type ContourData,
   type SavedTargetData,
   type DriftTrailEntry,
+  type PredictionData,
 } from "./TDoAGlobeOverlay";
 
 /** Detect whether the browser supports WebGL */
@@ -88,18 +91,21 @@ interface GlobeProps {
     historyByTarget: Map<number, DriftTrailEntry[]>;
     targetColors: Map<number, string>;
   };
+  /** Prediction data for rendering confidence ellipses on the globe */
+  predictions?: PredictionData[];
 }
 
 export interface GlobeHandle {
   captureScreenshot: () => string | null;
 }
 
-const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = [], isStationOnline, tdoaOverlay, savedTargets = [], driftTrailData }, ref) {
+const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = [], isStationOnline, tdoaOverlay, savedTargets = [], driftTrailData, predictions = [] }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ionoGroupRef = useRef<THREE.Group | null>(null);
   const tdoaGroupRef = useRef<THREE.Group | null>(null);
   const savedTargetsGroupRef = useRef<THREE.Group | null>(null);
   const driftTrailGroupRef = useRef<THREE.Group | null>(null);
+  const predictionGroupRef = useRef<THREE.Group | null>(null);
   const [webglError, setWebglError] = useState<string | null>(null);
   const contextManagerRef = useRef<WebGLContextManager | null>(null);
   const fpsGovernorRef = useRef<FPSGovernor | null>(null);
@@ -311,6 +317,10 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
     const driftTrailGroup = new THREE.Group();
     scene.add(driftTrailGroup);
     driftTrailGroupRef.current = driftTrailGroup;
+
+    const predictionGroup = new THREE.Group();
+    scene.add(predictionGroup);
+    predictionGroupRef.current = predictionGroup;
 
     // Ring group for selected station pulse
     const ringGroup = new THREE.Group();
@@ -599,6 +609,9 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
       }
       if (driftTrailGroupRef.current && driftTrailGroupRef.current.children.length > 0) {
         updateDriftTrailAnimations(driftTrailGroupRef.current, elapsed);
+      }
+      if (predictionGroupRef.current && predictionGroupRef.current.children.length > 0) {
+        updatePredictionAnimations(predictionGroupRef.current, elapsed);
       }
 
       s.renderer.render(s.scene, s.camera);
@@ -1048,6 +1061,19 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
     );
     group.add(trails);
   }, [driftTrailData]);
+
+  // Prediction overlay: render confidence ellipses for predicted positions
+  useEffect(() => {
+    const group = predictionGroupRef.current;
+    if (!group) return;
+
+    // Clear existing prediction markers
+    disposeTdoaGroup(group);
+
+    if (predictions.length === 0) return;
+
+    createPredictionMarkers(group, predictions);
+  }, [predictions]);
 
   // Auto-rotate globe to continent/region when globeTarget changes
   useEffect(() => {

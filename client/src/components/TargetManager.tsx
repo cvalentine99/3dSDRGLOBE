@@ -3,15 +3,17 @@
  *
  * Features:
  * 1. View all saved TDoA target positions
- * 2. Category tagging (time_signal, broadcast, utility, military, amateur, unknown, custom)
+ * 2. Category tagging with LLM auto-classification
  * 3. Filter targets by category
  * 4. Toggle visibility of individual targets on the globe
  * 5. Edit target labels, colors, categories, and notes
  * 6. Delete targets
  * 7. Position history timeline with drift metrics
- * 8. Add new targets from TDoA results or manually
+ * 8. Position prediction with confidence ellipse
+ * 9. CSV/KML export and import
+ * 10. Add new targets from TDoA results or manually
  */
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -33,6 +35,15 @@ import {
   TrendingUp,
   Navigation,
   GitBranch,
+  Download,
+  Upload,
+  Brain,
+  Crosshair,
+  FileText,
+  Globe2,
+  ArrowRight,
+  Sparkles,
+  AlertCircle,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -94,6 +105,12 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [historyTargetId, setHistoryTargetId] = useState<number | null>(null);
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const [classifyingId, setClassifyingId] = useState<number | null>(null);
+  const [showImport, setShowImport] = useState(false);
+  const [importFormat, setImportFormat] = useState<"csv" | "kml">("csv");
+  const [importData, setImportData] = useState("");
+  const [predictionTargetId, setPredictionTargetId] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Manual add form
   const [showAddForm, setShowAddForm] = useState(false);
@@ -115,6 +132,12 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
   const historyQuery = trpc.targets.getHistory.useQuery(
     { targetId: historyTargetId! },
     { enabled: historyTargetId !== null }
+  );
+
+  // Fetch prediction for target
+  const predictionQuery = trpc.targets.predict.useQuery(
+    { targetId: predictionTargetId! },
+    { enabled: predictionTargetId !== null }
   );
 
   const utils = trpc.useUtils();
@@ -152,6 +175,52 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
     onError: (err) => toast.error(`Save failed: ${err.message}`),
   });
 
+  const classifyMutation = trpc.targets.classify.useMutation({
+    onSuccess: (result, variables) => {
+      if (result.category && classifyingId) {
+        updateMutation.mutate({
+          id: classifyingId,
+          category: result.category as any,
+          notes: `[AI] ${result.reasoning}${result.knownStation ? ` — ${result.knownStation}` : ""}${result.suggestedLabel ? ` (suggested: ${result.suggestedLabel})` : ""}`,
+        });
+        toast.success(
+          `Classified as ${CATEGORY_CONFIG[result.category]?.label || result.category} (${Math.round(result.confidence * 100)}% confidence)`
+        );
+      }
+      setClassifyingId(null);
+    },
+    onError: (err) => {
+      toast.error(`Classification failed: ${err.message}`);
+      setClassifyingId(null);
+    },
+  });
+
+  const importCsvMutation = trpc.targets.importCsv.useMutation({
+    onSuccess: (result) => {
+      utils.targets.list.invalidate();
+      toast.success(`Imported ${result.imported} targets`);
+      if (result.errors.length > 0) {
+        toast.warning(`${result.errors.length} rows had errors`);
+      }
+      setShowImport(false);
+      setImportData("");
+    },
+    onError: (err) => toast.error(`Import failed: ${err.message}`),
+  });
+
+  const importKmlMutation = trpc.targets.importKml.useMutation({
+    onSuccess: (result) => {
+      utils.targets.list.invalidate();
+      toast.success(`Imported ${result.imported} targets from KML`);
+      if (result.errors.length > 0) {
+        toast.warning(`${result.errors.length} placemarks had errors`);
+      }
+      setShowImport(false);
+      setImportData("");
+    },
+    onError: (err) => toast.error(`KML import failed: ${err.message}`),
+  });
+
   const handleToggle = useCallback(
     (id: number, currentVisible: boolean) => {
       toggleMutation.mutate({ id, visible: !currentVisible });
@@ -185,6 +254,92 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
       }
     },
     [deleteMutation]
+  );
+
+  const handleClassify = useCallback(
+    (target: SavedTarget) => {
+      setClassifyingId(target.id);
+      classifyMutation.mutate({
+        frequencyKhz: target.frequencyKhz ? parseFloat(target.frequencyKhz) : null,
+        lat: parseFloat(target.lat),
+        lon: parseFloat(target.lon),
+        label: target.label,
+        notes: target.notes,
+      });
+    },
+    [classifyMutation]
+  );
+
+  const handleExportCsv = useCallback(async () => {
+    try {
+      const result = await utils.targets.exportCsv.fetch();
+      if (!result.csv) {
+        toast.error("No targets to export");
+        return;
+      }
+      const blob = new Blob([result.csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `radio-globe-targets-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("CSV exported");
+    } catch (err) {
+      toast.error("Export failed");
+    }
+  }, [utils]);
+
+  const handleExportKml = useCallback(async () => {
+    try {
+      const result = await utils.targets.exportKml.fetch();
+      if (!result.kml) {
+        toast.error("No targets to export");
+        return;
+      }
+      const blob = new Blob([result.kml], { type: "application/vnd.google-earth.kml+xml" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `radio-globe-targets-${new Date().toISOString().slice(0, 10)}.kml`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("KML exported — open in Google Earth");
+    } catch (err) {
+      toast.error("Export failed");
+    }
+  }, [utils]);
+
+  const handleImport = useCallback(() => {
+    if (!importData.trim()) {
+      toast.error("Paste or upload file data first");
+      return;
+    }
+    if (importFormat === "csv") {
+      importCsvMutation.mutate({ csvData: importData });
+    } else {
+      importKmlMutation.mutate({ kmlData: importData });
+    }
+  }, [importData, importFormat, importCsvMutation, importKmlMutation]);
+
+  const handleFileUpload = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const text = ev.target?.result as string;
+        setImportData(text);
+        // Auto-detect format
+        if (file.name.endsWith(".kml") || text.includes("<kml")) {
+          setImportFormat("kml");
+        } else {
+          setImportFormat("csv");
+        }
+      };
+      reader.readAsText(file);
+    },
+    []
   );
 
   const handleAddManual = useCallback(() => {
@@ -240,6 +395,9 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
     observedAt: number;
   }>;
 
+  // Prediction data
+  const prediction = predictionQuery.data;
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -248,7 +406,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: "-100%", opacity: 0 }}
           transition={{ type: "spring", damping: 25, stiffness: 200 }}
-          className="fixed top-0 left-0 bottom-0 w-[400px] max-w-[90vw] z-50 flex flex-col"
+          className="fixed top-0 left-0 bottom-0 w-[420px] max-w-[90vw] z-50 flex flex-col"
         >
           {/* Glass background */}
           <div className="absolute inset-0 bg-black/80 backdrop-blur-xl border-r border-white/10" />
@@ -268,7 +426,43 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                {/* Export dropdown */}
+                <div className="relative group">
+                  <button
+                    title="Export targets"
+                    className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/40 hover:bg-white/10 hover:text-white/60 transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
+                  <div className="absolute right-0 top-full mt-1 w-36 bg-black/90 border border-white/10 rounded-lg overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 shadow-xl">
+                    <button
+                      onClick={handleExportCsv}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-[11px] text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      Export CSV
+                    </button>
+                    <button
+                      onClick={handleExportKml}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-[11px] text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+                    >
+                      <Globe2 className="w-3.5 h-3.5" />
+                      Export KML
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowImport(!showImport)}
+                  title="Import targets"
+                  className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${
+                    showImport
+                      ? "bg-cyan-500/20 border-cyan-500/30 text-cyan-400"
+                      : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60"
+                  }`}
+                >
+                  <Upload className="w-4 h-4" />
+                </button>
                 <button
                   onClick={() => setShowAddForm(!showAddForm)}
                   title="Add target manually"
@@ -325,6 +519,99 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
 
             {/* Scrollable body */}
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 scrollbar-thin">
+              {/* Import Panel */}
+              <AnimatePresence>
+                {showImport && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="rounded-lg bg-cyan-500/5 border border-cyan-500/15 p-4 space-y-3">
+                      <h3 className="text-xs font-semibold text-white/80 uppercase tracking-wider flex items-center gap-1.5">
+                        <Upload className="w-3.5 h-3.5 text-cyan-400" />
+                        Import Targets
+                      </h3>
+
+                      {/* Format toggle */}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setImportFormat("csv")}
+                          className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded text-[11px] font-medium transition-colors ${
+                            importFormat === "csv"
+                              ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                              : "bg-white/5 text-white/40 border border-white/10 hover:bg-white/10"
+                          }`}
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          CSV
+                        </button>
+                        <button
+                          onClick={() => setImportFormat("kml")}
+                          className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded text-[11px] font-medium transition-colors ${
+                            importFormat === "kml"
+                              ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                              : "bg-white/5 text-white/40 border border-white/10 hover:bg-white/10"
+                          }`}
+                        >
+                          <Globe2 className="w-3.5 h-3.5" />
+                          KML
+                        </button>
+                      </div>
+
+                      {/* File upload */}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept={importFormat === "csv" ? ".csv,.txt" : ".kml,.xml"}
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-dashed border-white/15 text-white/40 text-xs hover:bg-white/5 hover:text-white/60 transition-colors"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        Choose {importFormat.toUpperCase()} file
+                      </button>
+
+                      {/* Or paste */}
+                      <textarea
+                        value={importData}
+                        onChange={(e) => setImportData(e.target.value)}
+                        placeholder={
+                          importFormat === "csv"
+                            ? "Or paste CSV data here...\nlabel,latitude,longitude,frequency_khz,category\nWWV,40.6814,-105.0422,10000,time_signal"
+                            : "Or paste KML data here..."
+                        }
+                        rows={4}
+                        className="w-full px-3 py-2 rounded-md bg-black/40 border border-white/10 text-white text-[11px] font-mono placeholder:text-white/20 focus:outline-none focus:border-cyan-500/40 resize-none"
+                      />
+
+                      {importData && (
+                        <p className="text-[10px] text-white/30">
+                          {importData.split("\n").length} lines loaded
+                        </p>
+                      )}
+
+                      <button
+                        onClick={handleImport}
+                        disabled={importCsvMutation.isPending || importKmlMutation.isPending || !importData.trim()}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-xs font-medium hover:bg-cyan-500/30 disabled:opacity-40 transition-colors"
+                      >
+                        {(importCsvMutation.isPending || importKmlMutation.isPending) ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Upload className="w-3.5 h-3.5" />
+                        )}
+                        Import {importFormat.toUpperCase()}
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* Manual Add Form */}
               <AnimatePresence>
                 {showAddForm && (
@@ -453,7 +740,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                     {filterCategory ? "No targets in this category" : "No saved targets yet"}
                   </p>
                   <p className="text-[10px] text-white/25">
-                    Complete a TDoA run and save the result, or add a target manually
+                    Complete a TDoA run and save the result, or add/import targets
                   </p>
                 </div>
               ) : (
@@ -462,6 +749,8 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                     const isEditing = editingId === target.id;
                     const isExpanded = expandedId === target.id;
                     const showingHistory = historyTargetId === target.id;
+                    const isClassifying = classifyingId === target.id;
+                    const showingPrediction = predictionTargetId === target.id;
                     const lat = parseFloat(target.lat);
                     const lon = parseFloat(target.lon);
                     const catConfig = CATEGORY_CONFIG[target.category] || CATEGORY_CONFIG.unknown;
@@ -541,6 +830,22 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                             ) : (
                               <>
                                 <button
+                                  onClick={() => handleClassify(target)}
+                                  disabled={isClassifying}
+                                  className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${
+                                    isClassifying
+                                      ? "text-amber-400 bg-amber-500/15"
+                                      : "text-white/30 hover:text-amber-400 hover:bg-amber-500/10"
+                                  }`}
+                                  title="Auto-classify with AI"
+                                >
+                                  {isClassifying ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <Brain className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                                <button
                                   onClick={() => onFocusTarget?.(lat, lon)}
                                   className="w-7 h-7 rounded flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors"
                                   title="Focus on globe"
@@ -561,6 +866,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                 <button
                                   onClick={() => {
                                     setHistoryTargetId(showingHistory ? null : target.id);
+                                    setPredictionTargetId(showingHistory ? null : target.id);
                                     if (!showingHistory) setExpandedId(target.id);
                                   }}
                                   className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${
@@ -568,7 +874,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                       ? "text-violet-400 bg-violet-500/15"
                                       : "text-white/30 hover:text-white/60 hover:bg-white/5"
                                   }`}
-                                  title="Position history"
+                                  title="Position history & prediction"
                                 >
                                   <GitBranch className="w-3.5 h-3.5" />
                                 </button>
@@ -702,22 +1008,20 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                         {historyEntries.map((entry, idx) => {
                                           const entryLat = parseFloat(entry.lat);
                                           const entryLon = parseFloat(entry.lon);
-                                          // Calculate drift from previous entry
                                           let driftKm: number | null = null;
-                                          let bearing: number | null = null;
+                                          let bearingDeg: number | null = null;
                                           if (idx > 0) {
                                             const prev = historyEntries[idx - 1];
                                             const prevLat = parseFloat(prev.lat);
                                             const prevLon = parseFloat(prev.lon);
                                             driftKm = haversineDistance(prevLat, prevLon, entryLat, entryLon);
-                                            bearing = calculateBearing(prevLat, prevLon, entryLat, entryLon);
+                                            bearingDeg = calculateBearing(prevLat, prevLon, entryLat, entryLon);
                                           }
                                           return (
                                             <div
                                               key={entry.id}
                                               className="flex items-start gap-2 px-2 py-1.5 rounded bg-white/[0.03] border border-white/5"
                                             >
-                                              {/* Timeline dot */}
                                               <div className="flex flex-col items-center pt-1">
                                                 <div
                                                   className="w-2 h-2 rounded-full"
@@ -727,7 +1031,6 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                                   <div className="w-px h-4 bg-white/10 mt-0.5" />
                                                 )}
                                               </div>
-                                              {/* Entry details */}
                                               <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2">
                                                   <span className="text-[10px] font-mono text-white/60">
@@ -735,7 +1038,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                                   </span>
                                                   {driftKm !== null && (
                                                     <span className="text-[9px] font-mono text-amber-400/60 flex items-center gap-0.5">
-                                                      <Navigation className="w-2.5 h-2.5" style={{ transform: `rotate(${bearing || 0}deg)` }} />
+                                                      <Navigation className="w-2.5 h-2.5" style={{ transform: `rotate(${bearingDeg || 0}deg)` }} />
                                                       {driftKm.toFixed(1)} km
                                                     </span>
                                                   )}
@@ -762,6 +1065,25 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                         )}
                                       </div>
                                     )}
+
+                                    {/* Position Prediction */}
+                                    {showingPrediction && prediction && (
+                                      <PredictionCard prediction={prediction} onFocus={onFocusTarget} />
+                                    )}
+                                    {showingPrediction && predictionQuery.isLoading && (
+                                      <div className="flex items-center gap-2 py-2 mt-2">
+                                        <Loader2 className="w-3.5 h-3.5 text-emerald-400/50 animate-spin" />
+                                        <span className="text-[10px] text-white/30">Computing prediction...</span>
+                                      </div>
+                                    )}
+                                    {showingPrediction && !predictionQuery.isLoading && !prediction && historyEntries.length >= 2 && (
+                                      <div className="rounded bg-white/5 border border-white/10 px-2.5 py-2 mt-2">
+                                        <p className="text-[10px] text-white/30 flex items-center gap-1.5">
+                                          <AlertCircle className="w-3 h-3" />
+                                          Need at least 2 position observations for prediction
+                                        </p>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -781,6 +1103,113 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
   );
 }
 
+/* ── Prediction Card Sub-Component ─────────────────── */
+
+function PredictionCard({
+  prediction,
+  onFocus,
+}: {
+  prediction: {
+    predictedLat: number;
+    predictedLon: number;
+    predictedAt: number;
+    ellipseMajor: number;
+    ellipseMinor: number;
+    ellipseRotation: number;
+    rSquaredLat: number;
+    rSquaredLon: number;
+    velocityKmh: number;
+    bearingDeg: number;
+    modelType: string;
+    historyCount: number;
+    avgIntervalHours: number;
+  };
+  onFocus?: (lat: number, lon: number) => void;
+}) {
+  const avgR2 = (prediction.rSquaredLat + prediction.rSquaredLon) / 2;
+  const confidenceLabel =
+    avgR2 > 0.8 ? "High" : avgR2 > 0.5 ? "Medium" : "Low";
+  const confidenceColor =
+    avgR2 > 0.8 ? "text-emerald-400" : avgR2 > 0.5 ? "text-amber-400" : "text-red-400";
+
+  return (
+    <div className="rounded bg-emerald-500/10 border border-emerald-500/15 px-3 py-2.5 mt-2 space-y-2">
+      <div className="flex items-center justify-between">
+        <h5 className="text-[10px] font-mono text-emerald-400/70 uppercase tracking-wider flex items-center gap-1.5">
+          <Crosshair className="w-3 h-3" />
+          Position Prediction
+        </h5>
+        <span className={`text-[9px] font-mono ${confidenceColor}`}>
+          {confidenceLabel} confidence ({Math.round(avgR2 * 100)}%)
+        </span>
+      </div>
+
+      {/* Predicted position */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1">
+          <p className="text-[11px] font-mono text-white/70">
+            {prediction.predictedLat.toFixed(4)}°, {prediction.predictedLon.toFixed(4)}°
+          </p>
+          <p className="text-[9px] text-white/30">
+            Predicted for {new Date(prediction.predictedAt).toLocaleString()}
+          </p>
+        </div>
+        {onFocus && (
+          <button
+            onClick={() => onFocus(prediction.predictedLat, prediction.predictedLon)}
+            className="w-7 h-7 rounded flex items-center justify-center text-emerald-400/60 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+            title="Focus on predicted position"
+          >
+            <Crosshair className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+
+      {/* Metrics grid */}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[9px] font-mono">
+        <div>
+          <span className="text-white/30">Model: </span>
+          <span className="text-white/60">{prediction.modelType}</span>
+        </div>
+        <div>
+          <span className="text-white/30">Velocity: </span>
+          <span className="text-white/60">{prediction.velocityKmh.toFixed(1)} km/h</span>
+        </div>
+        <div>
+          <span className="text-white/30">Bearing: </span>
+          <span className="text-white/60">{prediction.bearingDeg.toFixed(0)}°</span>
+        </div>
+        <div>
+          <span className="text-white/30">Ellipse: </span>
+          <span className="text-white/60">
+            {prediction.ellipseMajor.toFixed(2)}° × {prediction.ellipseMinor.toFixed(2)}°
+          </span>
+        </div>
+        <div>
+          <span className="text-white/30">R² lat: </span>
+          <span className="text-white/60">{prediction.rSquaredLat.toFixed(3)}</span>
+        </div>
+        <div>
+          <span className="text-white/30">R² lon: </span>
+          <span className="text-white/60">{prediction.rSquaredLon.toFixed(3)}</span>
+        </div>
+        <div>
+          <span className="text-white/30">Observations: </span>
+          <span className="text-white/60">{prediction.historyCount}</span>
+        </div>
+        <div>
+          <span className="text-white/30">Avg interval: </span>
+          <span className="text-white/60">
+            {prediction.avgIntervalHours < 1
+              ? `${Math.round(prediction.avgIntervalHours * 60)} min`
+              : `${prediction.avgIntervalHours.toFixed(1)} hrs`}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Drift Summary Sub-Component ─────────────────── */
 
 function DriftSummary({ entries }: { entries: Array<{ lat: string; lon: string; observedAt: number }> }) {
@@ -794,7 +1223,6 @@ function DriftSummary({ entries }: { entries: Array<{ lat: string; lon: string; 
   );
   const timeSpanHrs = (last.observedAt - first.observedAt) / 3600000;
 
-  // Calculate max drift between any consecutive pair
   let maxDrift = 0;
   for (let i = 1; i < entries.length; i++) {
     const d = haversineDistance(
@@ -831,7 +1259,7 @@ function DriftSummary({ entries }: { entries: Array<{ lat: string; lon: string; 
 /* ── Geo Helpers ─────────────────────────────────── */
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // Earth radius in km
+  const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =

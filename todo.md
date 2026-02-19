@@ -114,3 +114,17 @@
 - [x] Recording spectrogram: FFT analysis of WAV audio data
 - [x] Recording spectrogram: inline spectrogram view in RecordingPlayback component
 - [x] All 247 vitest tests passing, zero TypeScript errors
+- [x] Automated target classification: LLM-based analysis of signal characteristics (frequency, mode, location)
+- [x] Automated target classification: server-side tRPC procedure using invokeLLM with structured JSON response
+- [x] Automated target classification: "Auto-Classify" button in TargetManager and TDoA result save flow
+- [x] Target export: CSV export endpoint with all target fields + position history
+- [x] Target export: KML export endpoint for Google Earth compatibility
+- [x] Target export: download buttons in TargetManager panel
+- [x] Target import: CSV file upload with parsing and validation
+- [x] Target import: KML file upload with parsing and validation
+- [x] Target import: import UI in TargetManager panel with preview and confirmation
+- [x] Position prediction: linear/polynomial regression model for drift trail data
+- [x] Position prediction: server-side prediction endpoint using position history
+- [x] Position prediction: predicted zone rendering on globe (translucent ellipse/cone)
+- [x] Position prediction: prediction display in TargetManager timeline
+- [x] All 287 vitest tests passing, zero TypeScript errors
