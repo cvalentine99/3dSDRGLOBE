@@ -23,6 +23,16 @@ import {
   getRecentScanCycles,
   getAggregateStats,
 } from "./statusPersistence";
+import {
+  getGpsHosts,
+  getRefTransmitters,
+  submitTdoaJob,
+  pollJobProgress,
+  getJob,
+  getRecentJobs,
+  cancelJob,
+  proxyResultFile,
+} from "./tdoaService";
 
 export const appRouter = router({
   system: systemRouter,
@@ -243,6 +253,139 @@ export const appRouter = router({
     aggregateStats: publicProcedure.query(async () => {
       return await getAggregateStats();
     }),
+  }),
+
+  /**
+   * TDoA (Time Difference of Arrival) triangulation endpoints.
+   * Proxies requests to tdoa.kiwisdr.com for HF transmitter geolocation.
+   */
+  tdoa: router({
+    /**
+     * Get list of GPS-active KiwiSDR hosts available for TDoA.
+     * Cached for 5 minutes.
+     */
+    getGpsHosts: publicProcedure.query(async () => {
+      return await getGpsHosts();
+    }),
+
+    /**
+     * Get reference transmitter database (known callsigns, frequencies, locations).
+     * Cached for 30 minutes.
+     */
+    getRefs: publicProcedure.query(async () => {
+      return await getRefTransmitters();
+    }),
+
+    /**
+     * Submit a TDoA triangulation job.
+     * Sends job to tdoa.kiwisdr.com and returns a jobId for progress polling.
+     */
+    submitJob: publicProcedure
+      .input(
+        z.object({
+          hosts: z.array(
+            z.object({
+              h: z.string(),
+              p: z.number(),
+              id: z.string(),
+              lat: z.number(),
+              lon: z.number(),
+            })
+          ).min(2).max(6),
+          frequencyKhz: z.number().positive(),
+          passbandHz: z.number().positive(),
+          sampleTime: z.number().refine((v) => [15, 30, 45, 60].includes(v)),
+          mapBounds: z.object({
+            north: z.number(),
+            south: z.number(),
+            east: z.number(),
+            west: z.number(),
+          }),
+          knownLocation: z.object({
+            lat: z.number(),
+            lon: z.number(),
+            name: z.string(),
+          }).optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const job = await submitTdoaJob(input);
+        return { jobId: job.id, status: job.status };
+      }),
+
+    /**
+     * Poll progress of a running TDoA job.
+     * Returns current status, per-host sampling status, and results if complete.
+     */
+    pollProgress: publicProcedure
+      .input(z.object({ jobId: z.string() }))
+      .query(async ({ input }) => {
+        const job = await pollJobProgress(input.jobId);
+        if (!job) {
+          return { id: input.jobId, status: "error" as const, error: "Job not found", hostStatuses: {}, contours: [], createdAt: 0 };
+        }
+        return {
+          id: job.id,
+          status: job.status,
+          hostStatuses: job.hostStatuses,
+          result: job.result,
+          contours: job.contours,
+          heatmapUrl: job.heatmapUrl,
+          error: job.error,
+          createdAt: job.createdAt,
+          completedAt: job.completedAt,
+        };
+      }),
+
+    /**
+     * Cancel a running TDoA job.
+     */
+    cancelJob: publicProcedure
+      .input(z.object({ jobId: z.string() }))
+      .mutation(({ input }) => {
+        const cancelled = cancelJob(input.jobId);
+        return { cancelled };
+      }),
+
+    /**
+     * Get recent TDoA job history.
+     */
+    recentJobs: publicProcedure
+      .input(z.object({ limit: z.number().min(1).max(50).default(20) }).optional())
+      .query(({ input }) => {
+        return getRecentJobs(input?.limit ?? 20).map((job) => ({
+          id: job.id,
+          status: job.status,
+          frequencyKhz: job.params.frequencyKhz,
+          hostCount: job.params.hosts.length,
+          likelyPosition: job.result?.likely_position,
+          createdAt: job.createdAt,
+          completedAt: job.completedAt,
+          error: job.error,
+        }));
+      }),
+
+    /**
+     * Proxy a result file (heatmap PNG, etc.) from the TDoA server.
+     * Avoids mixed-content issues (TDoA server is HTTP-only).
+     */
+    resultFile: publicProcedure
+      .input(
+        z.object({
+          key: z.string(),
+          filename: z.string(),
+        })
+      )
+      .query(async ({ input }) => {
+        const file = await proxyResultFile(input.key, input.filename);
+        if (!file) return { found: false as const };
+        // Return base64-encoded data for the client
+        return {
+          found: true as const,
+          data: file.data.toString("base64"),
+          contentType: file.contentType,
+        };
+      }),
   }),
 });
 
