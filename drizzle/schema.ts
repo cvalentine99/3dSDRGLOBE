@@ -9,6 +9,8 @@ import {
   float,
   bigint,
   index,
+  decimal,
+  json,
 } from "drizzle-orm/mysql-core";
 
 /**
@@ -143,3 +145,56 @@ export const receiverStatusHistory = mysqlTable(
 
 export type ReceiverStatusHistoryRow = typeof receiverStatusHistory.$inferSelect;
 export type InsertReceiverStatusHistory = typeof receiverStatusHistory.$inferInsert;
+
+/**
+ * TDoA (Time Difference of Arrival) triangulation jobs.
+ * Each row represents a single TDoA computation submitted to tdoa.kiwisdr.com.
+ * Stores the selected hosts, frequency, results, and heatmap data.
+ */
+export const tdoaJobs = mysqlTable(
+  "tdoa_jobs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** Center frequency in kHz */
+    frequencyKhz: decimal("frequencyKhz", { precision: 10, scale: 2 }).notNull(),
+    /** Passband width in Hz */
+    passbandHz: int("passbandHz").notNull(),
+    /** IQ sample duration in seconds (15, 30, 45, or 60) */
+    sampleTime: int("sampleTime").default(30).notNull(),
+    /** Selected GPS-active KiwiSDR hosts [{h, p, id, lat, lon}] */
+    hosts: json("hosts").notNull(),
+    /** Optional known reference location {lat, lon, name} */
+    knownLocation: json("knownLocation"),
+    /** Map bounds for result rendering {north, south, east, west} */
+    mapBounds: json("mapBounds").notNull(),
+    /** Server-assigned job key from tdoa.kiwisdr.com */
+    tdoaKey: varchar("tdoaKey", { length: 32 }),
+    /** Job lifecycle status */
+    status: mysqlEnum("status", [
+      "pending",
+      "sampling",
+      "computing",
+      "complete",
+      "error",
+    ]).default("pending").notNull(),
+    /** Estimated transmitter latitude */
+    likelyLat: decimal("likelyLat", { precision: 10, scale: 6 }),
+    /** Estimated transmitter longitude */
+    likelyLon: decimal("likelyLon", { precision: 10, scale: 6 }),
+    /** Full status.json response from TDoA server */
+    resultData: json("resultData"),
+    /** Contour polygons for rendering on globe */
+    contourData: json("contourData"),
+    /** Error message if job failed */
+    errorMessage: text("errorMessage"),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+    completedAt: bigint("completedAt", { mode: "number" }),
+  },
+  (table) => [
+    index("idx_tdoa_status").on(table.status),
+    index("idx_tdoa_createdAt").on(table.createdAt),
+  ]
+);
+
+export type TdoaJob = typeof tdoaJobs.$inferSelect;
+export type InsertTdoaJob = typeof tdoaJobs.$inferInsert;
