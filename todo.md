@@ -40,4 +40,3 @@
 - [x] Write vitest tests for FallbackMap interaction logic
 - [x] Sync claude/fix-signal-feed-waterfall-Fd6iA branch — KiwiSDR call sign auto-fill, URL format fix, receiver interaction hints, dependency vulnerability patches
 - [x] Add build version indicator to help verify deployments
-- [x] Sync TDoA triangulation module from GitHub (commit 42992bd) — TDoAPanel, TDoAGlobeOverlay, tdoaService, schema + router updates, db migration applied

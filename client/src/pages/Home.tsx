@@ -15,29 +15,20 @@ import StatsOverlay from "@/components/StatsOverlay";
 import LoadingScreen from "@/components/LoadingScreen";
 import Legend from "@/components/Legend";
 import StationList from "@/components/StationList";
+import FallbackMap from "@/components/FallbackMap";
+import { setRenderMode } from "@/lib/RenderMode";
 import KeyboardNavIndicator from "@/components/KeyboardNavIndicator";
 import MilitaryRfPanel from "@/components/MilitaryRfPanel";
 import AlertSettings from "@/components/AlertSettings";
 import WatchlistPanel from "@/components/WatchlistPanel";
 import PropagationOverlay from "@/components/PropagationOverlay";
-import TDoAPanel from "@/components/TDoAPanel";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { AnimatePresence } from "framer-motion";
 import { motion } from "framer-motion";
-import { Radar, Bell, Eye, Activity, Crosshair } from "lucide-react";
+import { Radar, Bell, Eye, Activity } from "lucide-react";
 import { getUnacknowledgedCount } from "@/lib/alertService";
 import { getWatchlistCount, getOnlineCount } from "@/lib/watchlistService";
 import type { IonosondeStation } from "@/lib/propagationService";
-
-/** TDoA GPS host type (matches server response) */
-interface TdoaGpsHost {
-  i: number; id: string; h: string; p: number;
-  lat: number; lon: number; lo: number; fm: number;
-  u: number; um: number; tc: number; snr: number;
-  v: string; a: string; n: string;
-}
-
-type TdoaJobStatus = "idle" | "pending" | "sampling" | "computing" | "complete" | "error";
 
 /** Local error boundary specifically for the Globe component to catch WebGL crashes */
 class GlobeErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string | null }> {
@@ -50,6 +41,7 @@ class GlobeErrorBoundary extends Component<{ children: ReactNode }, { hasError: 
   }
   componentDidCatch(error: Error) {
     console.error("[GlobeErrorBoundary] Caught WebGL/Three.js crash:", error);
+    setRenderMode("fallback", "Globe component crashed");
   }
   render() {
     if (this.state.hasError) {
@@ -94,39 +86,17 @@ function formatCountdown(targetMs: number): string {
 }
 
 function HomeContent() {
-  const { loading, stations, selectedStation, filteredStations, selectStation, setShowPanel } = useRadio();
+  const { loading, stations, selectedStation, hoveredStation, filteredStations, selectStation, setShowPanel, setHoveredStation } = useRadio();
   const { isStationOnline, progress: batchProgress, autoRefresh } = useReceiverStatusMap(stations, loading);
   const { highlightedStation, highlightedIndex, isKeyNavActive } = useKeyboardNav();
   const [milRfOpen, setMilRfOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [watchlistOpen, setWatchlistOpen] = useState(false);
   const [propVisible, setPropVisible] = useState(false);
-  const [tdoaOpen, setTdoaOpen] = useState(false);
-  const [tdoaSelectedHosts, setTdoaSelectedHosts] = useState<TdoaGpsHost[]>([]);
-  const [tdoaJobStatus, setTdoaJobStatus] = useState<TdoaJobStatus>("idle");
   const ionosondesRef = useRef<IonosondeStation[]>([]);
   const unackAlerts = getUnacknowledgedCount();
   const watchCount = getWatchlistCount();
   const watchOnline = getOnlineCount();
-
-  // TDoA host selection handlers
-  const handleToggleTdoaHost = useCallback((host: TdoaGpsHost) => {
-    setTdoaSelectedHosts((prev) => {
-      const exists = prev.some((h) => h.h === host.h && h.p === host.p);
-      if (exists) return prev.filter((h) => !(h.h === host.h && h.p === host.p));
-      if (prev.length >= 6) return prev;
-      return [...prev, host];
-    });
-  }, []);
-
-  const handleClearTdoaHosts = useCallback(() => {
-    setTdoaSelectedHosts([]);
-  }, []);
-
-  const handleTdoaResult = useCallback((result: { likelyLat: number; likelyLon: number; jobId: string }) => {
-    // TODO: Pass to globe for visualization
-    console.log("[TDoA] Result:", result);
-  }, []);
 
   // Handle selecting a station from the watchlist panel
   const handleWatchlistSelect = useCallback(
@@ -181,6 +151,19 @@ function HomeContent() {
       <GlobeErrorBoundary>
         <Globe ionosondes={propVisible ? ionosondesRef.current : []} isStationOnline={isStationOnline} />
       </GlobeErrorBoundary>
+
+      {/* 2D Fallback Map — shown when WebGL context is lost or unavailable */}
+      <FallbackMap
+        stations={filteredStations}
+        selectedStation={selectedStation}
+        hoveredStation={hoveredStation}
+        isStationOnline={isStationOnline}
+        onSelectStation={(station) => {
+          selectStation(station);
+          setShowPanel(true);
+        }}
+        onHoverStation={setHoveredStation}
+      />
 
       {/* Batch pre-check progress / auto-refresh indicator */}
       <div className="absolute bottom-2 right-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/50 backdrop-blur-sm border border-white/10">
@@ -242,32 +225,6 @@ function HomeContent() {
         transition={{ delay: 1, duration: 0.5 }}
         className="absolute top-5 right-4 z-20 flex items-center gap-2"
       >
-        {/* TDoA Triangulation Button */}
-        <button
-          onClick={() => setTdoaOpen(!tdoaOpen)}
-          className={`relative flex items-center gap-2 px-3 py-2 rounded-lg backdrop-blur-md transition-all group ${
-            tdoaOpen
-              ? 'bg-violet-500/25 border border-violet-500/40'
-              : 'bg-violet-500/10 border border-violet-500/20 hover:bg-violet-500/20 hover:border-violet-500/30'
-          }`}
-          title="TDoA Triangulation — Geolocate HF transmitters"
-        >
-          <Crosshair className={`w-4 h-4 transition-colors ${tdoaOpen ? 'text-violet-300' : 'text-violet-400 group-hover:text-violet-300'}`} />
-          <span className={`text-[10px] font-mono uppercase tracking-wider transition-colors hidden sm:inline ${
-            tdoaOpen ? 'text-violet-200' : 'text-violet-300/80 group-hover:text-violet-200'
-          }`}>
-            TDoA
-          </span>
-          {tdoaSelectedHosts.length > 0 && (
-            <span className="text-[9px] font-mono text-violet-400/70 hidden sm:inline">
-              {tdoaSelectedHosts.length}
-            </span>
-          )}
-          {tdoaJobStatus !== "idle" && tdoaJobStatus !== "complete" && tdoaJobStatus !== "error" && (
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-violet-500 animate-pulse" />
-          )}
-        </button>
-
         {/* Propagation Overlay Button */}
         <button
           onClick={() => setPropVisible(!propVisible)}
@@ -356,17 +313,6 @@ function HomeContent() {
           />
         )}
       </AnimatePresence>
-
-      {/* TDoA Triangulation Panel */}
-      <TDoAPanel
-        isOpen={tdoaOpen}
-        onClose={() => setTdoaOpen(false)}
-        selectedHosts={tdoaSelectedHosts}
-        onToggleHost={handleToggleTdoaHost}
-        onClearHosts={handleClearTdoaHosts}
-        onResult={handleTdoaResult}
-        onJobStatusChange={setTdoaJobStatus}
-      />
 
       {/* Propagation Overlay Panel */}
       <AnimatePresence>
