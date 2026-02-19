@@ -40,3 +40,13 @@
 - [x] Write vitest tests for FallbackMap interaction logic
 - [x] Sync claude/fix-signal-feed-waterfall-Fd6iA branch — KiwiSDR call sign auto-fill, URL format fix, receiver interaction hints, dependency vulnerability patches
 - [x] Add build version indicator to help verify deployments
+- [x] Create tdoaService.ts server-side proxy for tdoa.kiwisdr.com API (GPS hosts, refs, job submit, progress poll, results)
+- [x] Add TDoA tRPC routes to routers.ts (getGpsHosts, getRefs, submitJob, pollProgress, cancelJob, recentJobs, jobHistory, deleteJob)
+- [x] Fix TDoAPanel.tsx TypeScript errors (12 errors resolved — missing tRPC procedures and implicit any types)
+- [x] Push database migration for tdoa_jobs table
+- [x] Write 22 vitest tests for TDoA service (GPS hosts, refs, job submission, progress polling, cancellation, result proxying)
+- [x] Add TDoA button to top nav bar in Home.tsx with violet theme
+- [x] Integrate TDoAPanel into Home.tsx with host selection state management
+- [x] Install missing ws package for WebSocket relay
+- [ ] TDoA job history panel (browse and replay past runs)
+- [ ] TDoA globe overlay integration (bearing lines, contour polygons, position marker)

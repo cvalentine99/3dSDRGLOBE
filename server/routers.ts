@@ -23,6 +23,19 @@ import {
   getRecentScanCycles,
   getAggregateStats,
 } from "./statusPersistence";
+import {
+  getGpsHosts,
+  getRefTransmitters,
+  submitTdoaJob,
+  pollJobProgress,
+  getJob,
+  getRecentJobs,
+  cancelJob,
+  proxyResultFile,
+} from "./tdoaService";
+import { tdoaJobs } from "../drizzle/schema";
+import { getDb } from "./db";
+import { desc, eq } from "drizzle-orm";
 
 export const appRouter = router({
   system: systemRouter,
@@ -198,6 +211,200 @@ export const appRouter = router({
    * Uptime history and trend endpoints.
    * Query persisted scan data from the database.
    */
+  /**
+   * TDoA (Time Difference of Arrival) triangulation endpoints.
+   * Proxies requests to tdoa.kiwisdr.com for HF transmitter geolocation.
+   */
+  tdoa: router({
+    /**
+     * Get list of GPS-active KiwiSDR hosts available for TDoA.
+     * Cached for 5 minutes server-side.
+     */
+    getGpsHosts: publicProcedure.query(async () => {
+      return await getGpsHosts();
+    }),
+
+    /**
+     * Get reference transmitters (known frequency/location pairs).
+     * Cached for 30 minutes server-side.
+     */
+    getRefs: publicProcedure.query(async () => {
+      return await getRefTransmitters();
+    }),
+
+    /**
+     * Submit a new TDoA triangulation job.
+     * Sends the request to tdoa.kiwisdr.com and returns a job ID for polling.
+     */
+    submitJob: publicProcedure
+      .input(
+        z.object({
+          hosts: z.array(
+            z.object({
+              h: z.string(),
+              p: z.number(),
+              id: z.string(),
+              lat: z.number(),
+              lon: z.number(),
+            })
+          ).min(2).max(6),
+          frequencyKhz: z.number().positive(),
+          passbandHz: z.number().positive(),
+          sampleTime: z.number().min(15).max(60),
+          mapBounds: z.object({
+            north: z.number(),
+            south: z.number(),
+            east: z.number(),
+            west: z.number(),
+          }),
+          knownLocation: z.object({
+            lat: z.number(),
+            lon: z.number(),
+            name: z.string(),
+          }).optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const job = await submitTdoaJob(input);
+
+        // Persist to database
+        try {
+          const db = await getDb();
+          if (db) {
+            await db.insert(tdoaJobs).values({
+              frequencyKhz: String(input.frequencyKhz),
+              passbandHz: input.passbandHz,
+              sampleTime: input.sampleTime,
+              hosts: input.hosts,
+              knownLocation: input.knownLocation || null,
+              mapBounds: input.mapBounds,
+              tdoaKey: job.key || null,
+              status: job.status,
+              createdAt: job.createdAt,
+            });
+          }
+        } catch (err) {
+          console.error("[TDoA] Failed to persist job:", err);
+        }
+
+        return { jobId: job.id, key: job.key, status: job.status };
+      }),
+
+    /**
+     * Poll progress of an active TDoA job.
+     * Returns current status, host statuses, and results when complete.
+     */
+    pollProgress: publicProcedure
+      .input(z.object({ jobId: z.string() }))
+      .query(async ({ input }) => {
+        const job = await pollJobProgress(input.jobId);
+        if (!job) {
+          return null;
+        }
+
+        // Update database if job completed
+        if (job.status === "complete" || job.status === "error") {
+          try {
+            const db = await getDb();
+            if (db && job.key) {
+              await db
+                .update(tdoaJobs)
+                .set({
+                  status: job.status,
+                  likelyLat: job.result?.likely_position
+                    ? String(job.result.likely_position.lat)
+                    : null,
+                  likelyLon: job.result?.likely_position
+                    ? String(job.result.likely_position.lng)
+                    : null,
+                  resultData: job.result || null,
+                  contourData: job.contours.length > 0 ? job.contours : null,
+                  errorMessage: job.error || null,
+                  completedAt: job.completedAt || Date.now(),
+                })
+                .where(eq(tdoaJobs.tdoaKey, job.key));
+            }
+          } catch (err) {
+            console.error("[TDoA] Failed to update job in DB:", err);
+          }
+        }
+
+        return {
+          id: job.id,
+          key: job.key,
+          status: job.status,
+          hostStatuses: job.hostStatuses,
+          result: job.result,
+          contours: job.contours,
+          heatmapUrl: job.heatmapUrl,
+          error: job.error,
+          createdAt: job.createdAt,
+          completedAt: job.completedAt,
+        };
+      }),
+
+    /**
+     * Cancel an active TDoA job.
+     */
+    cancelJob: publicProcedure
+      .input(z.object({ jobId: z.string() }))
+      .mutation(({ input }) => {
+        const cancelled = cancelJob(input.jobId);
+        return { cancelled };
+      }),
+
+    /**
+     * Get recent in-memory TDoA jobs.
+     */
+    recentJobs: publicProcedure
+      .input(z.object({ limit: z.number().min(1).max(50).default(20) }).optional())
+      .query(({ input }) => {
+        return getRecentJobs(input?.limit ?? 20);
+      }),
+
+    /**
+     * Get job history from database (persisted across restarts).
+     */
+    jobHistory: publicProcedure
+      .input(
+        z.object({
+          limit: z.number().min(1).max(100).default(20),
+        }).optional()
+      )
+      .query(async ({ input }) => {
+        try {
+          const db = await getDb();
+          if (!db) return [];
+          const rows = await db
+            .select()
+            .from(tdoaJobs)
+            .orderBy(desc(tdoaJobs.createdAt))
+            .limit(input?.limit ?? 20);
+          return rows;
+        } catch (err) {
+          console.error("[TDoA] Failed to fetch job history:", err);
+          return [];
+        }
+      }),
+
+    /**
+     * Delete a job from history.
+     */
+    deleteJob: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        try {
+          const db = await getDb();
+          if (!db) return { deleted: false };
+          await db.delete(tdoaJobs).where(eq(tdoaJobs.id, input.id));
+          return { deleted: true };
+        } catch (err) {
+          console.error("[TDoA] Failed to delete job:", err);
+          return { deleted: false };
+        }
+      }),
+  }),
+
   uptime: router({
     /**
      * Get all receivers with their latest status and uptime percentages.

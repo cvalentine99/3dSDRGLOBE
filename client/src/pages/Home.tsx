@@ -15,8 +15,6 @@ import StatsOverlay from "@/components/StatsOverlay";
 import LoadingScreen from "@/components/LoadingScreen";
 import Legend from "@/components/Legend";
 import StationList from "@/components/StationList";
-import FallbackMap from "@/components/FallbackMap";
-import { setRenderMode } from "@/lib/RenderMode";
 import KeyboardNavIndicator from "@/components/KeyboardNavIndicator";
 import MilitaryRfPanel from "@/components/MilitaryRfPanel";
 import AlertSettings from "@/components/AlertSettings";
@@ -25,10 +23,11 @@ import PropagationOverlay from "@/components/PropagationOverlay";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { AnimatePresence } from "framer-motion";
 import { motion } from "framer-motion";
-import { Radar, Bell, Eye, Activity } from "lucide-react";
+import { Radar, Bell, Eye, Activity, Crosshair } from "lucide-react";
 import { getUnacknowledgedCount } from "@/lib/alertService";
 import { getWatchlistCount, getOnlineCount } from "@/lib/watchlistService";
 import type { IonosondeStation } from "@/lib/propagationService";
+import TDoAPanel from "@/components/TDoAPanel";
 
 /** Local error boundary specifically for the Globe component to catch WebGL crashes */
 class GlobeErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string | null }> {
@@ -41,7 +40,6 @@ class GlobeErrorBoundary extends Component<{ children: ReactNode }, { hasError: 
   }
   componentDidCatch(error: Error) {
     console.error("[GlobeErrorBoundary] Caught WebGL/Three.js crash:", error);
-    setRenderMode("fallback", "Globe component crashed");
   }
   render() {
     if (this.state.hasError) {
@@ -86,13 +84,15 @@ function formatCountdown(targetMs: number): string {
 }
 
 function HomeContent() {
-  const { loading, stations, selectedStation, hoveredStation, filteredStations, selectStation, setShowPanel, setHoveredStation } = useRadio();
+  const { loading, stations, selectedStation, filteredStations, selectStation, setShowPanel } = useRadio();
   const { isStationOnline, progress: batchProgress, autoRefresh } = useReceiverStatusMap(stations, loading);
   const { highlightedStation, highlightedIndex, isKeyNavActive } = useKeyboardNav();
   const [milRfOpen, setMilRfOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [watchlistOpen, setWatchlistOpen] = useState(false);
   const [propVisible, setPropVisible] = useState(false);
+  const [tdoaOpen, setTdoaOpen] = useState(false);
+  const [tdoaSelectedHosts, setTdoaSelectedHosts] = useState<any[]>([]);
   const ionosondesRef = useRef<IonosondeStation[]>([]);
   const unackAlerts = getUnacknowledgedCount();
   const watchCount = getWatchlistCount();
@@ -151,19 +151,6 @@ function HomeContent() {
       <GlobeErrorBoundary>
         <Globe ionosondes={propVisible ? ionosondesRef.current : []} isStationOnline={isStationOnline} />
       </GlobeErrorBoundary>
-
-      {/* 2D Fallback Map — shown when WebGL context is lost or unavailable */}
-      <FallbackMap
-        stations={filteredStations}
-        selectedStation={selectedStation}
-        hoveredStation={hoveredStation}
-        isStationOnline={isStationOnline}
-        onSelectStation={(station) => {
-          selectStation(station);
-          setShowPanel(true);
-        }}
-        onHoverStation={setHoveredStation}
-      />
 
       {/* Batch pre-check progress / auto-refresh indicator */}
       <div className="absolute bottom-2 right-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/50 backdrop-blur-sm border border-white/10">
@@ -282,6 +269,29 @@ function HomeContent() {
           )}
         </button>
 
+        {/* TDoA Triangulation Button */}
+        <button
+          onClick={() => setTdoaOpen(!tdoaOpen)}
+          className={`relative flex items-center gap-2 px-3 py-2 rounded-lg backdrop-blur-md transition-all group ${
+            tdoaOpen
+              ? 'bg-violet-500/25 border border-violet-500/40'
+              : 'bg-violet-500/10 border border-violet-500/20 hover:bg-violet-500/20 hover:border-violet-500/30'
+          }`}
+          title="TDoA Triangulation — Geolocate signal sources"
+        >
+          <Crosshair className={`w-4 h-4 transition-colors ${tdoaOpen ? 'text-violet-300' : 'text-violet-400 group-hover:text-violet-300'}`} />
+          <span className={`text-[10px] font-mono uppercase tracking-wider transition-colors hidden sm:inline ${
+            tdoaOpen ? 'text-violet-200' : 'text-violet-300/80 group-hover:text-violet-200'
+          }`}>
+            TDoA
+          </span>
+          {tdoaSelectedHosts.length > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-violet-500 text-[8px] text-white font-bold flex items-center justify-center shadow-lg shadow-violet-500/30">
+              {tdoaSelectedHosts.length}
+            </span>
+          )}
+        </button>
+
         {/* Military RF Intel Button */}
         <button
           onClick={() => setMilRfOpen(true)}
@@ -313,6 +323,22 @@ function HomeContent() {
           />
         )}
       </AnimatePresence>
+
+      {/* TDoA Triangulation Panel */}
+      <TDoAPanel
+        isOpen={tdoaOpen}
+        onClose={() => setTdoaOpen(false)}
+        selectedHosts={tdoaSelectedHosts}
+        onToggleHost={(host) => {
+          setTdoaSelectedHosts((prev) => {
+            const exists = prev.some((h) => h.h === host.h && h.p === host.p);
+            if (exists) return prev.filter((h) => !(h.h === host.h && h.p === host.p));
+            if (prev.length >= 6) return prev;
+            return [...prev, host];
+          });
+        }}
+        onClearHosts={() => setTdoaSelectedHosts([])}
+      />
 
       {/* Propagation Overlay Panel */}
       <AnimatePresence>

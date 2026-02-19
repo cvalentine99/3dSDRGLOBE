@@ -15,6 +15,27 @@
       "when": 1771323019469,
       "tag": "0001_clear_hobgoblin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1771461222469,
+      "tag": "0002_old_young_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1771501848512,
+      "tag": "0003_chemical_chat",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1771502242200,
+      "tag": "0004_brave_matthew_murdock",
+      "breakpoints": true
     }
   ]
 }
