@@ -26,9 +26,12 @@ import {
   disposeTdoaGroup,
   createSavedTargetMarkers,
   updateSavedTargetAnimations,
+  createDriftTrails,
+  updateDriftTrailAnimations,
   type TdoaHostMarkerData,
   type ContourData,
   type SavedTargetData,
+  type DriftTrailEntry,
 } from "./TDoAGlobeOverlay";
 
 /** Detect whether the browser supports WebGL */
@@ -80,17 +83,23 @@ interface GlobeProps {
   isStationOnline?: (station: Station) => boolean | null;
   tdoaOverlay?: TdoaOverlayData;
   savedTargets?: SavedTargetData[];
+  /** Position history entries grouped by target for drift trail rendering */
+  driftTrailData?: {
+    historyByTarget: Map<number, DriftTrailEntry[]>;
+    targetColors: Map<number, string>;
+  };
 }
 
 export interface GlobeHandle {
   captureScreenshot: () => string | null;
 }
 
-const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = [], isStationOnline, tdoaOverlay, savedTargets = [] }, ref) {
+const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = [], isStationOnline, tdoaOverlay, savedTargets = [], driftTrailData }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ionoGroupRef = useRef<THREE.Group | null>(null);
   const tdoaGroupRef = useRef<THREE.Group | null>(null);
   const savedTargetsGroupRef = useRef<THREE.Group | null>(null);
+  const driftTrailGroupRef = useRef<THREE.Group | null>(null);
   const [webglError, setWebglError] = useState<string | null>(null);
   const contextManagerRef = useRef<WebGLContextManager | null>(null);
   const fpsGovernorRef = useRef<FPSGovernor | null>(null);
@@ -298,6 +307,10 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
     const savedTargetsGroup = new THREE.Group();
     scene.add(savedTargetsGroup);
     savedTargetsGroupRef.current = savedTargetsGroup;
+
+    const driftTrailGroup = new THREE.Group();
+    scene.add(driftTrailGroup);
+    driftTrailGroupRef.current = driftTrailGroup;
 
     // Ring group for selected station pulse
     const ringGroup = new THREE.Group();
@@ -583,6 +596,9 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
       // Animate saved target markers
       if (savedTargetsGroupRef.current && savedTargetsGroupRef.current.children.length > 0) {
         updateSavedTargetAnimations(savedTargetsGroupRef.current, elapsed);
+      }
+      if (driftTrailGroupRef.current && driftTrailGroupRef.current.children.length > 0) {
+        updateDriftTrailAnimations(driftTrailGroupRef.current, elapsed);
       }
 
       s.renderer.render(s.scene, s.camera);
@@ -1015,6 +1031,23 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
     const markers = createSavedTargetMarkers(savedTargets);
     group.add(markers);
   }, [savedTargets]);
+
+  // Drift trail overlay: render position history trails
+  useEffect(() => {
+    const group = driftTrailGroupRef.current;
+    if (!group) return;
+
+    // Clear existing drift trails
+    disposeTdoaGroup(group);
+
+    if (!driftTrailData || driftTrailData.historyByTarget.size === 0) return;
+
+    const trails = createDriftTrails(
+      driftTrailData.historyByTarget,
+      driftTrailData.targetColors
+    );
+    group.add(trails);
+  }, [driftTrailData]);
 
   // Auto-rotate globe to continent/region when globeTarget changes
   useEffect(() => {

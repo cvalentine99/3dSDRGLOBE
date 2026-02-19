@@ -685,3 +685,196 @@ export function updateSavedTargetAnimations(group: THREE.Group, elapsedTime: num
     }
   });
 }
+
+
+/* ── Drift Trail Visualization ───────────────────── */
+
+export interface DriftTrailEntry {
+  targetId: number;
+  lat: number;
+  lon: number;
+  observedAt: number;
+}
+
+/**
+ * Creates drift trail lines on the globe for targets that have position history.
+ * Each trail is a series of connected line segments following the great-circle path
+ * between consecutive observations, colored by the target's color.
+ *
+ * @param historyByTarget Map of targetId -> sorted history entries
+ * @param targetColors Map of targetId -> hex color string
+ */
+/**
+ * Helper: generate multiple intermediate points along a great circle.
+ * Uses the existing single-point interpolateGreatCircle internally.
+ */
+function interpolateGreatCircleMulti(
+  lat1: number, lon1: number,
+  lat2: number, lon2: number,
+  numPoints: number
+): Array<{ lat: number; lon: number }> {
+  const points: Array<{ lat: number; lon: number }> = [];
+  for (let i = 1; i <= numPoints; i++) {
+    const t = i / (numPoints + 1);
+    points.push(interpolateGreatCircle(lat1, lon1, lat2, lon2, t));
+  }
+  return points;
+}
+
+export function createDriftTrails(
+  historyByTarget: Map<number, DriftTrailEntry[]>,
+  targetColors: Map<number, string>
+): THREE.Group {
+  const group = new THREE.Group();
+  group.name = "tdoa-drift-trails";
+
+  const targetIds = Array.from(historyByTarget.keys());
+  for (const targetId of targetIds) {
+    const entries = historyByTarget.get(targetId)!;
+    if (entries.length < 2) continue;
+
+    const hexColor = targetColors.get(targetId) || "#a78bfa";
+    const color = new THREE.Color(hexColor);
+
+    // Create the trail line connecting all history points
+    const trailPoints: THREE.Vector3[] = [];
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+      const pos = latLngToVector3(entry.lat, entry.lon, GLOBE_RADIUS + MARKER_HEIGHT + 0.003);
+      trailPoints.push(pos);
+
+      // Add interpolated points between consecutive entries for smooth great-circle arcs
+      if (i < entries.length - 1) {
+        const next = entries[i + 1];
+        const midPoints = interpolateGreatCircleMulti(
+          entry.lat, entry.lon,
+          next.lat, next.lon,
+          8
+        );
+        for (let j = 0; j < midPoints.length; j++) {
+          trailPoints.push(latLngToVector3(midPoints[j].lat, midPoints[j].lon, GLOBE_RADIUS + MARKER_HEIGHT + 0.003));
+        }
+      }
+    }
+
+    // Create the trail line with gradient opacity (older = more transparent)
+    const lineGeometry = new THREE.BufferGeometry().setFromPoints(trailPoints);
+    const lineMaterial = new THREE.LineBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.6,
+      depthTest: false,
+      linewidth: 1,
+    });
+    const line = new THREE.Line(lineGeometry, lineMaterial);
+    line.userData = { type: "drift-trail-line", targetId };
+    group.add(line);
+
+    // Add small dots at each observation point
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+      const pos = latLngToVector3(entry.lat, entry.lon, GLOBE_RADIUS + MARKER_HEIGHT + 0.004);
+
+      // Older points are smaller and more transparent
+      const age = i / (entries.length - 1); // 0 = oldest, 1 = newest
+      const dotSize = 0.012 + age * 0.018;
+      const dotOpacity = 0.3 + age * 0.5;
+
+      const dotGeo = new THREE.CircleGeometry(dotSize, 12);
+      const dotMat = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: dotOpacity,
+        side: THREE.DoubleSide,
+        depthTest: false,
+      });
+      const dot = new THREE.Mesh(dotGeo, dotMat);
+      dot.position.copy(pos);
+      dot.lookAt(new THREE.Vector3(0, 0, 0));
+      dot.userData = {
+        type: "drift-trail-dot",
+        targetId,
+        entryIndex: i,
+        isNewest: i === entries.length - 1,
+      };
+      group.add(dot);
+
+      // Add a timestamp label for the newest point
+      if (i === entries.length - 1 && entries.length > 1) {
+        const arrowGeo = new THREE.ConeGeometry(0.015, 0.04, 6);
+        const arrowMat = new THREE.MeshBasicMaterial({
+          color,
+          transparent: true,
+          opacity: 0.7,
+          depthTest: false,
+        });
+        const arrow = new THREE.Mesh(arrowGeo, arrowMat);
+        arrow.position.copy(pos);
+        // Orient arrow to point outward from globe
+        arrow.lookAt(new THREE.Vector3(0, 0, 0));
+        arrow.rotateX(Math.PI);
+        arrow.userData = { type: "drift-trail-arrow", targetId };
+        group.add(arrow);
+      }
+    }
+
+    // Add a dashed line from first to last point (direct path)
+    if (entries.length >= 3) {
+      const firstPos = latLngToVector3(
+        entries[0].lat, entries[0].lon,
+        GLOBE_RADIUS + MARKER_HEIGHT + 0.002
+      );
+      const lastPos = latLngToVector3(
+        entries[entries.length - 1].lat, entries[entries.length - 1].lon,
+        GLOBE_RADIUS + MARKER_HEIGHT + 0.002
+      );
+
+      const directMidPoints = interpolateGreatCircleMulti(
+        entries[0].lat, entries[0].lon,
+        entries[entries.length - 1].lat, entries[entries.length - 1].lon,
+        12
+      );
+      const directPoints = [firstPos];
+      for (let j = 0; j < directMidPoints.length; j++) {
+        directPoints.push(latLngToVector3(directMidPoints[j].lat, directMidPoints[j].lon, GLOBE_RADIUS + MARKER_HEIGHT + 0.002));
+      }
+      directPoints.push(lastPos);
+
+      const dashedGeo = new THREE.BufferGeometry().setFromPoints(directPoints);
+      const dashedMat = new THREE.LineDashedMaterial({
+        color,
+        transparent: true,
+        opacity: 0.25,
+        dashSize: 0.03,
+        gapSize: 0.02,
+        depthTest: false,
+      });
+      const dashedLine = new THREE.Line(dashedGeo, dashedMat);
+      dashedLine.computeLineDistances();
+      dashedLine.userData = { type: "drift-trail-direct", targetId };
+      group.add(dashedLine);
+    }
+  }
+
+  return group;
+}
+
+/**
+ * Animate drift trail elements (pulse the newest dot, fade trail lines).
+ */
+export function updateDriftTrailAnimations(group: THREE.Group, elapsedTime: number): void {
+  group.traverse((child) => {
+    if (child.userData.type === "drift-trail-dot" && child.userData.isNewest) {
+      if (child instanceof THREE.Mesh) {
+        const scale = 1 + Math.sin(elapsedTime * 3) * 0.3;
+        child.scale.set(scale, scale, 1);
+      }
+    }
+    if (child.userData.type === "drift-trail-arrow") {
+      if (child instanceof THREE.Mesh) {
+        (child.material as THREE.MeshBasicMaterial).opacity =
+          0.5 + Math.sin(elapsedTime * 2) * 0.2;
+      }
+    }
+  });
+}

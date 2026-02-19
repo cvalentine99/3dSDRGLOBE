@@ -15,7 +15,9 @@ import {
   Download,
   Volume2,
   Radio,
+  BarChart3,
 } from "lucide-react";
+import SpectrogramView from "./SpectrogramView";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -52,6 +54,7 @@ export default function RecordingPlayback({
   frequencyKhz = 10000,
 }: RecordingPlaybackProps) {
   const [playingId, setPlayingId] = useState<number | null>(null);
+  const [spectrogramId, setSpectrogramId] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Fetch recordings for this job
@@ -169,8 +172,8 @@ export default function RecordingPlayback({
             const sizeKb = rec.fileSizeBytes ? Math.round(rec.fileSizeBytes / 1024) : 0;
 
             return (
+              <div key={rec.id}>
               <motion.div
-                key={rec.id}
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-md border transition-colors ${
@@ -238,6 +241,21 @@ export default function RecordingPlayback({
                   </div>
                 )}
 
+                {/* Spectrogram toggle */}
+                {isReady && (
+                  <button
+                    onClick={() => setSpectrogramId(spectrogramId === rec.id ? null : rec.id)}
+                    className={`w-6 h-6 rounded flex items-center justify-center transition-colors flex-shrink-0 ${
+                      spectrogramId === rec.id
+                        ? "text-cyan-400 bg-cyan-500/15"
+                        : "text-white/20 hover:text-white/50"
+                    }`}
+                    title="Toggle spectrogram"
+                  >
+                    <BarChart3 className="w-3 h-3" />
+                  </button>
+                )}
+
                 {/* Download button */}
                 {isReady && (
                   <a
@@ -250,6 +268,27 @@ export default function RecordingPlayback({
                   </a>
                 )}
               </motion.div>
+
+              {/* Spectrogram view (expanded below the recording row) */}
+              <AnimatePresence>
+                {spectrogramId === rec.id && isReady && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-2 pb-2 pt-1">
+                      <SpectrogramView
+                        audioUrl={rec.fileUrl}
+                        height={140}
+                        label={`${rec.hostId} · ${parseFloat(rec.frequencyKhz)} kHz`}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              </div>
             );
           })}
         </div>

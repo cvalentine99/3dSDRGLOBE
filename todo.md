@@ -101,3 +101,16 @@
 - [x] KiwiSDR signal recording: store recordings in S3 and link to job results
 - [x] KiwiSDR signal recording: playback UI in job history and result pages
 - [x] All 216 vitest tests passing, zero TypeScript errors
+- [x] Target grouping/tagging: add category/tag field to tdoa_targets schema
+- [x] Target grouping/tagging: predefined categories (time_signal, broadcast, utility, military, unknown, custom)
+- [x] Target grouping/tagging: tag management UI in TargetManager panel
+- [x] Target grouping/tagging: filter targets by category on globe and in panel
+- [x] Target grouping/tagging: category-based color coding with distinct icons
+- [x] Target position history: add tdoa_target_history table for tracking position changes
+- [x] Target position history: link TDoA job results to target history entries
+- [x] Target position history: drift trail visualization on globe (connected line segments)
+- [x] Target position history: position history timeline in TargetManager panel
+- [x] Recording spectrogram: canvas-based spectrogram/waterfall renderer
+- [x] Recording spectrogram: FFT analysis of WAV audio data
+- [x] Recording spectrogram: inline spectrogram view in RecordingPlayback component
+- [x] All 247 vitest tests passing, zero TypeScript errors

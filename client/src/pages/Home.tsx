@@ -31,7 +31,7 @@ import TDoAPanel from "@/components/TDoAPanel";
 import KiwiWaterfall from "@/components/KiwiWaterfall";
 import TargetManager from "@/components/TargetManager";
 import { trpc } from "@/lib/trpc";
-import type { SavedTargetData } from "@/components/TDoAGlobeOverlay";
+import type { SavedTargetData, DriftTrailEntry } from "@/components/TDoAGlobeOverlay";
 
 /** Local error boundary specifically for the Globe component to catch WebGL crashes */
 class GlobeErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string | null }> {
@@ -129,6 +129,39 @@ function HomeContent() {
         frequencyKhz: t.frequencyKhz ? parseFloat(t.frequencyKhz) : null,
       }));
   }, [targetsQuery.data]);
+
+  // Fetch all target position history for drift trail rendering
+  const allHistoryQuery = trpc.targets.getAllHistory.useQuery(undefined, {
+    refetchInterval: 30000,
+  });
+  const driftTrailData = useMemo(() => {
+    if (!allHistoryQuery.data || !targetsQuery.data) return undefined;
+    const historyByTarget = new Map<number, DriftTrailEntry[]>();
+    const targetColors = new Map<number, string>();
+
+    // Build color map from visible targets
+    for (const t of (targetsQuery.data as any[])) {
+      if (t.visible) {
+        targetColors.set(t.id, t.color);
+      }
+    }
+
+    // Group history entries by target
+    for (const entry of (allHistoryQuery.data as any[])) {
+      if (!targetColors.has(entry.targetId)) continue; // skip hidden targets
+      if (!historyByTarget.has(entry.targetId)) {
+        historyByTarget.set(entry.targetId, []);
+      }
+      historyByTarget.get(entry.targetId)!.push({
+        targetId: entry.targetId,
+        lat: parseFloat(entry.lat),
+        lon: parseFloat(entry.lon),
+        observedAt: entry.observedAt,
+      });
+    }
+
+    return { historyByTarget, targetColors };
+  }, [allHistoryQuery.data, targetsQuery.data]);
 
   // Save target mutation (used from TDoA result)
   const trpcUtils = trpc.useUtils();
@@ -248,6 +281,7 @@ function HomeContent() {
           isStationOnline={isStationOnline}
           tdoaOverlay={tdoaOverlay}
           savedTargets={savedTargets}
+          driftTrailData={driftTrailData}
         />
       </GlobeErrorBoundary>
 

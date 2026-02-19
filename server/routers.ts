@@ -34,9 +34,9 @@ import {
   proxyResultFile,
   selectBestHosts,
 } from "./tdoaService";
-import { tdoaJobs, tdoaTargets, tdoaRecordings } from "../drizzle/schema";
+import { tdoaJobs, tdoaTargets, tdoaRecordings, tdoaTargetHistory, TARGET_CATEGORIES } from "../drizzle/schema";
 import { getDb } from "./db";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, asc } from "drizzle-orm";
 import { recordAllHosts, type RecordingResult } from "./kiwiRecorder";
 
 export const appRouter = router({
@@ -461,6 +461,7 @@ export const appRouter = router({
           lon: z.number(),
           frequencyKhz: z.number().optional(),
           color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+          category: z.enum(TARGET_CATEGORIES).optional(),
           notes: z.string().max(1000).optional(),
           sourceJobId: z.number().optional(),
         })
@@ -474,11 +475,25 @@ export const appRouter = router({
           lon: String(input.lon),
           frequencyKhz: input.frequencyKhz ? String(input.frequencyKhz) : null,
           color: input.color || "#ff6b6b",
+          category: input.category || "unknown",
           notes: input.notes || null,
           sourceJobId: input.sourceJobId || null,
           visible: true,
           createdAt: Date.now(),
         });
+
+        // Also create the first history entry
+        if (input.sourceJobId) {
+          await db.insert(tdoaTargetHistory).values({
+            targetId: result.insertId,
+            jobId: input.sourceJobId,
+            lat: String(input.lat),
+            lon: String(input.lon),
+            frequencyKhz: input.frequencyKhz ? String(input.frequencyKhz) : null,
+            observedAt: Date.now(),
+          });
+        }
+
         return { id: result.insertId };
       }),
 
@@ -492,13 +507,14 @@ export const appRouter = router({
         return { updated: true };
       }),
 
-    /** Update target label, color, or notes */
+    /** Update target label, color, category, or notes */
     update: publicProcedure
       .input(
         z.object({
           id: z.number(),
           label: z.string().min(1).max(256).optional(),
           color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+          category: z.enum(TARGET_CATEGORIES).optional(),
           notes: z.string().max(1000).optional(),
         })
       )
@@ -508,21 +524,83 @@ export const appRouter = router({
         const updates: Record<string, any> = {};
         if (input.label !== undefined) updates.label = input.label;
         if (input.color !== undefined) updates.color = input.color;
+        if (input.category !== undefined) updates.category = input.category;
         if (input.notes !== undefined) updates.notes = input.notes;
         if (Object.keys(updates).length === 0) return { updated: false };
         await db.update(tdoaTargets).set(updates).where(eq(tdoaTargets.id, input.id));
         return { updated: true };
       }),
 
-    /** Delete a saved target */
+    /** Delete a saved target (also deletes its history) */
     delete: publicProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) return { deleted: false };
+        await db.delete(tdoaTargetHistory).where(eq(tdoaTargetHistory.targetId, input.id));
         await db.delete(tdoaTargets).where(eq(tdoaTargets.id, input.id));
         return { deleted: true };
       }),
+
+    /** Add a position observation to a target's history */
+    addHistoryEntry: publicProcedure
+      .input(
+        z.object({
+          targetId: z.number(),
+          jobId: z.number(),
+          lat: z.number(),
+          lon: z.number(),
+          frequencyKhz: z.number().optional(),
+          hostCount: z.number().optional(),
+          notes: z.string().max(500).optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+
+        const [result] = await db.insert(tdoaTargetHistory).values({
+          targetId: input.targetId,
+          jobId: input.jobId,
+          lat: String(input.lat),
+          lon: String(input.lon),
+          frequencyKhz: input.frequencyKhz ? String(input.frequencyKhz) : null,
+          hostCount: input.hostCount || null,
+          notes: input.notes || null,
+          observedAt: Date.now(),
+        });
+
+        // Update the target's current position to the latest observation
+        await db.update(tdoaTargets).set({
+          lat: String(input.lat),
+          lon: String(input.lon),
+        }).where(eq(tdoaTargets.id, input.targetId));
+
+        return { id: result.insertId };
+      }),
+
+    /** Get position history for a target (ordered by time) */
+    getHistory: publicProcedure
+      .input(z.object({ targetId: z.number() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        return await db
+          .select()
+          .from(tdoaTargetHistory)
+          .where(eq(tdoaTargetHistory.targetId, input.targetId))
+          .orderBy(asc(tdoaTargetHistory.observedAt));
+      }),
+
+    /** Get all history entries for all targets (for drift trail rendering) */
+    getAllHistory: publicProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return await db
+        .select()
+        .from(tdoaTargetHistory)
+        .orderBy(asc(tdoaTargetHistory.observedAt));
+    }),
   }),
 
   recordings: router({

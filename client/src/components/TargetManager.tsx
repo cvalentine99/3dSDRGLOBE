@@ -1,17 +1,17 @@
 /**
  * TargetManager.tsx — Multi-target TDoA tracking panel
  *
- * Allows users to:
+ * Features:
  * 1. View all saved TDoA target positions
- * 2. Toggle visibility of individual targets on the globe
- * 3. Edit target labels, colors, and notes
- * 4. Delete targets
- * 5. Save new targets from TDoA results
- *
- * Targets are persisted in the database and rendered as colored
- * markers on the 3D globe overlay.
+ * 2. Category tagging (time_signal, broadcast, utility, military, amateur, unknown, custom)
+ * 3. Filter targets by category
+ * 4. Toggle visibility of individual targets on the globe
+ * 5. Edit target labels, colors, categories, and notes
+ * 6. Delete targets
+ * 7. Position history timeline with drift metrics
+ * 8. Add new targets from TDoA results or manually
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -27,6 +27,12 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  Filter,
+  Tag,
+  Clock,
+  TrendingUp,
+  Navigation,
+  GitBranch,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -40,6 +46,7 @@ export interface SavedTarget {
   lon: string;
   frequencyKhz: string | null;
   color: string;
+  category: string;
   notes: string | null;
   sourceJobId: number | null;
   visible: boolean;
@@ -49,21 +56,31 @@ export interface SavedTarget {
 interface TargetManagerProps {
   isOpen: boolean;
   onClose: () => void;
-  /** Callback to focus globe camera on a target */
   onFocusTarget?: (lat: number, lon: number) => void;
 }
+
+/* ── Category Config ─────────────────────────────── */
+
+export const CATEGORY_CONFIG: Record<
+  string,
+  { label: string; icon: string; color: string; defaultColor: string }
+> = {
+  time_signal: { label: "Time Signal", icon: "⏱", color: "#06b6d4", defaultColor: "#06b6d4" },
+  broadcast: { label: "Broadcast", icon: "📻", color: "#4ade80", defaultColor: "#4ade80" },
+  utility: { label: "Utility", icon: "⚡", color: "#fbbf24", defaultColor: "#fbbf24" },
+  military: { label: "Military", icon: "🎖", color: "#ef4444", defaultColor: "#ef4444" },
+  amateur: { label: "Amateur", icon: "📡", color: "#a78bfa", defaultColor: "#a78bfa" },
+  unknown: { label: "Unknown", icon: "❓", color: "#94a3b8", defaultColor: "#94a3b8" },
+  custom: { label: "Custom", icon: "🏷", color: "#f472b6", defaultColor: "#f472b6" },
+};
+
+export const CATEGORIES = Object.keys(CATEGORY_CONFIG);
 
 /* ── Color Palette ────────────────────────────────── */
 
 const TARGET_COLORS = [
-  "#ff6b6b", // red
-  "#fbbf24", // amber
-  "#4ade80", // green
-  "#06b6d4", // cyan
-  "#a78bfa", // violet
-  "#f472b6", // pink
-  "#fb923c", // orange
-  "#38bdf8", // sky
+  "#ff6b6b", "#fbbf24", "#4ade80", "#06b6d4",
+  "#a78bfa", "#f472b6", "#fb923c", "#38bdf8",
 ] as const;
 
 /* ── Component ────────────────────────────────────── */
@@ -72,8 +89,11 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [editColor, setEditColor] = useState("#ff6b6b");
+  const [editCategory, setEditCategory] = useState("unknown");
   const [editNotes, setEditNotes] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [historyTargetId, setHistoryTargetId] = useState<number | null>(null);
+  const [filterCategory, setFilterCategory] = useState<string | null>(null);
 
   // Manual add form
   const [showAddForm, setShowAddForm] = useState(false);
@@ -82,6 +102,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
   const [addLon, setAddLon] = useState("");
   const [addFreq, setAddFreq] = useState("");
   const [addColor, setAddColor] = useState("#ff6b6b");
+  const [addCategory, setAddCategory] = useState("unknown");
   const [addNotes, setAddNotes] = useState("");
 
   // Fetch all targets
@@ -89,6 +110,12 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
     enabled: isOpen,
     refetchInterval: 10000,
   });
+
+  // Fetch history for expanded target
+  const historyQuery = trpc.targets.getHistory.useQuery(
+    { targetId: historyTargetId! },
+    { enabled: historyTargetId !== null }
+  );
 
   const utils = trpc.useUtils();
 
@@ -118,12 +145,8 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
     onSuccess: () => {
       utils.targets.list.invalidate();
       setShowAddForm(false);
-      setAddLabel("");
-      setAddLat("");
-      setAddLon("");
-      setAddFreq("");
-      setAddColor("#ff6b6b");
-      setAddNotes("");
+      setAddLabel(""); setAddLat(""); setAddLon(""); setAddFreq("");
+      setAddColor("#ff6b6b"); setAddCategory("unknown"); setAddNotes("");
       toast.success("Target saved");
     },
     onError: (err) => toast.error(`Save failed: ${err.message}`),
@@ -140,6 +163,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
     setEditingId(target.id);
     setEditLabel(target.label);
     setEditColor(target.color);
+    setEditCategory(target.category);
     setEditNotes(target.notes || "");
   }, []);
 
@@ -149,13 +173,14 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
       id: editingId,
       label: editLabel.trim(),
       color: editColor,
+      category: editCategory as any,
       notes: editNotes.trim() || undefined,
     });
-  }, [editingId, editLabel, editColor, editNotes, updateMutation]);
+  }, [editingId, editLabel, editColor, editCategory, editNotes, updateMutation]);
 
   const handleDelete = useCallback(
     (id: number) => {
-      if (confirm("Delete this target?")) {
+      if (confirm("Delete this target and its position history?")) {
         deleteMutation.mutate({ id });
       }
     },
@@ -179,12 +204,41 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
       lon,
       frequencyKhz: addFreq ? parseFloat(addFreq) : undefined,
       color: addColor,
+      category: addCategory as any,
       notes: addNotes.trim() || undefined,
     });
-  }, [addLabel, addLat, addLon, addFreq, addColor, addNotes, saveMutation]);
+  }, [addLabel, addLat, addLon, addFreq, addColor, addCategory, addNotes, saveMutation]);
 
   const targets = (targetsQuery.data || []) as SavedTarget[];
   const visibleCount = targets.filter((t) => t.visible).length;
+
+  // Category counts
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const t of targets) {
+      counts[t.category] = (counts[t.category] || 0) + 1;
+    }
+    return counts;
+  }, [targets]);
+
+  // Filtered targets
+  const filteredTargets = useMemo(() => {
+    if (!filterCategory) return targets;
+    return targets.filter((t) => t.category === filterCategory);
+  }, [targets, filterCategory]);
+
+  // History data
+  const historyEntries = (historyQuery.data || []) as Array<{
+    id: number;
+    targetId: number;
+    jobId: number;
+    lat: string;
+    lon: string;
+    frequencyKhz: string | null;
+    hostCount: number | null;
+    notes: string | null;
+    observedAt: number;
+  }>;
 
   return (
     <AnimatePresence>
@@ -194,7 +248,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: "-100%", opacity: 0 }}
           transition={{ type: "spring", damping: 25, stiffness: 200 }}
-          className="fixed top-0 left-0 bottom-0 w-[380px] max-w-[90vw] z-50 flex flex-col"
+          className="fixed top-0 left-0 bottom-0 w-[400px] max-w-[90vw] z-50 flex flex-col"
         >
           {/* Glass background */}
           <div className="absolute inset-0 bg-black/80 backdrop-blur-xl border-r border-white/10" />
@@ -210,7 +264,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                 <div>
                   <h2 className="text-sm font-semibold text-white">Saved Targets</h2>
                   <p className="text-[10px] font-mono text-white/40 uppercase tracking-wider">
-                    {targets.length} targets · {visibleCount} visible
+                    {filteredTargets.length} targets · {visibleCount} visible
                   </p>
                 </div>
               </div>
@@ -233,6 +287,40 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                   <X className="w-4 h-4 text-white/60" />
                 </button>
               </div>
+            </div>
+
+            {/* Category Filter Bar */}
+            <div className="px-5 py-2.5 border-b border-white/5 flex items-center gap-1.5 overflow-x-auto scrollbar-thin">
+              <button
+                onClick={() => setFilterCategory(null)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition-colors ${
+                  !filterCategory
+                    ? "bg-white/15 text-white border border-white/20"
+                    : "bg-white/5 text-white/40 border border-transparent hover:bg-white/10 hover:text-white/60"
+                }`}
+              >
+                <Filter className="w-3 h-3" />
+                All ({targets.length})
+              </button>
+              {CATEGORIES.map((cat) => {
+                const config = CATEGORY_CONFIG[cat];
+                const count = categoryCounts[cat] || 0;
+                if (count === 0 && filterCategory !== cat) return null;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setFilterCategory(filterCategory === cat ? null : cat)}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition-colors ${
+                      filterCategory === cat
+                        ? "bg-white/15 text-white border border-white/20"
+                        : "bg-white/5 text-white/40 border border-transparent hover:bg-white/10 hover:text-white/60"
+                    }`}
+                  >
+                    <span>{config.icon}</span>
+                    {config.label} ({count})
+                  </button>
+                );
+              })}
             </div>
 
             {/* Scrollable body */}
@@ -285,6 +373,30 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                         className="w-full px-3 py-2 rounded-md bg-black/40 border border-white/10 text-white text-xs font-mono placeholder:text-white/30 focus:outline-none focus:border-rose-500/40"
                       />
 
+                      {/* Category selector */}
+                      <div>
+                        <span className="text-[10px] text-white/40 uppercase tracking-wider block mb-1.5">Category:</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {CATEGORIES.map((cat) => {
+                            const config = CATEGORY_CONFIG[cat];
+                            return (
+                              <button
+                                key={cat}
+                                onClick={() => setAddCategory(cat)}
+                                className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors ${
+                                  addCategory === cat
+                                    ? "bg-white/15 text-white border border-white/25"
+                                    : "bg-white/5 text-white/40 border border-white/5 hover:bg-white/10"
+                                }`}
+                              >
+                                <span>{config.icon}</span>
+                                {config.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
                       <textarea
                         placeholder="Notes — optional"
                         value={addNotes}
@@ -334,21 +446,25 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-5 h-5 text-white/30 animate-spin" />
                 </div>
-              ) : targets.length === 0 ? (
+              ) : filteredTargets.length === 0 ? (
                 <div className="rounded-lg bg-white/5 border border-dashed border-white/10 p-8 text-center">
                   <Target className="w-8 h-8 text-white/15 mx-auto mb-3" />
-                  <p className="text-xs text-white/40 mb-1">No saved targets yet</p>
+                  <p className="text-xs text-white/40 mb-1">
+                    {filterCategory ? "No targets in this category" : "No saved targets yet"}
+                  </p>
                   <p className="text-[10px] text-white/25">
                     Complete a TDoA run and save the result, or add a target manually
                   </p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {targets.map((target) => {
+                  {filteredTargets.map((target) => {
                     const isEditing = editingId === target.id;
                     const isExpanded = expandedId === target.id;
+                    const showingHistory = historyTargetId === target.id;
                     const lat = parseFloat(target.lat);
                     const lon = parseFloat(target.lon);
+                    const catConfig = CATEGORY_CONFIG[target.category] || CATEGORY_CONFIG.unknown;
 
                     return (
                       <motion.div
@@ -362,18 +478,21 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                       >
                         {/* Main row */}
                         <div className="flex items-center gap-3 px-3 py-2.5">
-                          {/* Color dot */}
-                          <div
-                            className="w-3 h-3 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: target.color }}
-                          />
+                          {/* Color dot + category icon */}
+                          <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: target.color }}
+                            />
+                            <span className="text-[8px]" title={catConfig.label}>
+                              {catConfig.icon}
+                            </span>
+                          </div>
 
                           {/* Label + coords */}
                           <div
                             className="flex-1 min-w-0 cursor-pointer"
-                            onClick={() => {
-                              setExpandedId(isExpanded ? null : target.id);
-                            }}
+                            onClick={() => setExpandedId(isExpanded ? null : target.id)}
                           >
                             {isEditing ? (
                               <input
@@ -396,6 +515,9 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                       {parseFloat(target.frequencyKhz)} kHz
                                     </span>
                                   )}
+                                  <span className="ml-2" style={{ color: catConfig.color + "80" }}>
+                                    {catConfig.label}
+                                  </span>
                                 </p>
                               </>
                             )}
@@ -418,7 +540,6 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                               </button>
                             ) : (
                               <>
-                                {/* Focus on globe */}
                                 <button
                                   onClick={() => onFocusTarget?.(lat, lon)}
                                   className="w-7 h-7 rounded flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors"
@@ -426,8 +547,6 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                 >
                                   <MapPin className="w-3.5 h-3.5" />
                                 </button>
-
-                                {/* Toggle visibility */}
                                 <button
                                   onClick={() => handleToggle(target.id, target.visible)}
                                   className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${
@@ -437,14 +556,22 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                   }`}
                                   title={target.visible ? "Hide on globe" : "Show on globe"}
                                 >
-                                  {target.visible ? (
-                                    <Eye className="w-3.5 h-3.5" />
-                                  ) : (
-                                    <EyeOff className="w-3.5 h-3.5" />
-                                  )}
+                                  {target.visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                                 </button>
-
-                                {/* Edit */}
+                                <button
+                                  onClick={() => {
+                                    setHistoryTargetId(showingHistory ? null : target.id);
+                                    if (!showingHistory) setExpandedId(target.id);
+                                  }}
+                                  className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${
+                                    showingHistory
+                                      ? "text-violet-400 bg-violet-500/15"
+                                      : "text-white/30 hover:text-white/60 hover:bg-white/5"
+                                  }`}
+                                  title="Position history"
+                                >
+                                  <GitBranch className="w-3.5 h-3.5" />
+                                </button>
                                 <button
                                   onClick={() => handleStartEdit(target)}
                                   className="w-7 h-7 rounded flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors"
@@ -452,8 +579,6 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                 >
                                   <Edit3 className="w-3.5 h-3.5" />
                                 </button>
-
-                                {/* Delete */}
                                 <button
                                   onClick={() => handleDelete(target.id)}
                                   className="w-7 h-7 rounded flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-colors"
@@ -463,17 +588,11 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                 </button>
                               </>
                             )}
-
-                            {/* Expand/collapse */}
                             <button
                               onClick={() => setExpandedId(isExpanded ? null : target.id)}
                               className="w-7 h-7 rounded flex items-center justify-center text-white/20 hover:text-white/40 transition-colors"
                             >
-                              {isExpanded ? (
-                                <ChevronUp className="w-3.5 h-3.5" />
-                              ) : (
-                                <ChevronDown className="w-3.5 h-3.5" />
-                              )}
+                              {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                             </button>
                           </div>
                         </div>
@@ -488,12 +607,38 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                               className="overflow-hidden"
                             >
                               <div className="px-3 pb-3 pt-1 border-t border-white/5 space-y-2">
+                                {/* Category picker (when editing) */}
+                                {isEditing && (
+                                  <div>
+                                    <span className="text-[10px] text-white/40 uppercase tracking-wider block mb-1">
+                                      Category:
+                                    </span>
+                                    <div className="flex flex-wrap gap-1">
+                                      {CATEGORIES.map((cat) => {
+                                        const config = CATEGORY_CONFIG[cat];
+                                        return (
+                                          <button
+                                            key={cat}
+                                            onClick={() => setEditCategory(cat)}
+                                            className={`flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-medium transition-colors ${
+                                              editCategory === cat
+                                                ? "bg-white/15 text-white border border-white/25"
+                                                : "bg-white/5 text-white/40 border border-white/5 hover:bg-white/10"
+                                            }`}
+                                          >
+                                            <span>{config.icon}</span>
+                                            {config.label}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+
                                 {/* Color picker (when editing) */}
                                 {isEditing && (
                                   <div className="flex items-center gap-2">
-                                    <span className="text-[10px] text-white/40 uppercase tracking-wider">
-                                      Color:
-                                    </span>
+                                    <span className="text-[10px] text-white/40 uppercase tracking-wider">Color:</span>
                                     <div className="flex gap-1.5">
                                       {TARGET_COLORS.map((c) => (
                                         <button
@@ -533,10 +678,92 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                       Job #{target.sourceJobId}
                                     </span>
                                   )}
-                                  <span>
-                                    {new Date(target.createdAt).toLocaleDateString()}
-                                  </span>
+                                  <span>{new Date(target.createdAt).toLocaleDateString()}</span>
                                 </div>
+
+                                {/* Position History Timeline */}
+                                {showingHistory && (
+                                  <div className="mt-2 pt-2 border-t border-white/5">
+                                    <h4 className="text-[10px] font-mono text-white/40 uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                                      <TrendingUp className="w-3 h-3" />
+                                      Position History
+                                    </h4>
+                                    {historyQuery.isLoading ? (
+                                      <div className="flex items-center gap-2 py-3">
+                                        <Loader2 className="w-3.5 h-3.5 text-white/30 animate-spin" />
+                                        <span className="text-[10px] text-white/30">Loading history...</span>
+                                      </div>
+                                    ) : historyEntries.length === 0 ? (
+                                      <p className="text-[10px] text-white/25 py-2">
+                                        No position history yet. Run more TDoA jobs and link them to this target.
+                                      </p>
+                                    ) : (
+                                      <div className="space-y-1">
+                                        {historyEntries.map((entry, idx) => {
+                                          const entryLat = parseFloat(entry.lat);
+                                          const entryLon = parseFloat(entry.lon);
+                                          // Calculate drift from previous entry
+                                          let driftKm: number | null = null;
+                                          let bearing: number | null = null;
+                                          if (idx > 0) {
+                                            const prev = historyEntries[idx - 1];
+                                            const prevLat = parseFloat(prev.lat);
+                                            const prevLon = parseFloat(prev.lon);
+                                            driftKm = haversineDistance(prevLat, prevLon, entryLat, entryLon);
+                                            bearing = calculateBearing(prevLat, prevLon, entryLat, entryLon);
+                                          }
+                                          return (
+                                            <div
+                                              key={entry.id}
+                                              className="flex items-start gap-2 px-2 py-1.5 rounded bg-white/[0.03] border border-white/5"
+                                            >
+                                              {/* Timeline dot */}
+                                              <div className="flex flex-col items-center pt-1">
+                                                <div
+                                                  className="w-2 h-2 rounded-full"
+                                                  style={{ backgroundColor: target.color }}
+                                                />
+                                                {idx < historyEntries.length - 1 && (
+                                                  <div className="w-px h-4 bg-white/10 mt-0.5" />
+                                                )}
+                                              </div>
+                                              {/* Entry details */}
+                                              <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                  <span className="text-[10px] font-mono text-white/60">
+                                                    {entryLat.toFixed(4)}°, {entryLon.toFixed(4)}°
+                                                  </span>
+                                                  {driftKm !== null && (
+                                                    <span className="text-[9px] font-mono text-amber-400/60 flex items-center gap-0.5">
+                                                      <Navigation className="w-2.5 h-2.5" style={{ transform: `rotate(${bearing || 0}deg)` }} />
+                                                      {driftKm.toFixed(1)} km
+                                                    </span>
+                                                  )}
+                                                </div>
+                                                <div className="flex items-center gap-2 text-[9px] text-white/30">
+                                                  <span>Job #{entry.jobId}</span>
+                                                  {entry.frequencyKhz && (
+                                                    <span>{parseFloat(entry.frequencyKhz)} kHz</span>
+                                                  )}
+                                                  <span>{new Date(entry.observedAt).toLocaleString()}</span>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                        {/* Drift summary */}
+                                        {historyEntries.length >= 2 && (
+                                          <div className="rounded bg-violet-500/10 border border-violet-500/15 px-2.5 py-2 mt-1.5">
+                                            <p className="text-[9px] text-violet-400/70 uppercase tracking-wider mb-0.5">
+                                              Drift Summary
+                                            </p>
+                                            <DriftSummary entries={historyEntries} />
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </motion.div>
                           )}
@@ -552,4 +779,75 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
       )}
     </AnimatePresence>
   );
+}
+
+/* ── Drift Summary Sub-Component ─────────────────── */
+
+function DriftSummary({ entries }: { entries: Array<{ lat: string; lon: string; observedAt: number }> }) {
+  if (entries.length < 2) return null;
+
+  const first = entries[0];
+  const last = entries[entries.length - 1];
+  const totalDrift = haversineDistance(
+    parseFloat(first.lat), parseFloat(first.lon),
+    parseFloat(last.lat), parseFloat(last.lon)
+  );
+  const timeSpanHrs = (last.observedAt - first.observedAt) / 3600000;
+
+  // Calculate max drift between any consecutive pair
+  let maxDrift = 0;
+  for (let i = 1; i < entries.length; i++) {
+    const d = haversineDistance(
+      parseFloat(entries[i - 1].lat), parseFloat(entries[i - 1].lon),
+      parseFloat(entries[i].lat), parseFloat(entries[i].lon)
+    );
+    if (d > maxDrift) maxDrift = d;
+  }
+
+  return (
+    <div className="flex items-center gap-4 text-[10px] font-mono">
+      <div>
+        <span className="text-white/30">Total: </span>
+        <span className="text-white/60">{totalDrift.toFixed(1)} km</span>
+      </div>
+      <div>
+        <span className="text-white/30">Max step: </span>
+        <span className="text-white/60">{maxDrift.toFixed(1)} km</span>
+      </div>
+      <div>
+        <span className="text-white/30">Over: </span>
+        <span className="text-white/60">
+          {timeSpanHrs < 1 ? `${Math.round(timeSpanHrs * 60)} min` : `${timeSpanHrs.toFixed(1)} hrs`}
+        </span>
+      </div>
+      <div>
+        <span className="text-white/30">Obs: </span>
+        <span className="text-white/60">{entries.length}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ── Geo Helpers ─────────────────────────────────── */
+
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function calculateBearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const y = Math.sin(dLon) * Math.cos((lat2 * Math.PI) / 180);
+  const x =
+    Math.cos((lat1 * Math.PI) / 180) * Math.sin((lat2 * Math.PI) / 180) -
+    Math.sin((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.cos(dLon);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 }

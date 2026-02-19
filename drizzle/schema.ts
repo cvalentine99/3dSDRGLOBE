@@ -205,6 +205,19 @@ export type InsertTdoaJob = typeof tdoaJobs.$inferInsert;
  * Saved TDoA target positions for multi-target tracking overlay.
  * Each target represents a triangulated position from a completed TDoA job.
  */
+/**
+ * Target category enum values for grouping/filtering.
+ */
+export const TARGET_CATEGORIES = [
+  "time_signal",
+  "broadcast",
+  "utility",
+  "military",
+  "amateur",
+  "unknown",
+  "custom",
+] as const;
+
 export const tdoaTargets = mysqlTable(
   "tdoa_targets",
   {
@@ -219,6 +232,16 @@ export const tdoaTargets = mysqlTable(
     frequencyKhz: decimal("frequencyKhz", { precision: 10, scale: 2 }),
     /** Color for the marker on the globe (hex) */
     color: varchar("color", { length: 7 }).default("#ff6b6b").notNull(),
+    /** Target category for grouping and filtering */
+    category: mysqlEnum("category", [
+      "time_signal",
+      "broadcast",
+      "utility",
+      "military",
+      "amateur",
+      "unknown",
+      "custom",
+    ]).default("unknown").notNull(),
     /** Optional notes */
     notes: text("notes"),
     /** Reference to the source TDoA job ID (tdoa_jobs.id) */
@@ -229,11 +252,47 @@ export const tdoaTargets = mysqlTable(
   },
   (table) => [
     index("idx_targets_createdAt").on(table.createdAt),
+    index("idx_targets_category").on(table.category),
   ]
 );
 
 export type TdoaTarget = typeof tdoaTargets.$inferSelect;
 export type InsertTdoaTarget = typeof tdoaTargets.$inferInsert;
+
+/**
+ * Position history for TDoA targets — tracks how estimated position
+ * changes across multiple TDoA runs over time.
+ * Each row is one position observation linked to a target and a job.
+ */
+export const tdoaTargetHistory = mysqlTable(
+  "tdoa_target_history",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** FK to tdoa_targets.id */
+    targetId: int("targetId").notNull(),
+    /** FK to tdoa_jobs.id that produced this observation */
+    jobId: int("jobId").notNull(),
+    /** Observed latitude */
+    lat: decimal("lat", { precision: 10, scale: 6 }).notNull(),
+    /** Observed longitude */
+    lon: decimal("lon", { precision: 10, scale: 6 }).notNull(),
+    /** Frequency in kHz at time of observation */
+    frequencyKhz: decimal("frequencyKhz", { precision: 10, scale: 2 }),
+    /** Number of hosts used in the TDoA run */
+    hostCount: int("hostCount"),
+    /** Optional notes about this observation */
+    notes: text("notes"),
+    /** Timestamp of observation (Unix ms) */
+    observedAt: bigint("observedAt", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    index("idx_target_history_targetId").on(table.targetId),
+    index("idx_target_history_observedAt").on(table.observedAt),
+  ]
+);
+
+export type TdoaTargetHistory = typeof tdoaTargetHistory.$inferSelect;
+export type InsertTdoaTargetHistory = typeof tdoaTargetHistory.$inferInsert;
 
 /**
  * Audio recordings captured from KiwiSDR hosts during TDoA jobs.
