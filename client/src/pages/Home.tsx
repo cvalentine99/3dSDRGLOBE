@@ -33,8 +33,11 @@ import TDoAPanel from "@/components/TDoAPanel";
 import KiwiWaterfall from "@/components/KiwiWaterfall";
 import TargetManager from "@/components/TargetManager";
 import { trpc } from "@/lib/trpc";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import type { SavedTargetData, DriftTrailEntry, PredictionData } from "@/components/TDoAGlobeOverlay";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import ShortcutHelpOverlay from "@/components/ShortcutHelpOverlay";
+import ThemeToggle from "@/components/ThemeToggle";
 
 /** Local error boundary specifically for the Globe component to catch WebGL crashes */
 class GlobeErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string | null }> {
@@ -116,6 +119,35 @@ function HomeContent() {
   const [targetsOpen, setTargetsOpen] = useState(false);
   const [anomalyPanelOpen, setAnomalyPanelOpen] = useState(false);
   const [sharingPanelOpen, setSharingPanelOpen] = useState(false);
+  const [, navigate] = useLocation();
+
+  // Keyboard shortcuts
+  const { helpOpen, setHelpOpen, shortcuts } = useKeyboardShortcuts({
+    onToggleTdoa: useCallback(() => setTdoaOpen((v) => !v), []),
+    onFocusSearch: useCallback(() => {
+      const input = document.getElementById("global-search-input") as HTMLInputElement | null;
+      input?.focus();
+    }, []),
+    onNavigateDashboard: useCallback(() => navigate("/dashboard"), [navigate]),
+    onToggleWatchlist: useCallback(() => setWatchlistOpen((v) => !v), []),
+    onToggleAlerts: useCallback(() => setAlertsOpen((v) => !v), []),
+    onToggleMilRf: useCallback(() => setMilRfOpen((v) => !v), []),
+    onToggleTargets: useCallback(() => setTargetsOpen((v) => !v), []),
+    onToggleAnomaly: useCallback(() => setAnomalyPanelOpen((v) => !v), []),
+    onTogglePropagation: useCallback(() => setPropVisible((v) => !v), []),
+    onToggleSharing: useCallback(() => setSharingPanelOpen((v) => !v), []),
+    onEscapeAll: useCallback(() => {
+      setTdoaOpen(false);
+      setMilRfOpen(false);
+      setAlertsOpen(false);
+      setWatchlistOpen(false);
+      setTargetsOpen(false);
+      setAnomalyPanelOpen(false);
+      setSharingPanelOpen(false);
+      selectStation(null);
+      setShowPanel(false);
+    }, [selectStation, setShowPanel]),
+  });
 
   // Fetch unacknowledged anomaly alert count
   const anomalyCountQuery = trpc.anomalies.unacknowledgedCount.useQuery(undefined, {
@@ -387,6 +419,19 @@ function HomeContent() {
         transition={{ delay: 1, duration: 0.5 }}
         className="absolute top-5 right-4 z-20 flex items-center gap-2"
       >
+        {/* Theme Toggle */}
+        <ThemeToggle />
+
+        {/* Keyboard Shortcuts Help */}
+        <button
+          onClick={() => setHelpOpen(true)}
+          className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/5 border border-white/10 backdrop-blur-md hover:bg-white/10 hover:border-white/20 transition-all group"
+          title="Keyboard shortcuts (?)"
+          aria-label="Keyboard shortcuts"
+        >
+          <span className="text-sm font-mono font-bold text-white/50 group-hover:text-white/80 transition-colors">?</span>
+        </button>
+
         {/* Propagation Overlay Button */}
         <button
           onClick={() => setPropVisible(!propVisible)}
@@ -722,7 +767,7 @@ function HomeContent() {
           <p className="text-xs font-mono text-white/50 text-center drop-shadow-lg"
             style={{ textShadow: '0 1px 8px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5)' }}
           >
-            Select a target or search to begin reconnaissance · <span className="text-white/30">↑↓ to browse · Enter to select</span>
+            Select a target or search to begin reconnaissance · <span className="text-white/30">↑↓ to browse · Enter to select · ? for shortcuts</span>
           </p>
         </motion.div>
       )}
@@ -735,6 +780,13 @@ function HomeContent() {
 
       {/* Station List Sidebar */}
       <StationList />
+
+      {/* Keyboard Shortcuts Help Overlay */}
+      <ShortcutHelpOverlay
+        isOpen={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        shortcuts={shortcuts}
+      />
     </div>
   );
 }

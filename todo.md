@@ -158,3 +158,16 @@
 - [x] Refactor: Add Three.js cleanup (.dispose()) to all Globe.tsx useEffect hooks lacking cleanup
 - [x] Security: Move TDoA auth key from hardcoded constant to environment variable
 - [x] Accessibility: Add aria-label attributes to all icon-only buttons in globe nav bar
+- [x] Keyboard shortcuts: useKeyboardShortcuts hook with configurable key bindings
+- [x] Keyboard shortcuts: T for TDoA, S for search focus, D for dashboard, W for watchlist, A for alerts, M for military RF
+- [x] Keyboard shortcuts: ? key opens help overlay showing all available shortcuts
+- [x] Keyboard shortcuts: Escape key closes any open panel
+- [x] Keyboard shortcuts: help overlay with categorized shortcut list and visual key badges
+- [x] Theme toggle: dark/light theme switcher button in nav bar
+- [x] Theme toggle: light theme CSS variables in index.css
+- [x] Theme toggle: persist theme preference in localStorage
+- [x] Theme toggle: ensure all components render correctly in both themes
+- [x] Rate limiting: server-side rate limiter middleware for tRPC procedures
+- [x] Rate limiting: apply to TDoA job submission endpoint (10 per hour per IP)
+- [x] Rate limiting: apply to LLM classification endpoint (20 per hour per IP)
+- [x] Rate limiting: return clear error messages when rate limit exceeded + X-RateLimit headers

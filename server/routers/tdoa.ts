@@ -1,5 +1,6 @@
 import { publicProcedure, router } from "../_core/trpc";
 import { z } from "zod";
+import { createRateLimitMiddleware, RATE_LIMITS } from "../rateLimiter";
 import {
   getGpsHosts,
   getRefTransmitters,
@@ -36,6 +37,7 @@ export const tdoaRouter = router({
     }),
 
   submitJob: publicProcedure
+    .use(createRateLimitMiddleware(RATE_LIMITS.tdoaSubmit))
     .input(
       z.object({
         hosts: z.array(

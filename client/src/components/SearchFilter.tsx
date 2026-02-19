@@ -122,6 +122,7 @@ export default function SearchFilter() {
           }`} />
           <input
             ref={inputRef}
+            id="global-search-input"
             type="text"
             value={searchQuery}
             onChange={(e) => {

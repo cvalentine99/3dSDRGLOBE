@@ -1,6 +1,7 @@
 import { publicProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { getDb } from "../db";
+import { createRateLimitMiddleware, RATE_LIMITS } from "../rateLimiter";
 import {
   tdoaTargets,
   tdoaTargetHistory,
@@ -14,6 +15,7 @@ import { checkForAnomaly } from "../anomalyDetector";
 export const targetsRouter = router({
   /** Auto-classify a target using LLM */
   classify: publicProcedure
+    .use(createRateLimitMiddleware(RATE_LIMITS.llmClassify))
     .input(
       z.object({
         targetId: z.number(),
