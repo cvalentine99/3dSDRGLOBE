@@ -7,7 +7,7 @@
  * - Ring pulse effect on selected station
  * - Smooth orbit controls with auto-rotate
  */
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback, useState, useImperativeHandle, forwardRef } from "react";
 import * as THREE from "three";
 import { useRadio } from "@/contexts/RadioContext";
 import type { Station } from "@/lib/types";
@@ -24,8 +24,11 @@ import {
   createHeatmapOverlay,
   updateTdoaAnimations,
   disposeTdoaGroup,
+  createSavedTargetMarkers,
+  updateSavedTargetAnimations,
   type TdoaHostMarkerData,
   type ContourData,
+  type SavedTargetData,
 } from "./TDoAGlobeOverlay";
 
 /** Detect whether the browser supports WebGL */
@@ -76,12 +79,18 @@ interface GlobeProps {
   ionosondes?: IonosondeStation[];
   isStationOnline?: (station: Station) => boolean | null;
   tdoaOverlay?: TdoaOverlayData;
+  savedTargets?: SavedTargetData[];
 }
 
-export default function Globe({ ionosondes = [], isStationOnline, tdoaOverlay }: GlobeProps) {
+export interface GlobeHandle {
+  captureScreenshot: () => string | null;
+}
+
+const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = [], isStationOnline, tdoaOverlay, savedTargets = [] }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ionoGroupRef = useRef<THREE.Group | null>(null);
   const tdoaGroupRef = useRef<THREE.Group | null>(null);
+  const savedTargetsGroupRef = useRef<THREE.Group | null>(null);
   const [webglError, setWebglError] = useState<string | null>(null);
   const contextManagerRef = useRef<WebGLContextManager | null>(null);
   const fpsGovernorRef = useRef<FPSGovernor | null>(null);
@@ -135,6 +144,7 @@ export default function Globe({ ionosondes = [], isStationOnline, tdoaOverlay }:
         antialias: true,
         alpha: true,
         powerPreference: "high-performance",
+        preserveDrawingBuffer: true, // Required for screenshot export
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown WebGL error";
@@ -283,6 +293,11 @@ export default function Globe({ ionosondes = [], isStationOnline, tdoaOverlay }:
     const tdoaGroup = new THREE.Group();
     scene.add(tdoaGroup);
     tdoaGroupRef.current = tdoaGroup;
+
+    // Saved targets overlay group (multi-target tracking)
+    const savedTargetsGroup = new THREE.Group();
+    scene.add(savedTargetsGroup);
+    savedTargetsGroupRef.current = savedTargetsGroup;
 
     // Ring group for selected station pulse
     const ringGroup = new THREE.Group();
@@ -563,6 +578,11 @@ export default function Globe({ ionosondes = [], isStationOnline, tdoaOverlay }:
       // Animate TDoA overlay
       if (tdoaGroupRef.current && tdoaGroupRef.current.children.length > 0) {
         updateTdoaAnimations(tdoaGroupRef.current, elapsed);
+      }
+
+      // Animate saved target markers
+      if (savedTargetsGroupRef.current && savedTargetsGroupRef.current.children.length > 0) {
+        updateSavedTargetAnimations(savedTargetsGroupRef.current, elapsed);
       }
 
       s.renderer.render(s.scene, s.camera);
@@ -982,6 +1002,20 @@ export default function Globe({ ionosondes = [], isStationOnline, tdoaOverlay }:
     }
   }, [tdoaOverlay]);
 
+  // Saved targets overlay: render persistent multi-target markers
+  useEffect(() => {
+    const group = savedTargetsGroupRef.current;
+    if (!group) return;
+
+    // Clear existing saved target markers
+    disposeTdoaGroup(group);
+
+    if (savedTargets.length === 0) return;
+
+    const markers = createSavedTargetMarkers(savedTargets);
+    group.add(markers);
+  }, [savedTargets]);
+
   // Auto-rotate globe to continent/region when globeTarget changes
   useEffect(() => {
     if (!sceneRef.current || !globeTarget) return;
@@ -1031,6 +1065,16 @@ export default function Globe({ ionosondes = [], isStationOnline, tdoaOverlay }:
     );
   }
 
+  useImperativeHandle(ref, () => ({
+    captureScreenshot: () => {
+      const s = sceneRef.current;
+      if (!s) return null;
+      // Force a render to ensure the buffer is current
+      s.renderer.render(s.scene, s.camera);
+      return s.renderer.domElement.toDataURL("image/png");
+    },
+  }), []);
+
   return (
     <div
       ref={containerRef}
@@ -1038,4 +1082,6 @@ export default function Globe({ ionosondes = [], isStationOnline, tdoaOverlay }:
       style={{ cursor: "grab" }}
     />
   );
-}
+});
+
+export default Globe;

@@ -200,3 +200,76 @@ export const tdoaJobs = mysqlTable(
 
 export type TdoaJob = typeof tdoaJobs.$inferSelect;
 export type InsertTdoaJob = typeof tdoaJobs.$inferInsert;
+
+/**
+ * Saved TDoA target positions for multi-target tracking overlay.
+ * Each target represents a triangulated position from a completed TDoA job.
+ */
+export const tdoaTargets = mysqlTable(
+  "tdoa_targets",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** User-assigned label for the target */
+    label: varchar("label", { length: 256 }).notNull(),
+    /** Estimated latitude */
+    lat: decimal("lat", { precision: 10, scale: 6 }).notNull(),
+    /** Estimated longitude */
+    lon: decimal("lon", { precision: 10, scale: 6 }).notNull(),
+    /** Frequency in kHz used for the TDoA run */
+    frequencyKhz: decimal("frequencyKhz", { precision: 10, scale: 2 }),
+    /** Color for the marker on the globe (hex) */
+    color: varchar("color", { length: 7 }).default("#ff6b6b").notNull(),
+    /** Optional notes */
+    notes: text("notes"),
+    /** Reference to the source TDoA job ID (tdoa_jobs.id) */
+    sourceJobId: int("sourceJobId"),
+    /** Whether this target is visible on the globe */
+    visible: boolean("visible").default(true).notNull(),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    index("idx_targets_createdAt").on(table.createdAt),
+  ]
+);
+
+export type TdoaTarget = typeof tdoaTargets.$inferSelect;
+export type InsertTdoaTarget = typeof tdoaTargets.$inferInsert;
+
+/**
+ * Audio recordings captured from KiwiSDR hosts during TDoA jobs.
+ * Each recording is a short audio clip (10-30s) from a single host.
+ */
+export const tdoaRecordings = mysqlTable(
+  "tdoa_recordings",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** FK to tdoa_jobs.id */
+    jobId: int("jobId").notNull(),
+    /** KiwiSDR host identifier (e.g. "kiwisdr.example.com:8073") */
+    hostId: varchar("hostId", { length: 256 }).notNull(),
+    /** Frequency in kHz at time of recording */
+    frequencyKhz: decimal("frequencyKhz", { precision: 10, scale: 2 }).notNull(),
+    /** Modulation mode (am, usb, lsb, cw) */
+    mode: varchar("mode", { length: 8 }).default("am").notNull(),
+    /** Duration of the recording in seconds */
+    durationSec: int("durationSec").notNull(),
+    /** S3 file key for the WAV file */
+    fileKey: varchar("fileKey", { length: 512 }).notNull(),
+    /** Public URL to the WAV file in S3 */
+    fileUrl: varchar("fileUrl", { length: 1024 }).notNull(),
+    /** File size in bytes */
+    fileSizeBytes: int("fileSizeBytes"),
+    /** Recording status */
+    status: mysqlEnum("status", ["recording", "uploading", "ready", "error"]).default("recording").notNull(),
+    /** Error message if recording failed */
+    errorMessage: text("errorMessage"),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    index("idx_recordings_jobId").on(table.jobId),
+    index("idx_recordings_hostId").on(table.hostId),
+  ]
+);
+
+export type TdoaRecording = typeof tdoaRecordings.$inferSelect;
+export type InsertTdoaRecording = typeof tdoaRecordings.$inferInsert;

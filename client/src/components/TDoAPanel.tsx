@@ -31,12 +31,14 @@ import {
   Wand2,
   Download,
   Bell,
+  Camera,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import TDoAHistory from "./TDoAHistory";
 import TDoABatchQueue from "./TDoABatchQueue";
 import TDoACompare from "./TDoACompare";
+import RecordingPlayback from "./RecordingPlayback";
 
 /* ── Types ────────────────────────────────────────── */
 
@@ -105,6 +107,18 @@ interface TDoAPanelProps {
   onToggleWaterfall?: () => void;
   /** Whether waterfall is currently visible */
   waterfallVisible?: boolean;
+  /** Capture globe screenshot as PNG */
+  onScreenshot?: () => void;
+  /** Save current TDoA result as a named target for multi-target tracking */
+  onSaveTarget?: (data: {
+    label: string;
+    lat: number;
+    lon: number;
+    frequencyKhz?: number;
+    color?: string;
+    notes?: string;
+    sourceJobId?: number;
+  }) => void;
 }
 
 type PanelTab = "run" | "history" | "batch" | "compare";
@@ -151,6 +165,8 @@ export default function TDoAPanel({
   onReplayJob,
   onToggleWaterfall,
   waterfallVisible,
+  onScreenshot,
+  onSaveTarget,
 }: TDoAPanelProps) {
   // Tab state
   const [activeTab, setActiveTab] = useState<PanelTab>("run");
@@ -551,6 +567,15 @@ export default function TDoAPanel({
                     }`}
                   >
                     <Radio className="w-4 h-4" />
+                  </button>
+                )}
+                {onScreenshot && (
+                  <button
+                    onClick={onScreenshot}
+                    title="Save globe screenshot as PNG"
+                    className="w-8 h-8 rounded-lg border bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60 flex items-center justify-center transition-colors"
+                  >
+                    <Camera className="w-4 h-4" />
                   </button>
                 )}
                 <button
@@ -1106,6 +1131,16 @@ export default function TDoAPanel({
                 </motion.div>
               )}
 
+              {/* ── Audio Recordings ────────────────────── */}
+              {result && jobStatus === "complete" && jobId && (
+                <RecordingPlayback
+                  jobId={parseInt(jobId, 10) || 0}
+                  showRecordButton={true}
+                  hosts={selectedHosts.map((h) => ({ h: h.h, p: h.p }))}
+                  frequencyKhz={parseFloat(frequencyKhz) || 10000}
+                />
+              )}
+
               {/* ── Error Display ────────────────────────── */}
               {errorMessage && jobStatus === "error" && (
                 <motion.div
@@ -1152,14 +1187,37 @@ export default function TDoAPanel({
                         Reset
                       </button>
                       {result && (
-                        <button
-                          onClick={handleExportResults}
-                          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-500/15 border border-emerald-500/25 text-emerald-300 text-xs font-medium hover:bg-emerald-500/25 transition-colors"
-                          title="Download TDoA results as JSON"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          Export
-                        </button>
+                        <>
+                          <button
+                            onClick={handleExportResults}
+                            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-500/15 border border-emerald-500/25 text-emerald-300 text-xs font-medium hover:bg-emerald-500/25 transition-colors"
+                            title="Download TDoA results as JSON"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            Export
+                          </button>
+                          {onSaveTarget && (
+                            <button
+                              onClick={() => {
+                                const freq = parseFloat(frequencyKhz);
+                                const label = `TDoA ${freq} kHz — ${result.likelyLat.toFixed(2)}°, ${result.likelyLon.toFixed(2)}°`;
+                                onSaveTarget({
+                                  label,
+                                  lat: result.likelyLat,
+                                  lon: result.likelyLon,
+                                  frequencyKhz: isNaN(freq) ? undefined : freq,
+                                  sourceJobId: result.jobId ? parseInt(result.jobId, 10) || undefined : undefined,
+                                });
+                                toast.success("Target saved to tracking list");
+                              }}
+                              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-rose-500/15 border border-rose-500/25 text-rose-300 text-xs font-medium hover:bg-rose-500/25 transition-colors"
+                              title="Save position as a tracked target"
+                            >
+                              <MapPin className="w-3.5 h-3.5" />
+                              Save
+                            </button>
+                          )}
+                        </>
                       )}
                     </>
                   )}

@@ -5,7 +5,7 @@
  */
 import { useState, useCallback, useRef, useMemo, Component, type ReactNode } from "react";
 import { RadioProvider, useRadio } from "@/contexts/RadioContext";
-import Globe, { type TdoaOverlayData } from "@/components/Globe";
+import Globe, { type TdoaOverlayData, type GlobeHandle } from "@/components/Globe";
 import { useReceiverStatusMap } from "@/hooks/useReceiverStatusMap";
 import StationPanel from "@/components/StationPanel";
 import AudioPlayer from "@/components/AudioPlayer";
@@ -23,12 +23,15 @@ import PropagationOverlay from "@/components/PropagationOverlay";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { AnimatePresence } from "framer-motion";
 import { motion } from "framer-motion";
-import { Radar, Bell, Eye, Activity, Crosshair } from "lucide-react";
+import { Radar, Bell, Eye, Activity, Crosshair, Target } from "lucide-react";
 import { getUnacknowledgedCount } from "@/lib/alertService";
 import { getWatchlistCount, getOnlineCount } from "@/lib/watchlistService";
 import type { IonosondeStation } from "@/lib/propagationService";
 import TDoAPanel from "@/components/TDoAPanel";
 import KiwiWaterfall from "@/components/KiwiWaterfall";
+import TargetManager from "@/components/TargetManager";
+import { trpc } from "@/lib/trpc";
+import type { SavedTargetData } from "@/components/TDoAGlobeOverlay";
 
 /** Local error boundary specifically for the Globe component to catch WebGL crashes */
 class GlobeErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string | null }> {
@@ -88,6 +91,7 @@ function HomeContent() {
   const { loading, stations, selectedStation, filteredStations, selectStation, setShowPanel } = useRadio();
   const { isStationOnline, progress: batchProgress, autoRefresh } = useReceiverStatusMap(stations, loading);
   const { highlightedStation, highlightedIndex, isKeyNavActive } = useKeyboardNav();
+  const globeRef = useRef<GlobeHandle>(null);
   const [milRfOpen, setMilRfOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [watchlistOpen, setWatchlistOpen] = useState(false);
@@ -106,6 +110,33 @@ function HomeContent() {
     heatmapUrl?: string;
     heatmapBounds?: { north: number; south: number; east: number; west: number };
   } | null>(null);
+  const [targetsOpen, setTargetsOpen] = useState(false);
+
+  // Fetch saved TDoA targets for globe overlay
+  const targetsQuery = trpc.targets.list.useQuery(undefined, {
+    refetchInterval: 15000,
+  });
+  const savedTargets = useMemo<SavedTargetData[]>(() => {
+    if (!targetsQuery.data) return [];
+    return (targetsQuery.data as any[])
+      .filter((t: any) => t.visible)
+      .map((t: any) => ({
+        id: t.id,
+        label: t.label,
+        lat: parseFloat(t.lat),
+        lon: parseFloat(t.lon),
+        color: t.color,
+        frequencyKhz: t.frequencyKhz ? parseFloat(t.frequencyKhz) : null,
+      }));
+  }, [targetsQuery.data]);
+
+  // Save target mutation (used from TDoA result)
+  const trpcUtils = trpc.useUtils();
+  const saveTargetMutation = trpc.targets.save.useMutation({
+    onSuccess: () => {
+      trpcUtils.targets.list.invalidate();
+    },
+  });
 
   // Build TDoA overlay data for the globe
   const tdoaOverlay = useMemo<TdoaOverlayData>(() => {
@@ -212,9 +243,11 @@ function HomeContent() {
       {/* 3D Globe — wrapped in local error boundary to isolate WebGL crashes */}
       <GlobeErrorBoundary>
         <Globe
+          ref={globeRef}
           ionosondes={propVisible ? ionosondesRef.current : []}
           isStationOnline={isStationOnline}
           tdoaOverlay={tdoaOverlay}
+          savedTargets={savedTargets}
         />
       </GlobeErrorBoundary>
 
@@ -358,6 +391,29 @@ function HomeContent() {
           )}
         </button>
 
+        {/* Saved Targets Button */}
+        <button
+          onClick={() => setTargetsOpen(!targetsOpen)}
+          className={`relative flex items-center gap-2 px-3 py-2 rounded-lg backdrop-blur-md transition-all group ${
+            targetsOpen
+              ? 'bg-rose-500/25 border border-rose-500/40'
+              : 'bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/30'
+          }`}
+          title="Saved Targets — Multi-target tracking overlay"
+        >
+          <Target className={`w-4 h-4 transition-colors ${targetsOpen ? 'text-rose-300' : 'text-rose-400 group-hover:text-rose-300'}`} />
+          <span className={`text-[10px] font-mono uppercase tracking-wider transition-colors hidden sm:inline ${
+            targetsOpen ? 'text-rose-200' : 'text-rose-300/80 group-hover:text-rose-200'
+          }`}>
+            Targets
+          </span>
+          {savedTargets.length > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-rose-500 text-[8px] text-white font-bold flex items-center justify-center shadow-lg shadow-rose-500/30">
+              {savedTargets.length}
+            </span>
+          )}
+        </button>
+
         {/* Military RF Intel Button */}
         <button
           onClick={() => setMilRfOpen(true)}
@@ -370,6 +426,29 @@ function HomeContent() {
           </span>
         </button>
       </motion.div>
+
+      {/* Saved Targets Panel */}
+      <TargetManager
+        isOpen={targetsOpen}
+        onClose={() => setTargetsOpen(false)}
+        onFocusTarget={(lat, lon) => {
+          const s = globeRef.current;
+          // Globe doesn't expose direct camera control, but we can use the TDoA result mechanism
+          // to trigger a camera focus
+          if (s) {
+            // Use a temporary overlay to trigger camera focus
+            setTdoaResult({
+              likelyLat: lat,
+              likelyLon: lon,
+              hosts: [],
+              contours: [],
+              jobId: 'focus',
+            });
+            // Clear after a short delay so it doesn't persist as a TDoA result
+            setTimeout(() => setTdoaResult(null), 500);
+          }
+        }}
+      />
 
       {/* Military RF Intelligence Panel */}
       <MilitaryRfPanel isOpen={milRfOpen} onClose={() => setMilRfOpen(false)} />
@@ -421,6 +500,21 @@ function HomeContent() {
         onReplayJob={handleTdoaReplay}
         onToggleWaterfall={() => setWaterfallVisible((v) => !v)}
         waterfallVisible={waterfallVisible}
+        onScreenshot={() => {
+          const dataUrl = globeRef.current?.captureScreenshot();
+          if (!dataUrl) return;
+          const link = document.createElement("a");
+          link.download = `tdoa-globe-${Date.now()}.png`;
+          link.href = dataUrl;
+          link.click();
+        }}
+        onSaveTarget={(data) => {
+          saveTargetMutation.mutate(data, {
+            onSuccess: () => {
+              targetsQuery.refetch();
+            },
+          });
+        }}
       />
 
       {/* Live KiwiSDR Waterfall */}

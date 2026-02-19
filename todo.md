@@ -92,3 +92,12 @@
 - [x] Audio waterfall integration: host selector dropdown to switch between selected KiwiSDR hosts
 - [x] Audio waterfall integration: waterfall toggle button in TDoA panel header
 - [x] All 170 vitest tests passing, zero TypeScript errors
+- [x] TDoA screenshot export: add "Save Image" button that captures globe canvas with TDoA overlay as PNG
+- [x] TDoA screenshot export: include job metadata watermark (frequency, position, timestamp) on exported image
+- [x] Multi-target TDoA tracking: save multiple target positions to database
+- [x] Multi-target TDoA tracking: overlay all saved targets on globe simultaneously with labels
+- [x] Multi-target TDoA tracking: manage targets panel (add, remove, toggle visibility)
+- [x] KiwiSDR signal recording: record short audio clip from each host during TDoA job
+- [x] KiwiSDR signal recording: store recordings in S3 and link to job results
+- [x] KiwiSDR signal recording: playback UI in job history and result pages
+- [x] All 216 vitest tests passing, zero TypeScript errors

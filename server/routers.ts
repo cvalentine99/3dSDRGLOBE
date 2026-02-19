@@ -34,9 +34,10 @@ import {
   proxyResultFile,
   selectBestHosts,
 } from "./tdoaService";
-import { tdoaJobs } from "../drizzle/schema";
+import { tdoaJobs, tdoaTargets, tdoaRecordings } from "../drizzle/schema";
 import { getDb } from "./db";
 import { desc, eq } from "drizzle-orm";
+import { recordAllHosts, type RecordingResult } from "./kiwiRecorder";
 
 export const appRouter = router({
   system: systemRouter,
@@ -440,6 +441,139 @@ export const appRouter = router({
           console.error("[TDoA] Failed to delete job:", err);
           return { deleted: false };
         }
+      }),
+  }),
+
+  targets: router({
+    /** List all saved TDoA targets */
+    list: publicProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return await db.select().from(tdoaTargets).orderBy(desc(tdoaTargets.createdAt));
+    }),
+
+    /** Save a new TDoA target position */
+    save: publicProcedure
+      .input(
+        z.object({
+          label: z.string().min(1).max(256),
+          lat: z.number(),
+          lon: z.number(),
+          frequencyKhz: z.number().optional(),
+          color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+          notes: z.string().max(1000).optional(),
+          sourceJobId: z.number().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        const [result] = await db.insert(tdoaTargets).values({
+          label: input.label,
+          lat: String(input.lat),
+          lon: String(input.lon),
+          frequencyKhz: input.frequencyKhz ? String(input.frequencyKhz) : null,
+          color: input.color || "#ff6b6b",
+          notes: input.notes || null,
+          sourceJobId: input.sourceJobId || null,
+          visible: true,
+          createdAt: Date.now(),
+        });
+        return { id: result.insertId };
+      }),
+
+    /** Toggle target visibility on the globe */
+    toggleVisibility: publicProcedure
+      .input(z.object({ id: z.number(), visible: z.boolean() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { updated: false };
+        await db.update(tdoaTargets).set({ visible: input.visible }).where(eq(tdoaTargets.id, input.id));
+        return { updated: true };
+      }),
+
+    /** Update target label, color, or notes */
+    update: publicProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          label: z.string().min(1).max(256).optional(),
+          color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+          notes: z.string().max(1000).optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { updated: false };
+        const updates: Record<string, any> = {};
+        if (input.label !== undefined) updates.label = input.label;
+        if (input.color !== undefined) updates.color = input.color;
+        if (input.notes !== undefined) updates.notes = input.notes;
+        if (Object.keys(updates).length === 0) return { updated: false };
+        await db.update(tdoaTargets).set(updates).where(eq(tdoaTargets.id, input.id));
+        return { updated: true };
+      }),
+
+    /** Delete a saved target */
+    delete: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { deleted: false };
+        await db.delete(tdoaTargets).where(eq(tdoaTargets.id, input.id));
+        return { deleted: true };
+      }),
+  }),
+
+  recordings: router({
+    /** Start recording audio from all hosts in a TDoA job */
+    startRecording: publicProcedure
+      .input(
+        z.object({
+          jobId: z.number(),
+          hosts: z.array(
+            z.object({
+              h: z.string(),
+              p: z.number(),
+            })
+          ),
+          frequencyKhz: z.number(),
+          durationSec: z.number().min(5).max(60).default(15),
+          mode: z.enum(["am", "usb", "lsb", "cw"]).optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const results = await recordAllHosts(
+          input.jobId,
+          input.hosts,
+          input.frequencyKhz,
+          input.durationSec,
+          input.mode
+        );
+        return { recordings: results };
+      }),
+
+    /** Get all recordings for a specific TDoA job */
+    getByJob: publicProcedure
+      .input(z.object({ jobId: z.number() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        return await db
+          .select()
+          .from(tdoaRecordings)
+          .where(eq(tdoaRecordings.jobId, input.jobId))
+          .orderBy(tdoaRecordings.hostId);
+      }),
+
+    /** Delete a recording */
+    delete: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { deleted: false };
+        await db.delete(tdoaRecordings).where(eq(tdoaRecordings.id, input.id));
+        return { deleted: true };
       }),
   }),
 

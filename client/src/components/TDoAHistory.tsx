@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import RecordingPlayback from "./RecordingPlayback";
 
 /* ── Types ────────────────────────────────────────── */
 
@@ -350,6 +351,11 @@ export default function TDoAHistory({ isOpen, onReplay }: TDoAHistoryProps) {
                               </a>
                             </div>
                           </div>
+                        )}
+
+                        {/* Audio Recordings */}
+                        {job.status === "complete" && (
+                          <RecordingPlayback jobId={job.id} />
                         )}
 
                         {/* Error message */}

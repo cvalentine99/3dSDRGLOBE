@@ -496,3 +496,192 @@ export function disposeTdoaGroup(group: THREE.Group): void {
   });
   group.clear();
 }
+
+
+/* ── Saved Target Markers (Multi-Target Tracking) ── */
+
+export interface SavedTargetData {
+  id: number;
+  label: string;
+  lat: number;
+  lon: number;
+  color: string;
+  frequencyKhz?: number | null;
+}
+
+/**
+ * Creates markers for all saved/visible TDoA targets on the globe.
+ * Each target gets:
+ * - A colored circle marker
+ * - A pulsing outer ring
+ * - A label sprite (text rendered via canvas)
+ */
+export function createSavedTargetMarkers(targets: SavedTargetData[]): THREE.Group {
+  const group = new THREE.Group();
+  group.name = "tdoa-saved-targets";
+
+  for (const target of targets) {
+    const color = new THREE.Color(target.color);
+    const pos = latLngToVector3(target.lat, target.lon, GLOBE_RADIUS + MARKER_HEIGHT + 0.001);
+
+    // Center dot
+    const dotGeo = new THREE.CircleGeometry(0.045, 16);
+    const dotMat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide,
+      depthTest: false,
+    });
+    const dot = new THREE.Mesh(dotGeo, dotMat);
+    dot.position.copy(pos);
+    dot.lookAt(new THREE.Vector3(0, 0, 0));
+    dot.userData = { type: "saved-target-dot", targetId: target.id };
+    group.add(dot);
+
+    // Outer ring
+    const ringGeo = new THREE.RingGeometry(0.065, 0.08, 24);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.5,
+      side: THREE.DoubleSide,
+      depthTest: false,
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.position.copy(pos);
+    ring.lookAt(new THREE.Vector3(0, 0, 0));
+    ring.userData = { type: "saved-target-ring", targetId: target.id, baseOpacity: 0.5 };
+    group.add(ring);
+
+    // Pulse ring (animated)
+    const pulseGeo = new THREE.RingGeometry(0.09, 0.1, 24);
+    const pulseMat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.3,
+      side: THREE.DoubleSide,
+      depthTest: false,
+    });
+    const pulse = new THREE.Mesh(pulseGeo, pulseMat);
+    pulse.position.copy(pos);
+    pulse.lookAt(new THREE.Vector3(0, 0, 0));
+    pulse.userData = { type: "saved-target-pulse", targetId: target.id, baseScale: 1 };
+    group.add(pulse);
+
+    // Label sprite (canvas-rendered text)
+    const labelSprite = createLabelSprite(
+      target.label,
+      target.color,
+      target.frequencyKhz
+    );
+    // Position label slightly above and to the right of the marker
+    const labelPos = latLngToVector3(
+      target.lat,
+      target.lon,
+      GLOBE_RADIUS + MARKER_HEIGHT + 0.12
+    );
+    labelSprite.position.copy(labelPos);
+    labelSprite.userData = { type: "saved-target-label", targetId: target.id };
+    group.add(labelSprite);
+  }
+
+  return group;
+}
+
+/**
+ * Creates a text label sprite using a canvas texture.
+ * Renders the target name and optional frequency.
+ */
+function createLabelSprite(
+  label: string,
+  color: string,
+  frequencyKhz?: number | null
+): THREE.Sprite {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d")!;
+
+  canvas.width = 256;
+  canvas.height = 64;
+
+  // Background
+  ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+  const radius = 6;
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.beginPath();
+  ctx.moveTo(radius, 0);
+  ctx.lineTo(w - radius, 0);
+  ctx.quadraticCurveTo(w, 0, w, radius);
+  ctx.lineTo(w, h - radius);
+  ctx.quadraticCurveTo(w, h, w - radius, h);
+  ctx.lineTo(radius, h);
+  ctx.quadraticCurveTo(0, h, 0, h - radius);
+  ctx.lineTo(0, radius);
+  ctx.quadraticCurveTo(0, 0, radius, 0);
+  ctx.closePath();
+  ctx.fill();
+
+  // Border
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Label text
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 20px monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  const displayText = frequencyKhz
+    ? `${label} · ${frequencyKhz} kHz`
+    : label;
+
+  // Truncate if too long
+  const maxChars = 24;
+  const truncated =
+    displayText.length > maxChars
+      ? displayText.slice(0, maxChars - 1) + "…"
+      : displayText;
+
+  ctx.fillText(truncated, canvas.width / 2, canvas.height / 2);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+
+  const material = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    opacity: 0.85,
+    depthTest: false,
+    sizeAttenuation: true,
+  });
+
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.set(0.6, 0.15, 1);
+
+  return sprite;
+}
+
+/**
+ * Update animations for saved target markers (pulse effect).
+ * Called from the main animation loop alongside other TDoA animations.
+ */
+export function updateSavedTargetAnimations(group: THREE.Group, elapsedTime: number): void {
+  group.traverse((child) => {
+    if (child.userData.type === "saved-target-pulse") {
+      const scale = 1 + Math.sin(elapsedTime * 2.5 + (child.userData.targetId || 0) * 0.7) * 0.25;
+      child.scale.set(scale, scale, 1);
+      if (child instanceof THREE.Mesh) {
+        (child.material as THREE.MeshBasicMaterial).opacity =
+          0.3 - Math.sin(elapsedTime * 2.5 + (child.userData.targetId || 0) * 0.7) * 0.2;
+      }
+    }
+    if (child.userData.type === "saved-target-ring") {
+      if (child instanceof THREE.Mesh) {
+        (child.material as THREE.MeshBasicMaterial).opacity =
+          0.4 + Math.sin(elapsedTime * 1.8 + (child.userData.targetId || 0) * 0.5) * 0.15;
+      }
+    }
+  });
+}
