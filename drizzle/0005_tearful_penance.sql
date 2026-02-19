@@ -1,0 +1,1 @@
+ALTER TABLE `tdoa_jobs` ADD `heatmapKey` varchar(64);

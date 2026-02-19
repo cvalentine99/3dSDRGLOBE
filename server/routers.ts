@@ -335,6 +335,7 @@ export const appRouter = router({
                     : null,
                   resultData: job.result || null,
                   contourData: job.contours.length > 0 ? job.contours : null,
+                  heatmapKey: job.key || null,
                   errorMessage: job.error || null,
                   completedAt: job.completedAt || Date.now(),
                 })

@@ -72,3 +72,11 @@
 - [x] TDoA result heatmap overlay: Express proxy route for TDoA_map_for_map.png, Three.js spherical patch texture overlay with additive blending
 - [x] Batch TDoA scheduling: queue panel with presets (WWV Multi-Band, Time Signals, HF Broadcast), sequential execution, cross-band comparison table with avg position and spread metrics
 - [x] All 156 vitest tests passing, zero TypeScript errors
+- [x] TDoA notification alerts: browser Notification API for background tabs (single job + batch completion + error)
+- [x] TDoA notification alerts: bell toggle button in panel header to request permission
+- [x] Persistent TDoA results: heatmapKey column added to tdoa_jobs, saved on job completion
+- [x] Persistent TDoA results: History replay now passes heatmap URL + bounds to globe overlay
+- [x] TDoA accuracy overlay: filled translucent polygons with fan triangulation from centroid
+- [x] TDoA accuracy overlay: additive blending, inner contours more opaque (confidence gradient)
+- [x] TDoA accuracy overlay: polygon outlines with opacity scaling by contour depth
+- [x] All 160 vitest tests passing, zero TypeScript errors

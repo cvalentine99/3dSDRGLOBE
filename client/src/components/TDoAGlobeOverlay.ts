@@ -294,24 +294,68 @@ export function createContourOverlay(contours: ContourData[]): THREE.Group {
       group.add(new THREE.Line(geometry, material));
     }
 
-    // Draw polygon outlines (probability zones)
-    for (let i = 0; i < contour.polygons.length; i++) {
+    // Draw filled polygon regions (confidence/accuracy zones)
+    // Outer polygons are more transparent, inner ones more opaque
+    const totalPolygons = contour.polygons.length;
+    for (let i = 0; i < totalPolygons; i++) {
       const polygon = contour.polygons[i];
       const colorStr = contour.polygon_colors[i] || "#c084fc";
       const color = new THREE.Color(colorStr);
 
       if (polygon.length < 3) continue;
 
+      const r = GLOBE_RADIUS + MARKER_HEIGHT + 0.002 + i * 0.001;
       const points3D = polygon.map((p) =>
-        latLngToVector3(p.lat, p.lng, GLOBE_RADIUS + MARKER_HEIGHT + 0.003)
+        latLngToVector3(p.lat, p.lng, r)
       );
 
-      const linePoints = [...points3D, points3D[0]]; // Close the loop
+      // --- Filled translucent polygon (accuracy region) ---
+      // Use fan triangulation from centroid for convex-ish polygons on the sphere
+      const centroid = new THREE.Vector3();
+      points3D.forEach((p) => centroid.add(p));
+      centroid.divideScalar(points3D.length);
+      // Push centroid to the correct radius
+      centroid.normalize().multiplyScalar(r);
+
+      const positions: number[] = [];
+      for (let j = 0; j < points3D.length; j++) {
+        const a = points3D[j];
+        const b = points3D[(j + 1) % points3D.length];
+        positions.push(centroid.x, centroid.y, centroid.z);
+        positions.push(a.x, a.y, a.z);
+        positions.push(b.x, b.y, b.z);
+      }
+
+      const fillGeometry = new THREE.BufferGeometry();
+      fillGeometry.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(positions, 3)
+      );
+      fillGeometry.computeVertexNormals();
+
+      // Opacity decreases for outer contours (index 0 = outermost)
+      const fillOpacity = 0.08 + (i / Math.max(totalPolygons - 1, 1)) * 0.15;
+      const fillMaterial = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: fillOpacity,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        blending: THREE.AdditiveBlending,
+      });
+
+      const fillMesh = new THREE.Mesh(fillGeometry, fillMaterial);
+      fillMesh.userData = { type: "tdoa-accuracy-region", contourIndex: i };
+      group.add(fillMesh);
+
+      // --- Polygon outline ---
+      const linePoints = [...points3D, points3D[0]];
       const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
+      const lineOpacity = 0.3 + (i / Math.max(totalPolygons - 1, 1)) * 0.4;
       const lineMaterial = new THREE.LineBasicMaterial({
         color,
         transparent: true,
-        opacity: 0.5,
+        opacity: lineOpacity,
         depthTest: false,
       });
       group.add(new THREE.Line(lineGeometry, lineMaterial));

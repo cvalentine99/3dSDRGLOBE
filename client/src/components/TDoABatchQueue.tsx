@@ -262,6 +262,16 @@ export default function TDoABatchQueue({
     setCurrentIdx(-1);
     setShowComparison(true);
     toast.success("Batch complete — view comparison results");
+
+    // Browser notification for background tabs
+    if (document.hidden && "Notification" in window && Notification.permission === "granted") {
+      const completedCount = items.filter((i) => i.status === "complete").length;
+      new Notification("TDoA Batch Complete", {
+        body: `${completedCount}/${items.length} runs completed successfully`,
+        icon: "/favicon.ico",
+        tag: "tdoa-batch-done",
+      });
+    }
   }, [items, selectedHosts, submitMutation]);
 
   // Cancel the batch

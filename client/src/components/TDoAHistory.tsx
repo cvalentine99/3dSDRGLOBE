@@ -42,6 +42,7 @@ interface TdoaJobRow {
   likelyLon: string | null;
   resultData: any;
   contourData: any;
+  heatmapKey: string | null;
   errorMessage: string | null;
   createdAt: number;
   completedAt: number | null;
@@ -55,6 +56,8 @@ interface TDoAHistoryProps {
     hosts: { lat: number; lon: number; h: string }[];
     contours: any[];
     jobId: string;
+    heatmapUrl?: string;
+    heatmapBounds?: { north: number; south: number; east: number; west: number };
   }) => void;
 }
 
@@ -124,12 +127,18 @@ export default function TDoAHistory({ isOpen, onReplay }: TDoAHistoryProps) {
     }
     const hosts = Array.isArray(job.hosts) ? job.hosts : [];
     const contours = Array.isArray(job.contourData) ? job.contourData : [];
+    const bounds = job.mapBounds as { north: number; south: number; east: number; west: number } | null;
+    const heatmapUrl = job.heatmapKey
+      ? `/api/tdoa-heatmap/${job.heatmapKey}`
+      : undefined;
     onReplay?.({
       likelyLat: parseFloat(job.likelyLat),
       likelyLon: parseFloat(job.likelyLon),
       hosts: hosts.map((h: any) => ({ lat: h.lat, lon: h.lon, h: h.h })),
       contours,
       jobId: String(job.id),
+      heatmapUrl,
+      heatmapBounds: bounds || undefined,
     });
     toast.success("Replaying TDoA result on globe");
   };

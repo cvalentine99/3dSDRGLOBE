@@ -185,6 +185,8 @@ export const tdoaJobs = mysqlTable(
     resultData: json("resultData"),
     /** Contour polygons for rendering on globe */
     contourData: json("contourData"),
+    /** TDoA server job key for heatmap URL reconstruction */
+    heatmapKey: varchar("heatmapKey", { length: 64 }),
     /** Error message if job failed */
     errorMessage: text("errorMessage"),
     createdAt: bigint("createdAt", { mode: "number" }).notNull(),

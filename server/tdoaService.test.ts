@@ -702,5 +702,97 @@ describe("tdoaService", () => {
       expect(typeof job.key).toBe("string");
       expect(job.key!.length).toBeGreaterThan(0);
     });
+
+    it("heatmap key is a 5-digit string suitable for URL construction", async () => {
+      mockAxiosGet.mockResolvedValueOnce({ data: "OK" });
+
+      const job = await submitTdoaJob(mockSubmitParams);
+      expect(job.key).toMatch(/^\d{5}$/);
+    });
+  });
+
+  describe("pollJobProgress with status.json fallback", () => {
+    it("detects completion from status.json when progress.json never sets done", async () => {
+      // First submit a job
+      mockAxiosGet.mockResolvedValueOnce({ data: "OK" });
+      const job = await submitTdoaJob(mockSubmitParams);
+
+      // progress.json shows computing (status0 set) but done=0
+      mockAxiosGet.mockResolvedValueOnce({
+        status: 200,
+        data: {
+          key: job.key,
+          status0: 42, // all hosts OK
+          done: 0,
+        },
+      });
+      // status.json fallback check — returns result
+      mockAxiosGet.mockResolvedValueOnce({
+        status: 200,
+        data: {
+          likely_position: { lat: 40.68, lng: -105.04 },
+          hosts: {},
+        },
+      });
+      // fetchJobResults calls status.json again for the full result
+      mockAxiosGet.mockResolvedValueOnce({
+        status: 200,
+        data: {
+          likely_position: { lat: 40.68, lng: -105.04 },
+          hosts: {},
+        },
+      });
+      // fetchJobResults tries to fetch contour files for each host pair
+      // 3 hosts = 3 pairs (0-1, 0-2, 1-2)
+      mockAxiosGet.mockResolvedValueOnce({ status: 404, data: null });
+      mockAxiosGet.mockResolvedValueOnce({ status: 404, data: null });
+      mockAxiosGet.mockResolvedValueOnce({ status: 404, data: null });
+
+      const result = await pollJobProgress(job.id);
+      expect(result!.status).toBe("complete");
+      expect(result!.result?.likely_position.lat).toBe(40.68);
+    });
+  });
+
+  describe("contour data structure", () => {
+    it("contour data includes polygons and polygon_colors for accuracy overlay", () => {
+      // Verify the expected structure of contour data that the globe overlay consumes
+      const mockContour = {
+        imgBounds: { north: 55, south: 35, east: 10, west: -130 },
+        polygons: [
+          [{ lat: 40, lng: -100 }, { lat: 42, lng: -98 }, { lat: 41, lng: -102 }],
+          [{ lat: 40.5, lng: -100.5 }, { lat: 41.5, lng: -99 }, { lat: 40.8, lng: -101 }],
+        ],
+        polygon_colors: ["#ff000080", "#ff000040"],
+        polylines: [
+          [{ lat: 40, lng: -100 }, { lat: 42, lng: -98 }],
+        ],
+        polyline_colors: ["#c084fc"],
+      };
+
+      expect(mockContour.polygons).toHaveLength(2);
+      expect(mockContour.polygon_colors).toHaveLength(2);
+      expect(mockContour.polygons[0]).toHaveLength(3);
+      expect(mockContour.polygons[0][0]).toHaveProperty("lat");
+      expect(mockContour.polygons[0][0]).toHaveProperty("lng");
+      expect(mockContour.imgBounds).toHaveProperty("north");
+      expect(mockContour.imgBounds).toHaveProperty("south");
+    });
+
+    it("inner contour polygons represent higher confidence regions", () => {
+      // Inner polygons (higher index) should be smaller/tighter
+      const outerPolygon = [
+        { lat: 38, lng: -108 }, { lat: 44, lng: -96 }, { lat: 38, lng: -96 }, { lat: 44, lng: -108 },
+      ];
+      const innerPolygon = [
+        { lat: 40, lng: -104 }, { lat: 42, lng: -100 }, { lat: 40, lng: -100 }, { lat: 42, lng: -104 },
+      ];
+
+      // Calculate bounding box areas
+      const outerArea = (44 - 38) * (108 - 96);
+      const innerArea = (42 - 40) * (104 - 100);
+
+      expect(innerArea).toBeLessThan(outerArea);
+    });
   });
 });

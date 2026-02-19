@@ -30,6 +30,7 @@ import {
   History,
   Wand2,
   Download,
+  Bell,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -161,6 +162,26 @@ export default function TDoAPanel({
   const [refSearch, setRefSearch] = useState("");
   const [refsOpen, setRefsOpen] = useState(false);
 
+  // Notification permission
+  const [notifyEnabled, setNotifyEnabled] = useState(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return false;
+    return Notification.permission === "granted";
+  });
+
+  const requestNotifyPermission = useCallback(async () => {
+    if (!("Notification" in window)) {
+      toast.error("Browser notifications not supported");
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    setNotifyEnabled(perm === "granted");
+    if (perm === "granted") {
+      toast.success("Notifications enabled — you'll be alerted when jobs complete");
+    } else {
+      toast.info("Notification permission denied");
+    }
+  }, []);
+
   // Job state
   const [jobStatus, setJobStatus] = useState<JobStatus>("idle");
   const [jobId, setJobId] = useState<string | null>(null);
@@ -239,6 +260,15 @@ export default function TDoAPanel({
         toast.success(
           `TDoA complete — position: ${job.result.likely_position.lat.toFixed(3)}°, ${job.result.likely_position.lng.toFixed(3)}°`
         );
+
+        // Browser notification for background tabs
+        if (document.hidden && "Notification" in window && Notification.permission === "granted") {
+          new Notification("TDoA Triangulation Complete", {
+            body: `Position: ${job.result.likely_position.lat.toFixed(3)}°, ${job.result.likely_position.lng.toFixed(3)}°`,
+            icon: "/favicon.ico",
+            tag: `tdoa-${job.id}`,
+          });
+        }
       }
     }
 
@@ -247,6 +277,15 @@ export default function TDoAPanel({
       setErrorMessage(job.error || "Unknown error");
       onJobStatusChange?.("error");
       toast.error(`TDoA failed: ${job.error}`);
+
+      // Browser notification for background tabs
+      if (document.hidden && "Notification" in window && Notification.permission === "granted") {
+        new Notification("TDoA Job Failed", {
+          body: job.error || "Unknown error",
+          icon: "/favicon.ico",
+          tag: `tdoa-err-${job.id}`,
+        });
+      }
     }
 
     // Update host statuses
@@ -493,12 +532,25 @@ export default function TDoAPanel({
                   </p>
                 </div>
               </div>
-              <button
-                onClick={onClose}
-                className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
-              >
-                <X className="w-4 h-4 text-white/60" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={notifyEnabled ? undefined : requestNotifyPermission}
+                  title={notifyEnabled ? "Notifications enabled" : "Enable browser notifications"}
+                  className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${
+                    notifyEnabled
+                      ? "bg-violet-500/20 border-violet-500/30 text-violet-400"
+                      : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60"
+                  }`}
+                >
+                  <Bell className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={onClose}
+                  className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-4 h-4 text-white/60" />
+                </button>
+              </div>
             </div>
 
             {/* Tab navigation */}
