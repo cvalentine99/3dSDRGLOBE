@@ -67,12 +67,12 @@ export default function RecordingPlayback({
   );
 
   // Start recording mutation
-  const recordMutation = trpc.recordings.startRecording.useMutation({
+  const recordMutation = trpc.recordings.record.useMutation({
     onSuccess: () => {
       recordingsQuery.refetch();
       toast.success("Recordings captured successfully");
     },
-    onError: (err) => toast.error(`Recording failed: ${err.message}`),
+    onError: (err: any) => toast.error(`Recording failed: ${err.message}`),
   });
 
   const handleRecord = useCallback(() => {
@@ -82,7 +82,7 @@ export default function RecordingPlayback({
     }
     recordMutation.mutate({
       jobId,
-      hosts: hosts.map((h) => ({ h: h.h, p: h.p })),
+      hosts: hosts.map((h) => ({ h: h.h, p: h.p, id: h.h })),
       frequencyKhz,
       durationSec: 15,
     });

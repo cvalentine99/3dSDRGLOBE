@@ -14,6 +14,7 @@
  * 10. Add new targets from TDoA results or manually
  */
 import { useState, useCallback, useMemo, useRef } from "react";
+import { haversineKm, bearingDeg as calcBearing } from "@shared/geo";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -260,11 +261,12 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
     (target: SavedTarget) => {
       setClassifyingId(target.id);
       classifyMutation.mutate({
-        frequencyKhz: target.frequencyKhz ? parseFloat(target.frequencyKhz) : null,
+        targetId: target.id,
+        frequencyKhz: target.frequencyKhz ? parseFloat(target.frequencyKhz) : undefined,
         lat: parseFloat(target.lat),
         lon: parseFloat(target.lon),
         label: target.label,
-        notes: target.notes,
+        notes: target.notes ?? undefined,
       });
     },
     [classifyMutation]
@@ -1256,26 +1258,8 @@ function DriftSummary({ entries }: { entries: Array<{ lat: string; lon: string; 
   );
 }
 
-/* ── Geo Helpers ─────────────────────────────────── */
+/* ── Geo Helpers ───────────────────────────────────── */
 
-function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function calculateBearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const y = Math.sin(dLon) * Math.cos((lat2 * Math.PI) / 180);
-  const x =
-    Math.cos((lat1 * Math.PI) / 180) * Math.sin((lat2 * Math.PI) / 180) -
-    Math.sin((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.cos(dLon);
-  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
-}
+// haversineDistance and calculateBearing imported from shared/geo.ts
+const haversineDistance = haversineKm;
+const calculateBearing = calcBearing;

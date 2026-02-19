@@ -8,6 +8,7 @@
  * 4. Overlay both results on the globe simultaneously
  */
 import { useState, useMemo } from "react";
+import { haversineKm, bearingDeg } from "@shared/geo";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   GitCompare,
@@ -50,40 +51,8 @@ interface TDoACompareProps {
 
 /* ── Helpers ──────────────────────────────────────── */
 
-/** Haversine distance in km between two lat/lon points */
-function haversineKm(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-/** Bearing from point 1 to point 2 in degrees */
-function bearing(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const y = Math.sin(dLon) * Math.cos((lat2 * Math.PI) / 180);
-  const x =
-    Math.cos((lat1 * Math.PI) / 180) * Math.sin((lat2 * Math.PI) / 180) -
-    Math.sin((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.cos(dLon);
-  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
-}
+// haversineKm and bearingDeg imported from shared/geo.ts
+const bearing = bearingDeg;
 
 function formatTimestamp(ts: number): string {
   return new Date(ts).toLocaleString(undefined, {

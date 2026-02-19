@@ -951,6 +951,17 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
       halo.lookAt(0, 0, 0);
       ionoGroup.add(halo);
     });
+
+    return () => {
+      while (ionoGroup.children.length > 0) {
+        const child = ionoGroup.children[0];
+        ionoGroup.remove(child);
+        if (child instanceof THREE.Mesh) {
+          child.geometry.dispose();
+          if (child.material instanceof THREE.Material) child.material.dispose();
+        }
+      }
+    };
   }, [ionosondes]);
 
   // TDoA overlay: update host markers, bearing lines, contours, and target marker
@@ -1029,6 +1040,10 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
         }, 15000); // Resume auto-rotate after 15 seconds
       }
     }
+
+    return () => {
+      disposeTdoaGroup(tdoaGroup);
+    };
   }, [tdoaOverlay]);
 
   // Saved targets overlay: render persistent multi-target markers
@@ -1043,6 +1058,10 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
 
     const markers = createSavedTargetMarkers(savedTargets);
     group.add(markers);
+
+    return () => {
+      disposeTdoaGroup(group);
+    };
   }, [savedTargets]);
 
   // Drift trail overlay: render position history trails
@@ -1060,6 +1079,10 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
       driftTrailData.targetColors
     );
     group.add(trails);
+
+    return () => {
+      disposeTdoaGroup(group);
+    };
   }, [driftTrailData]);
 
   // Prediction overlay: render confidence ellipses for predicted positions
@@ -1073,6 +1096,10 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
     if (predictions.length === 0) return;
 
     createPredictionMarkers(group, predictions);
+
+    return () => {
+      disposeTdoaGroup(group);
+    };
   }, [predictions]);
 
   // Auto-rotate globe to continent/region when globeTarget changes

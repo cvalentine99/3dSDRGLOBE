@@ -75,7 +75,7 @@ export default function AnomalyAlertPanel({
   const utils = trpc.useUtils();
 
   const alertsQuery = trpc.anomalies.list.useQuery(
-    { limit: 50, unacknowledgedOnly: !showAcknowledged },
+    { limit: 50, acknowledged: showAcknowledged ? undefined : false },
     { refetchInterval: 15000 }
   );
 
@@ -86,15 +86,7 @@ export default function AnomalyAlertPanel({
     },
   });
 
-  const acknowledgeAllMut = trpc.anomalies.acknowledgeAll.useMutation({
-    onSuccess: () => {
-      utils.anomalies.list.invalidate();
-      utils.anomalies.unacknowledgedCount.invalidate();
-      toast.success("All alerts acknowledged");
-    },
-  });
-
-  const deleteMut = trpc.anomalies.delete.useMutation({
+  const deleteMut = trpc.anomalies.dismiss.useMutation({
     onSuccess: () => {
       utils.anomalies.list.invalidate();
       utils.anomalies.unacknowledgedCount.invalidate();
@@ -175,7 +167,9 @@ export default function AnomalyAlertPanel({
             </button>
             {alerts.some((a) => !a.acknowledged) && (
               <button
-                onClick={() => acknowledgeAllMut.mutate()}
+                onClick={() => {
+                  alerts.filter(a => !a.acknowledged).forEach(a => acknowledgeMut.mutate({ id: a.id }));
+                }}
                 className="p-1.5 text-white/40 hover:text-green-400 rounded-lg transition-colors"
                 title="Acknowledge all"
               >

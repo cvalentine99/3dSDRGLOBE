@@ -153,3 +153,8 @@
 - [x] Dashboard analytics: responsive layout optimized for ultrawide monitors
 - [x] Dashboard analytics: integrate into app navigation with route and nav button
 - [x] All 374 vitest tests passing, zero TypeScript errors
+- [x] Refactor: Extract haversineKm to shared/geo.ts and update all 5 duplicate locations
+- [x] Refactor: Split server/routers.ts (1879 lines) into per-namespace files under server/routers/
+- [x] Refactor: Add Three.js cleanup (.dispose()) to all Globe.tsx useEffect hooks lacking cleanup
+- [x] Security: Move TDoA auth key from hardcoded constant to environment variable
+- [x] Accessibility: Add aria-label attributes to all icon-only buttons in globe nav bar

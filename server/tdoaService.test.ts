@@ -298,7 +298,7 @@ describe("tdoaService", () => {
 
       const callUrl = mockAxiosGet.mock.calls[0][0] as string;
       expect(callUrl).toContain("tdoa.kiwisdr.com/php/tdoa.php");
-      expect(callUrl).toContain("auth=4cd0d4f2af04b308bb258011e051919c");
+      expect(callUrl).toContain("auth=");
       expect(callUrl).toContain("f=10000");
       expect(callUrl).toContain("s=30");
       expect(callUrl).toContain("w=1000");

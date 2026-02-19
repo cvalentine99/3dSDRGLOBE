@@ -121,7 +121,7 @@ function HomeContent() {
   const anomalyCountQuery = trpc.anomalies.unacknowledgedCount.useQuery(undefined, {
     refetchInterval: 15000,
   });
-  const anomalyCount = anomalyCountQuery.data ?? 0;
+  const anomalyCount = typeof anomalyCountQuery.data === 'object' ? anomalyCountQuery.data?.count ?? 0 : anomalyCountQuery.data ?? 0;
 
   // Fetch saved TDoA targets for globe overlay
   const targetsQuery = trpc.targets.list.useQuery(undefined, {
@@ -396,6 +396,7 @@ function HomeContent() {
               : 'bg-cyan-500/10 border border-cyan-500/20 hover:bg-cyan-500/20 hover:border-cyan-500/30'
           }`}
           title="HF Propagation Overlay"
+          aria-label="HF Propagation Overlay"
         >
           <Activity className={`w-4 h-4 transition-colors ${propVisible ? 'text-cyan-300' : 'text-cyan-400 group-hover:text-cyan-300'}`} />
           <span className={`text-[10px] font-mono uppercase tracking-wider transition-colors hidden sm:inline ${
@@ -410,6 +411,7 @@ function HomeContent() {
           onClick={() => setWatchlistOpen(true)}
           className="relative flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/25 backdrop-blur-md hover:bg-emerald-500/25 hover:border-emerald-500/40 transition-all group"
           title="Watchlist — Background Monitoring"
+          aria-label="Watchlist — Background Monitoring"
         >
           <Eye className="w-4 h-4 text-emerald-400 group-hover:text-emerald-300 transition-colors" />
           <span className="text-[10px] font-mono text-emerald-300/80 uppercase tracking-wider group-hover:text-emerald-200 transition-colors hidden sm:inline">
@@ -432,6 +434,7 @@ function HomeContent() {
           onClick={() => setAlertsOpen(true)}
           className="relative flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/15 border border-amber-500/25 backdrop-blur-md hover:bg-amber-500/25 hover:border-amber-500/40 transition-all group"
           title="Alert Configuration"
+          aria-label="Alert Configuration"
         >
           <Bell className="w-4 h-4 text-amber-400 group-hover:text-amber-300 transition-colors" />
           <span className="text-[10px] font-mono text-amber-300/80 uppercase tracking-wider group-hover:text-amber-200 transition-colors hidden sm:inline">
@@ -453,6 +456,7 @@ function HomeContent() {
               : "bg-red-500/15 border border-red-500/25 hover:bg-red-500/25 hover:border-red-500/40"
           }`}
           title="Anomaly Detection Alerts"
+          aria-label="Anomaly Detection Alerts"
         >
           <AlertTriangle className="w-4 h-4 text-red-400 group-hover:text-red-300 transition-colors" />
           <span className="text-[10px] font-mono text-red-300/80 uppercase tracking-wider group-hover:text-red-200 transition-colors hidden sm:inline">
@@ -470,6 +474,7 @@ function HomeContent() {
           <button
             className="relative flex items-center gap-2 px-3 py-2 rounded-lg backdrop-blur-md transition-all group bg-indigo-500/15 border border-indigo-500/25 hover:bg-indigo-500/25 hover:border-indigo-500/40"
             title="Analytics Dashboard"
+            aria-label="Analytics Dashboard"
           >
             <BarChart3 className="w-4 h-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
             <span className="text-[10px] font-mono text-indigo-300/80 uppercase tracking-wider group-hover:text-indigo-200 transition-colors hidden sm:inline">
@@ -487,6 +492,7 @@ function HomeContent() {
               : "bg-blue-500/15 border border-blue-500/25 hover:bg-blue-500/25 hover:border-blue-500/40"
           }`}
           title="Shared Target Lists"
+          aria-label="Shared Target Lists"
         >
           <Users className="w-4 h-4 text-blue-400 group-hover:text-blue-300 transition-colors" />
           <span className="text-[10px] font-mono text-blue-300/80 uppercase tracking-wider group-hover:text-blue-200 transition-colors hidden sm:inline">
@@ -503,6 +509,7 @@ function HomeContent() {
               : 'bg-violet-500/10 border border-violet-500/20 hover:bg-violet-500/20 hover:border-violet-500/30'
           }`}
           title="TDoA Triangulation — Geolocate signal sources"
+          aria-label="TDoA Triangulation"
         >
           <Crosshair className={`w-4 h-4 transition-colors ${tdoaOpen ? 'text-violet-300' : 'text-violet-400 group-hover:text-violet-300'}`} />
           <span className={`text-[10px] font-mono uppercase tracking-wider transition-colors hidden sm:inline ${
@@ -526,6 +533,7 @@ function HomeContent() {
               : 'bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/30'
           }`}
           title="Saved Targets — Multi-target tracking overlay"
+          aria-label="Saved Targets"
         >
           <Target className={`w-4 h-4 transition-colors ${targetsOpen ? 'text-rose-300' : 'text-rose-400 group-hover:text-rose-300'}`} />
           <span className={`text-[10px] font-mono uppercase tracking-wider transition-colors hidden sm:inline ${
@@ -545,6 +553,7 @@ function HomeContent() {
           onClick={() => setMilRfOpen(true)}
           className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/15 border border-red-500/25 backdrop-blur-md hover:bg-red-500/25 hover:border-red-500/40 transition-all group"
           title="Military RF Intelligence Database"
+          aria-label="Military RF Intelligence Database"
         >
           <Radar className="w-4 h-4 text-red-400 group-hover:text-red-300 transition-colors" />
           <span className="text-[10px] font-mono text-red-300/80 uppercase tracking-wider group-hover:text-red-200 transition-colors hidden sm:inline">

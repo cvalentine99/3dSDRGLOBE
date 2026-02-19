@@ -6,6 +6,8 @@
  */
 
 import axios from "axios";
+import { haversineKm } from "@shared/geo";
+import { ENV } from "./_core/env";
 
 const TDOA_BASE = "http://tdoa.kiwisdr.com";
 const GPS_HOSTS_URL = `${TDOA_BASE}/tdoa/files/kiwi.gps.json`;
@@ -13,8 +15,8 @@ const REFS_URL = `${TDOA_BASE}/tdoa/refs.cjson`;
 const SUBMIT_URL = `${TDOA_BASE}/php/tdoa.php`;
 const FILES_BASE = `${TDOA_BASE}/tdoa/files`;
 
-// Auth key from KiwiSDR open-source TDoA extension (XOR-3 obfuscated in source)
-const TDOA_AUTH_KEY = "4cd0d4f2af04b308bb258011e051919c";
+// Auth key loaded from environment variable (set via webdev_request_secrets)
+const TDOA_AUTH_KEY = ENV.tdoaAuthKey;
 
 // Cache TTLs
 const GPS_HOSTS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -451,20 +453,8 @@ export function selectBestHosts(hosts: GpsHost[], count: number = 3): GpsHost[] 
   return selected;
 }
 
-/** Haversine distance in km between two lat/lon points */
-function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // Earth radius in km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
+// haversineDistance replaced by haversineKm from shared/geo.ts
+const haversineDistance = haversineKm;
 
 export async function proxyResultFile(
   key: string,

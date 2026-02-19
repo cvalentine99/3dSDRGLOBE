@@ -1,0 +1,130 @@
+import { publicProcedure, router } from "../_core/trpc";
+import { z } from "zod";
+import { checkReceiverStatus, getStatusCacheSize, clearStatusCache } from "../receiverStatus";
+import {
+  startBatchPrecheck,
+  getBatchJobStatus,
+  getBatchResultsSince,
+  cancelBatchJob,
+  type BatchReceiver,
+} from "../batchPrecheck";
+import {
+  registerReceiversForAutoRefresh,
+  getAutoRefreshStatus,
+  stopAutoRefresh,
+  forceRefresh,
+} from "../autoRefresh";
+
+export const receiverRouter = router({
+  checkStatus: publicProcedure
+    .input(
+      z.object({
+        receiverUrl: z.string().url(),
+        receiverType: z.enum(["KiwiSDR", "OpenWebRX", "WebSDR"]),
+      })
+    )
+    .query(async ({ input }) => {
+      return await checkReceiverStatus(input.receiverUrl, input.receiverType);
+    }),
+
+  checkBatch: publicProcedure
+    .input(
+      z.object({
+        receivers: z
+          .array(
+            z.object({
+              receiverUrl: z.string().url(),
+              receiverType: z.enum(["KiwiSDR", "OpenWebRX", "WebSDR"]),
+            })
+          )
+          .max(10),
+      })
+    )
+    .query(async ({ input }) => {
+      const results = await Promise.allSettled(
+        input.receivers.map((r) =>
+          checkReceiverStatus(r.receiverUrl, r.receiverType)
+        )
+      );
+
+      return results.map((r, i) => {
+        if (r.status === "fulfilled") return r.value;
+        return {
+          online: false,
+          receiverType: input.receivers[i].receiverType,
+          receiverUrl: input.receivers[i].receiverUrl,
+          checkedAt: Date.now(),
+          fromCache: false,
+          proxyUsed: false,
+          error: r.reason?.message || "Check failed",
+        };
+      });
+    }),
+
+  startBatchPrecheck: publicProcedure
+    .input(
+      z.object({
+        receivers: z.array(
+          z.object({
+            receiverUrl: z.string().url(),
+            receiverType: z.enum(["KiwiSDR", "OpenWebRX", "WebSDR"]),
+            stationLabel: z.string(),
+          })
+        ),
+      })
+    )
+    .mutation(({ input }) => {
+      const receivers = input.receivers as BatchReceiver[];
+      const jobId = startBatchPrecheck(receivers);
+      registerReceiversForAutoRefresh(receivers);
+      return { jobId };
+    }),
+
+  batchPrecheckStatus: publicProcedure.query(() => {
+    return getBatchJobStatus();
+  }),
+
+  batchPrecheckSince: publicProcedure
+    .input(
+      z.object({
+        since: z.number(),
+      })
+    )
+    .query(({ input }) => {
+      const batchResults = getBatchResultsSince(input.since);
+      const autoRefresh = getAutoRefreshStatus();
+      return {
+        ...batchResults,
+        autoRefresh: {
+          active: autoRefresh.active,
+          cycleCount: autoRefresh.cycleCount,
+          nextRefreshAt: autoRefresh.nextRefreshAt,
+          lastRefreshCompletedAt: autoRefresh.lastRefreshCompletedAt,
+        },
+      };
+    }),
+
+  cancelBatchPrecheck: publicProcedure.mutation(() => {
+    cancelBatchJob();
+    return { cancelled: true };
+  }),
+
+  autoRefreshStatus: publicProcedure.query(() => {
+    return getAutoRefreshStatus();
+  }),
+
+  forceRefresh: publicProcedure.mutation(() => {
+    return forceRefresh();
+  }),
+
+  stopAutoRefresh: publicProcedure.mutation(() => {
+    stopAutoRefresh();
+    return { stopped: true };
+  }),
+
+  cacheStats: publicProcedure.query(() => {
+    return {
+      cacheSize: getStatusCacheSize(),
+    };
+  }),
+});
