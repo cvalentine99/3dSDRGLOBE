@@ -36,6 +36,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import TDoAHistory from "./TDoAHistory";
 import TDoABatchQueue from "./TDoABatchQueue";
+import TDoACompare from "./TDoACompare";
 
 /* ── Types ────────────────────────────────────────── */
 
@@ -100,9 +101,13 @@ interface TDoAPanelProps {
     contours: any[];
     jobId: string;
   }) => void;
+  /** Toggle the live waterfall panel */
+  onToggleWaterfall?: () => void;
+  /** Whether waterfall is currently visible */
+  waterfallVisible?: boolean;
 }
 
-type PanelTab = "run" | "history" | "batch";
+type PanelTab = "run" | "history" | "batch" | "compare";
 
 const REF_CATEGORIES: Record<string, string> = {
   v: "VLF/LF",
@@ -144,6 +149,8 @@ export default function TDoAPanel({
   onResult,
   onJobStatusChange,
   onReplayJob,
+  onToggleWaterfall,
+  waterfallVisible,
 }: TDoAPanelProps) {
   // Tab state
   const [activeTab, setActiveTab] = useState<PanelTab>("run");
@@ -533,6 +540,19 @@ export default function TDoAPanel({
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                {onToggleWaterfall && selectedHosts.length > 0 && (
+                  <button
+                    onClick={onToggleWaterfall}
+                    title={waterfallVisible ? "Hide live waterfall" : "Show live waterfall"}
+                    className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${
+                      waterfallVisible
+                        ? "bg-green-500/20 border-green-500/30 text-green-400"
+                        : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60"
+                    }`}
+                  >
+                    <Radio className="w-4 h-4" />
+                  </button>
+                )}
                 <button
                   onClick={notifyEnabled ? undefined : requestNotifyPermission}
                   title={notifyEnabled ? "Notifications enabled" : "Enable browser notifications"}
@@ -588,6 +608,17 @@ export default function TDoAPanel({
                 <Zap className="w-3 h-3" />
                 Batch
               </button>
+              <button
+                onClick={() => setActiveTab("compare")}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider border-b-2 transition-colors ${
+                  activeTab === "compare"
+                    ? "border-cyan-400 text-cyan-300"
+                    : "border-transparent text-white/40 hover:text-white/60"
+                }`}
+              >
+                <Signal className="w-3 h-3" />
+                Compare
+              </button>
             </div>
 
             {/* Scrollable body */}
@@ -596,6 +627,24 @@ export default function TDoAPanel({
             {/* History Tab */}
             {activeTab === "history" && (
               <TDoAHistory isOpen={isOpen && activeTab === "history"} onReplay={onReplayJob} />
+            )}
+
+            {/* Compare Tab */}
+            {activeTab === "compare" && (
+              <TDoACompare
+                onOverlay={(jobs) => {
+                  // Overlay both jobs on the globe — use the first job as primary result
+                  if (jobs.length >= 1 && jobs[0].likelyLat && jobs[0].likelyLon) {
+                    onReplayJob?.({
+                      likelyLat: parseFloat(jobs[0].likelyLat),
+                      likelyLon: parseFloat(jobs[0].likelyLon),
+                      hosts: (jobs[0].hosts as any[]).map((h: any) => ({ lat: h.lat, lon: h.lon, h: h.h || h.id })),
+                      contours: (jobs[0].contourData as any[]) || [],
+                      jobId: String(jobs[0].id),
+                    });
+                  }
+                }}
+              />
             )}
 
             {/* Batch Tab */}

@@ -22,6 +22,8 @@ import {
   ChevronUp,
   ExternalLink,
   RotateCcw,
+  Link2,
+  Check,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -59,6 +61,29 @@ interface TDoAHistoryProps {
     heatmapUrl?: string;
     heatmapBounds?: { north: number; south: number; east: number; west: number };
   }) => void;
+}
+
+/** Small share-link button for individual jobs */
+function ShareButton({ jobId }: { jobId: number }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    const url = `${window.location.origin}/tdoa/${jobId}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      toast.success("Share link copied!");
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  return (
+    <button
+      onClick={handleCopy}
+      className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md bg-white/5 border border-white/10 text-white/40 text-[10px] hover:bg-violet-500/15 hover:border-violet-500/20 hover:text-violet-300 transition-colors"
+      title="Copy shareable link"
+    >
+      {copied ? <Check className="w-3 h-3 text-green-400" /> : <Link2 className="w-3 h-3" />}
+      {copied ? "Copied" : "Share"}
+    </button>
+  );
 }
 
 const STATUS_CONFIG: Record<string, { icon: typeof CheckCircle2; color: string; label: string }> = {
@@ -350,6 +375,7 @@ export default function TDoAHistory({ isOpen, onReplay }: TDoAHistoryProps) {
                               Replay on Globe
                             </button>
                           )}
+                          <ShareButton jobId={job.id} />
                           <button
                             onClick={() => handleDelete(job.id)}
                             disabled={deleteMutation.isPending}

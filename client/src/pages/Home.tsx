@@ -28,6 +28,7 @@ import { getUnacknowledgedCount } from "@/lib/alertService";
 import { getWatchlistCount, getOnlineCount } from "@/lib/watchlistService";
 import type { IonosondeStation } from "@/lib/propagationService";
 import TDoAPanel from "@/components/TDoAPanel";
+import KiwiWaterfall from "@/components/KiwiWaterfall";
 
 /** Local error boundary specifically for the Globe component to catch WebGL crashes */
 class GlobeErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string | null }> {
@@ -93,6 +94,9 @@ function HomeContent() {
   const [propVisible, setPropVisible] = useState(false);
   const [tdoaOpen, setTdoaOpen] = useState(false);
   const [tdoaSelectedHosts, setTdoaSelectedHosts] = useState<any[]>([]);
+  const [waterfallVisible, setWaterfallVisible] = useState(false);
+  const [waterfallFreq, setWaterfallFreq] = useState(10000);
+  const [waterfallPb, setWaterfallPb] = useState(1000);
   const [tdoaResult, setTdoaResult] = useState<{
     likelyLat: number;
     likelyLon: number;
@@ -415,6 +419,17 @@ function HomeContent() {
           });
         }}
         onReplayJob={handleTdoaReplay}
+        onToggleWaterfall={() => setWaterfallVisible((v) => !v)}
+        waterfallVisible={waterfallVisible}
+      />
+
+      {/* Live KiwiSDR Waterfall */}
+      <KiwiWaterfall
+        hosts={tdoaSelectedHosts}
+        frequencyKhz={waterfallFreq}
+        passbandHz={waterfallPb}
+        visible={waterfallVisible && tdoaSelectedHosts.length > 0}
+        onClose={() => setWaterfallVisible(false)}
       />
 
       {/* Propagation Overlay Panel */}

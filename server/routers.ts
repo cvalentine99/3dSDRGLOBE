@@ -405,6 +405,27 @@ export const appRouter = router({
       }),
 
     /**
+     * Get a single TDoA job by ID (for shareable URLs).
+     */
+    getJobById: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        try {
+          const db = await getDb();
+          if (!db) return null;
+          const rows = await db
+            .select()
+            .from(tdoaJobs)
+            .where(eq(tdoaJobs.id, input.id))
+            .limit(1);
+          return rows[0] || null;
+        } catch (err) {
+          console.error("[TDoA] Failed to fetch job by ID:", err);
+          return null;
+        }
+      }),
+
+    /**
      * Delete a job from history.
      */
     deleteJob: publicProcedure

@@ -80,3 +80,15 @@
 - [x] TDoA accuracy overlay: additive blending, inner contours more opaque (confidence gradient)
 - [x] TDoA accuracy overlay: polygon outlines with opacity scaling by contour depth
 - [x] All 160 vitest tests passing, zero TypeScript errors
+- [x] Shareable TDoA result URLs: /tdoa/:jobId route with full result page, globe overlay, and host details
+- [x] Shareable TDoA result URLs: TDoAResult.tsx page component with globe visualization and job metadata
+- [x] Shareable TDoA result URLs: getJobById tRPC endpoint to fetch single job by ID
+- [x] Shareable TDoA result URLs: ShareButton with copy-link in TDoAHistory panel
+- [x] TDoA comparison view: Compare tab in TDoAPanel with side-by-side job selection
+- [x] TDoA comparison view: position drift distance and bearing calculation
+- [x] TDoA comparison view: comparison table with frequency, hosts, overlap, and delta metrics
+- [x] Audio waterfall integration: KiwiWaterfall.tsx component with iframe embed
+- [x] Audio waterfall integration: auto-tune to TDoA target frequency with mode detection (CW/AM/USB)
+- [x] Audio waterfall integration: host selector dropdown to switch between selected KiwiSDR hosts
+- [x] Audio waterfall integration: waterfall toggle button in TDoA panel header
+- [x] All 170 vitest tests passing, zero TypeScript errors

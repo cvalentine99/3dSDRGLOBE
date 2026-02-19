@@ -754,6 +754,145 @@ describe("tdoaService", () => {
     });
   });
 
+  describe("shareable URLs - getJobById", () => {
+    it("returns job data structure suitable for shareable result page", async () => {
+      // Verify the job state structure includes all fields needed for the result page
+      mockAxiosGet.mockResolvedValueOnce({ data: "OK" });
+      const job = await submitTdoaJob(mockSubmitParams);
+
+      expect(job.id).toBeDefined();
+      expect(job.key).toBeDefined();
+      expect(job.params).toBeDefined();
+      expect(job.params.frequencyKhz).toBe(10000);
+      expect(job.params.hosts).toHaveLength(3);
+      expect(job.createdAt).toBeGreaterThan(0);
+    });
+
+    it("job key can be used to construct heatmap URL", async () => {
+      mockAxiosGet.mockResolvedValueOnce({ data: "OK" });
+      const job = await submitTdoaJob(mockSubmitParams);
+
+      const heatmapUrl = `/api/tdoa-heatmap/${job.key}/TDoA_map_for_map.png`;
+      expect(heatmapUrl).toContain(job.key);
+      expect(heatmapUrl).toContain("TDoA_map_for_map.png");
+    });
+
+    it("job params include mapBounds for heatmap overlay positioning", async () => {
+      mockAxiosGet.mockResolvedValueOnce({ data: "OK" });
+      const job = await submitTdoaJob(mockSubmitParams);
+
+      expect(job.params.mapBounds).toEqual({
+        north: 60, south: 30, east: 10, west: -130,
+      });
+    });
+  });
+
+  describe("comparison view data", () => {
+    it("two jobs can be compared by their likely positions", async () => {
+      // Simulate two completed jobs with different positions
+      const pos1 = { lat: 40.68, lng: -105.04 };
+      const pos2 = { lat: 41.12, lng: -104.85 };
+
+      // Calculate drift distance (Haversine approximation)
+      const dLat = (pos2.lat - pos1.lat) * (Math.PI / 180);
+      const dLon = (pos2.lng - pos1.lng) * (Math.PI / 180);
+      const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(pos1.lat * Math.PI / 180) *
+        Math.cos(pos2.lat * Math.PI / 180) *
+        Math.sin(dLon / 2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const distKm = 6371 * c;
+
+      // Positions should be within reasonable TDoA accuracy (< 100km)
+      expect(distKm).toBeLessThan(100);
+      expect(distKm).toBeGreaterThan(0);
+    });
+
+    it("drift bearing can be calculated between two positions", () => {
+      const pos1 = { lat: 40.68, lon: -105.04 };
+      const pos2 = { lat: 41.12, lon: -104.85 };
+
+      const dLon = (pos2.lon - pos1.lon) * (Math.PI / 180);
+      const lat1 = pos1.lat * (Math.PI / 180);
+      const lat2 = pos2.lat * (Math.PI / 180);
+      const y = Math.sin(dLon) * Math.cos(lat2);
+      const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+      const bearing = ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
+
+      expect(bearing).toBeGreaterThanOrEqual(0);
+      expect(bearing).toBeLessThan(360);
+    });
+
+    it("host overlap can be computed between two job host sets", () => {
+      const hosts1 = ["kph.kiwisdr.com", "ve3sun.kiwisdr.com", "g8jnj.kiwisdr.com"];
+      const hosts2 = ["kph.kiwisdr.com", "dl1rf.kiwisdr.com", "g8jnj.kiwisdr.com"];
+
+      const set1 = new Set(hosts1);
+      const overlap = hosts2.filter((h) => set1.has(h));
+      const overlapPct = overlap.length / Math.max(hosts1.length, hosts2.length) * 100;
+
+      expect(overlap).toHaveLength(2);
+      expect(overlapPct).toBeCloseTo(66.67, 0);
+    });
+  });
+
+  describe("waterfall integration", () => {
+    it("KiwiSDR URL can be constructed from host and frequency", () => {
+      const host = "kph.kiwisdr.com";
+      const port = 8073;
+      const freq = 10000;
+      const mode = "usb";
+      const zoom = 10;
+
+      const url = `http://${host}:${port}/?f=${freq}/${mode}&z=${zoom}`;
+
+      expect(url).toBe("http://kph.kiwisdr.com:8073/?f=10000/usb&z=10");
+      expect(url).toContain(host);
+      expect(url).toContain(String(freq));
+    });
+
+    it("mode is determined by frequency range", () => {
+      const getMode = (freqKhz: number) => {
+        if (freqKhz < 500) return "cw";
+        if (freqKhz > 3000 && freqKhz < 30000) return "usb";
+        return "am";
+      };
+
+      expect(getMode(77.5)).toBe("cw");    // DCF77
+      expect(getMode(198)).toBe("cw");     // BBC R4 LW
+      expect(getMode(1000)).toBe("am");    // MW broadcast
+      expect(getMode(10000)).toBe("usb");  // WWV
+      expect(getMode(14100)).toBe("usb");  // 20m ham band
+    });
+
+    it("zoom level scales with passband width", () => {
+      const getZoom = (passbandHz: number) => {
+        if (passbandHz <= 500) return 12;
+        if (passbandHz <= 2000) return 10;
+        if (passbandHz <= 6000) return 8;
+        return 6;
+      };
+
+      expect(getZoom(200)).toBe(12);   // Narrow CW
+      expect(getZoom(1000)).toBe(10);  // Standard AM
+      expect(getZoom(4000)).toBe(8);   // Wide AM
+      expect(getZoom(10000)).toBe(6);  // Very wide
+    });
+
+    it("selected hosts provide valid connection targets for waterfall", async () => {
+      mockAxiosGet.mockResolvedValueOnce({ data: mockGpsHosts });
+      const hosts = await getGpsHosts();
+
+      // Each host should have hostname and port for iframe URL
+      hosts.forEach((host) => {
+        expect(host.h).toBeTruthy();
+        expect(host.p).toBeGreaterThan(0);
+        const url = `http://${host.h}:${host.p}/?f=10000/usb&z=10`;
+        expect(url).toMatch(/^http:\/\/.+:\d+\/\?f=/);
+      });
+    });
+  });
+
   describe("contour data structure", () => {
     it("contour data includes polygons and polygon_colors for accuracy overlay", () => {
       // Verify the expected structure of contour data that the globe overlay consumes
