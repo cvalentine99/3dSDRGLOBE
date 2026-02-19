@@ -21,6 +21,7 @@ import {
   createBearingLines,
   createTargetMarker,
   createContourOverlay,
+  createHeatmapOverlay,
   updateTdoaAnimations,
   disposeTdoaGroup,
   type TdoaHostMarkerData,
@@ -66,6 +67,8 @@ export interface TdoaOverlayData {
   targetLat?: number;
   targetLon?: number;
   contours?: ContourData[];
+  heatmapUrl?: string;
+  heatmapBounds?: { north: number; south: number; east: number; west: number };
   visible?: boolean;
 }
 
@@ -940,6 +943,15 @@ export default function Globe({ ionosondes = [], isStationOnline, tdoaOverlay }:
     if (tdoaOverlay.contours && tdoaOverlay.contours.length > 0) {
       const contourGroup = createContourOverlay(tdoaOverlay.contours);
       tdoaGroup.add(contourGroup);
+    }
+
+    // Heatmap texture overlay
+    if (tdoaOverlay.heatmapUrl && tdoaOverlay.heatmapBounds) {
+      const heatmap = createHeatmapOverlay(
+        tdoaOverlay.heatmapUrl,
+        tdoaOverlay.heatmapBounds
+      );
+      tdoaGroup.add(heatmap);
     }
 
     // Target position marker

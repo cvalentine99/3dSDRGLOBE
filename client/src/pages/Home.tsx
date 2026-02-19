@@ -99,6 +99,8 @@ function HomeContent() {
     hosts: { lat: number; lon: number; h: string }[];
     contours: any[];
     jobId: string;
+    heatmapUrl?: string;
+    heatmapBounds?: { north: number; south: number; east: number; west: number };
   } | null>(null);
 
   // Build TDoA overlay data for the globe
@@ -126,6 +128,8 @@ function HomeContent() {
         targetLat: tdoaResult.likelyLat,
         targetLon: tdoaResult.likelyLon,
         contours: tdoaResult.contours,
+        heatmapUrl: tdoaResult.heatmapUrl,
+        heatmapBounds: tdoaResult.heatmapBounds,
       };
     }
 
@@ -141,6 +145,8 @@ function HomeContent() {
     hosts: { lat: number; lon: number; h: string }[];
     contours: any[];
     jobId: string;
+    heatmapUrl?: string;
+    heatmapBounds?: { north: number; south: number; east: number; west: number };
   }) => {
     setTdoaResult(job);
     setTdoaOpen(true);
@@ -397,6 +403,17 @@ function HomeContent() {
           });
         }}
         onClearHosts={() => setTdoaSelectedHosts([])}
+        onResult={(res) => {
+          setTdoaResult({
+            likelyLat: res.likelyLat,
+            likelyLon: res.likelyLon,
+            hosts: tdoaSelectedHosts.map((h: any) => ({ lat: h.lat, lon: h.lon, h: h.h || h.id })),
+            contours: [],
+            jobId: res.jobId,
+            heatmapUrl: res.heatmapUrl,
+            heatmapBounds: res.heatmapBounds,
+          });
+        }}
         onReplayJob={handleTdoaReplay}
       />
 

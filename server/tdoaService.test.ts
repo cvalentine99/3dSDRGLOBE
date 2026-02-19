@@ -672,5 +672,35 @@ describe("tdoaService", () => {
       const result = await proxyResultFile("12345", "file.json");
       expect(result).toBeNull();
     });
+
+    it("proxies heatmap PNG for globe overlay", async () => {
+      const mockPng = Buffer.from("\x89PNG\r\n\x1a\n fake png data");
+      mockAxiosGet.mockResolvedValueOnce({
+        status: 200,
+        data: mockPng,
+        headers: { "content-type": "image/png" },
+      });
+
+      const result = await proxyResultFile("06843", "TDoA map_for_map.png");
+      expect(result).not.toBeNull();
+      expect(result!.contentType).toBe("image/png");
+      expect(result!.data).toEqual(mockPng);
+
+      // Verify the correct URL was called
+      const callUrl = mockAxiosGet.mock.calls[0][0] as string;
+      expect(callUrl).toContain("06843");
+      expect(callUrl).toContain("TDoA map_for_map.png");
+    });
+  });
+
+  describe("submitTdoaJob result with heatmap key", () => {
+    it("job state includes key for heatmap URL construction", async () => {
+      mockAxiosGet.mockResolvedValueOnce({ data: "OK" });
+
+      const job = await submitTdoaJob(mockSubmitParams);
+      expect(job.key).toBeDefined();
+      expect(typeof job.key).toBe("string");
+      expect(job.key!.length).toBeGreaterThan(0);
+    });
   });
 });

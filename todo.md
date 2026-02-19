@@ -68,3 +68,7 @@
 - [x] Export TDoA results: "Download Report" button that exports job results as JSON
 - [x] Write 8 vitest tests for selectBestHosts algorithm (empty, fewer, exact count, GPS filter, capacity filter, SNR filter, geographic spread, custom count)
 - [x] All 154 vitest tests passing, zero TypeScript errors
+- [x] TDoA frequency presets: 12 quick-select buttons (WWV 5/10/15M, WWVH, CHU, DCF77, BBC R4 LW, RWM, BPC, JJY, MSF, WWVB) with auto-fill frequency + passband
+- [x] TDoA result heatmap overlay: Express proxy route for TDoA_map_for_map.png, Three.js spherical patch texture overlay with additive blending
+- [x] Batch TDoA scheduling: queue panel with presets (WWV Multi-Band, Time Signals, HF Broadcast), sequential execution, cross-band comparison table with avg position and spread metrics
+- [x] All 156 vitest tests passing, zero TypeScript errors

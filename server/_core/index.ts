@@ -8,6 +8,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { setupSdrRelay } from "../sdrRelay";
+import { proxyResultFile } from "../tdoaService";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -38,6 +39,26 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
+  // TDoA heatmap proxy — serves PNG images from tdoa.kiwisdr.com
+  app.get("/api/tdoa/heatmap/:key/:filename", async (req, res) => {
+    try {
+      const { key, filename } = req.params;
+      // Only allow image files for security
+      if (!filename.endsWith(".png") && !filename.endsWith(".jpg")) {
+        return res.status(400).json({ error: "Only image files allowed" });
+      }
+      const result = await proxyResultFile(key, filename);
+      if (!result) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      res.setHeader("Content-Type", result.contentType);
+      res.setHeader("Cache-Control", "public, max-age=86400"); // cache 24h
+      res.send(result.data);
+    } catch {
+      res.status(500).json({ error: "Proxy error" });
+    }
+  });
+
   // tRPC API
   app.use(
     "/api/trpc",

@@ -321,6 +321,91 @@ export function createContourOverlay(contours: ContourData[]): THREE.Group {
   return group;
 }
 
+/* ── Heatmap Texture Overlay ─────────────────────── */
+
+/**
+ * Creates a heatmap overlay on the globe surface from a TDoA result image.
+ * The image is projected onto a spherical segment matching the imgBounds.
+ */
+export function createHeatmapOverlay(
+  imageUrl: string,
+  bounds: { north: number; south: number; east: number; west: number }
+): THREE.Group {
+  const group = new THREE.Group();
+  group.name = "tdoa-heatmap";
+
+  const loader = new THREE.TextureLoader();
+  loader.load(
+    imageUrl,
+    (texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+
+      // Create a spherical patch geometry matching the bounds
+      const latRange = bounds.north - bounds.south;
+      const lonRange = bounds.east - bounds.west;
+
+      // Number of segments proportional to area
+      const latSegs = Math.max(16, Math.round(latRange * 2));
+      const lonSegs = Math.max(16, Math.round(lonRange * 2));
+
+      const positions: number[] = [];
+      const uvs: number[] = [];
+      const indices: number[] = [];
+      const r = GLOBE_RADIUS + MARKER_HEIGHT + 0.008;
+
+      for (let j = 0; j <= latSegs; j++) {
+        for (let i = 0; i <= lonSegs; i++) {
+          const u = i / lonSegs;
+          const v = j / latSegs;
+
+          const lat = bounds.north - v * latRange;
+          const lon = bounds.west + u * lonRange;
+
+          const pos = latLngToVector3(lat, lon, r);
+          positions.push(pos.x, pos.y, pos.z);
+          uvs.push(u, v);
+        }
+      }
+
+      for (let j = 0; j < latSegs; j++) {
+        for (let i = 0; i < lonSegs; i++) {
+          const a = j * (lonSegs + 1) + i;
+          const b = a + 1;
+          const c = (j + 1) * (lonSegs + 1) + i;
+          const d = c + 1;
+          indices.push(a, b, c);
+          indices.push(b, d, c);
+        }
+      }
+
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+      geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+      geometry.setIndex(indices);
+      geometry.computeVertexNormals();
+
+      const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true,
+        opacity: 0.55,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        blending: THREE.AdditiveBlending,
+      });
+
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.userData = { type: "tdoa-heatmap-mesh" };
+      group.add(mesh);
+    },
+    undefined,
+    (err) => {
+      console.warn("[TDoA] Failed to load heatmap texture:", err);
+    }
+  );
+
+  return group;
+}
+
 /* ── Animation Update ────────────────────────────── */
 
 export function updateTdoaAnimations(group: THREE.Group, elapsedTime: number): void {
