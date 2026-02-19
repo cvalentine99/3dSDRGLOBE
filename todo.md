@@ -55,3 +55,9 @@
 - [x] Integrate TDoA globe overlay (bearing lines, contour polygons, most-likely-position marker on 3D globe)
 - [x] Improve TDoA error handling for 401 Unauthorized (KiwiSDR-native auth) with user-friendly message
 - [x] Add 401/4xx handling tests to tdoaService.test.ts (30 tests total, all passing)
+- [x] Discover TDoA auth key (XOR-3 obfuscated in KiwiSDR open-source) — auth=4cd0d4f2af04b308bb258011e051919c
+- [x] Add auth parameter to TDoA job submission URL
+- [x] Fix done-flag bug: TDoA server never sets done=1 in progress.json — added status.json fallback check
+- [x] Encode slashes in host IDs (K9DXI/1 → K9DXI-1) to match KiwiSDR extension behavior
+- [x] Verified live TDoA job completion: 3 hosts (Ireland, Canada, NZ), 2/3 GOOD, got likely_position lat=6.5 lng=-85
+- [x] Updated vitest tests: auth key in URL, slash encoding, status.json fallback detection (146 tests passing)

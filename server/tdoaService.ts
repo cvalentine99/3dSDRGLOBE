@@ -13,6 +13,9 @@ const REFS_URL = `${TDOA_BASE}/tdoa/refs.cjson`;
 const SUBMIT_URL = `${TDOA_BASE}/php/tdoa.php`;
 const FILES_BASE = `${TDOA_BASE}/tdoa/files`;
 
+// Auth key from KiwiSDR open-source TDoA extension (XOR-3 obfuscated in source)
+const TDOA_AUTH_KEY = "4cd0d4f2af04b308bb258011e051919c";
+
 // Cache TTLs
 const GPS_HOSTS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const REFS_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
@@ -190,10 +193,11 @@ export async function submitTdoaJob(params: TdoaSubmitParams): Promise<TdoaJobSt
   activeJobs.set(jobId, job);
 
   const queryParams = new URLSearchParams();
+  queryParams.set("auth", TDOA_AUTH_KEY);
   queryParams.set("key", key);
   queryParams.set("h", params.hosts.map((h) => h.h).join(","));
   queryParams.set("p", params.hosts.map((h) => String(h.p)).join(","));
-  queryParams.set("id", params.hosts.map((h) => h.id).join(","));
+  queryParams.set("id", params.hosts.map((h) => h.id.replace(/\//g, "-")).join(","));
   queryParams.set("f", String(params.frequencyKhz));
   queryParams.set("s", String(params.sampleTime));
   queryParams.set("w", String(params.passbandHz));
@@ -207,10 +211,9 @@ export async function submitTdoaJob(params: TdoaSubmitParams): Promise<TdoaJobSt
     if (resp.status === 401) {
       job.status = "error";
       job.error =
-        "TDoA server requires KiwiSDR-native authentication. " +
-        "Job submission is only available from within a KiwiSDR TDoA extension. " +
-        "GPS host browsing and reference transmitters still work.";
-      console.warn(`[TDoA] Job ${jobId} got 401 — server requires KiwiSDR auth token`);
+        "TDoA server returned 401 Unauthorized. The auth key may have been rotated. " +
+        "Please report this issue so the key can be updated.";
+      console.warn(`[TDoA] Job ${jobId} got 401 — auth key may need updating`);
     } else if (resp.status >= 400) {
       job.status = "error";
       job.error = `Submit failed: HTTP ${resp.status}`;
@@ -282,6 +285,21 @@ export async function pollJobProgress(jobId: string): Promise<TdoaJobState | nul
     if (progress.done) {
       job.status = "computing";
       await fetchJobResults(job);
+    } else {
+      // Workaround: the TDoA server sometimes never sets done=1 in progress.json
+      // even after computation completes. Check status.json directly as a fallback.
+      try {
+        const statusCheck = await axios.get(`${FILES_BASE}/${job.key}/status.json`, {
+          timeout: 5000,
+          validateStatus: (s) => s === 200 || s === 404,
+        });
+        if (statusCheck.status === 200 && statusCheck.data) {
+          console.log(`[TDoA] Job ${jobId} detected completion via status.json (done flag was 0)`);
+          await fetchJobResults(job);
+        }
+      } catch {
+        // Ignore — status.json not ready yet
+      }
     }
   } catch (err: any) {
     console.error(`[TDoA] Progress poll failed for ${jobId}:`, err.message);

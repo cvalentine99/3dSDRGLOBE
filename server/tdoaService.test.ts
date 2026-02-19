@@ -244,14 +244,14 @@ describe("tdoaService", () => {
       expect(job.error).toContain("Submit failed");
     });
 
-    it("handles 401 Unauthorized with KiwiSDR auth message", async () => {
+    it("handles 401 Unauthorized with auth key rotation message", async () => {
       mockAxiosGet.mockResolvedValueOnce({ status: 401, data: "401 - Unauthorized" });
 
       const job = await submitTdoaJob(mockSubmitParams);
 
       expect(job.status).toBe("error");
-      expect(job.error).toContain("KiwiSDR-native authentication");
-      expect(job.error).toContain("GPS host browsing");
+      expect(job.error).toContain("401 Unauthorized");
+      expect(job.error).toContain("auth key may have been rotated");
     });
 
     it("handles other 4xx errors gracefully", async () => {
@@ -296,12 +296,31 @@ describe("tdoaService", () => {
 
       const callUrl = mockAxiosGet.mock.calls[0][0] as string;
       expect(callUrl).toContain("tdoa.kiwisdr.com/php/tdoa.php");
+      expect(callUrl).toContain("auth=4cd0d4f2af04b308bb258011e051919c");
       expect(callUrl).toContain("f=10000");
       expect(callUrl).toContain("s=30");
       expect(callUrl).toContain("w=1000");
       expect(callUrl).toContain("kph.kiwisdr.com");
       expect(callUrl).toContain("ve3sun.kiwisdr.com");
       expect(callUrl).toContain("g8jnj.kiwisdr.com");
+    });
+
+    it("encodes slashes in host IDs", async () => {
+      mockAxiosGet.mockResolvedValueOnce({ data: "OK" });
+
+      const paramsWithSlash: TdoaSubmitParams = {
+        ...mockSubmitParams,
+        hosts: [
+          { h: "host1.com", p: 8073, id: "K9DXI/1", lat: 46.2, lon: -89.6 },
+          { h: "host2.com", p: 8073, id: "VE3SUN", lat: 43.65, lon: -79.38 },
+        ],
+      };
+
+      await submitTdoaJob(paramsWithSlash);
+
+      const callUrl = mockAxiosGet.mock.calls[0][0] as string;
+      expect(callUrl).toContain("K9DXI-1");
+      expect(callUrl).not.toContain("K9DXI/1");
     });
 
     it("includes map bounds in pi parameter", async () => {
@@ -346,8 +365,56 @@ describe("tdoaService", () => {
         data: { status0: 0, done: false },
       });
 
+      // Mock status.json fallback check (404 = not done yet)
+      mockAxiosGet.mockResolvedValueOnce({ status: 404, data: null });
+
       const polled = await pollJobProgress(job.id);
       expect(polled!.status).toBe("computing");
+    });
+
+    it("detects completion via status.json when done flag stays 0", async () => {
+      // Submit a job first
+      mockAxiosGet.mockResolvedValueOnce({ data: "OK" });
+      const job = await submitTdoaJob(mockSubmitParams);
+
+      // Mock progress.json with status0 but done=false (the bug)
+      mockAxiosGet.mockResolvedValueOnce({
+        status: 200,
+        data: { status0: 0, done: false },
+      });
+
+      // Mock status.json fallback check — returns 200 with result data
+      mockAxiosGet.mockResolvedValueOnce({
+        status: 200,
+        data: {
+          position: { likely_position: { lat: 6.5, lng: -85 } },
+          input: {
+            per_file: [{ name: "IO54if", status: "GOOD" }],
+            result: { status: "GOOD", message: "2/3 good stations" },
+          },
+        },
+      });
+
+      // Mock the fetchJobResults call (status.json fetched again)
+      mockAxiosGet.mockResolvedValueOnce({
+        status: 200,
+        data: {
+          position: { likely_position: { lat: 6.5, lng: -85 } },
+          input: {
+            per_file: [{ name: "IO54if", status: "GOOD" }],
+            result: { status: "GOOD", message: "2/3 good stations" },
+          },
+        },
+      });
+
+      // Mock contour fetches
+      mockAxiosGet.mockResolvedValueOnce({ status: 404, data: null });
+      mockAxiosGet.mockResolvedValueOnce({ status: 404, data: null });
+      mockAxiosGet.mockResolvedValueOnce({ status: 404, data: null });
+
+      const polled = await pollJobProgress(job.id);
+      expect(polled!.status).toBe("complete");
+      expect(polled!.completedAt).toBeGreaterThan(0);
     });
 
     it("fetches results when progress shows done", async () => {
