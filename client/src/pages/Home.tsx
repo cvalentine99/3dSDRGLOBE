@@ -25,7 +25,7 @@ import PropagationOverlay from "@/components/PropagationOverlay";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { AnimatePresence } from "framer-motion";
 import { motion } from "framer-motion";
-import { Radar, Bell, Eye, Activity, Crosshair, Target, AlertTriangle, Users } from "lucide-react";
+import { Radar, Bell, Eye, Activity, Crosshair, Target, AlertTriangle, Users, BarChart3 } from "lucide-react";
 import { getUnacknowledgedCount } from "@/lib/alertService";
 import { getWatchlistCount, getOnlineCount } from "@/lib/watchlistService";
 import type { IonosondeStation } from "@/lib/propagationService";
@@ -33,6 +33,7 @@ import TDoAPanel from "@/components/TDoAPanel";
 import KiwiWaterfall from "@/components/KiwiWaterfall";
 import TargetManager from "@/components/TargetManager";
 import { trpc } from "@/lib/trpc";
+import { Link } from "wouter";
 import type { SavedTargetData, DriftTrailEntry, PredictionData } from "@/components/TDoAGlobeOverlay";
 
 /** Local error boundary specifically for the Globe component to catch WebGL crashes */
@@ -463,6 +464,19 @@ function HomeContent() {
             </span>
           )}
         </button>
+
+        {/* Dashboard Analytics Button */}
+        <Link href="/dashboard">
+          <button
+            className="relative flex items-center gap-2 px-3 py-2 rounded-lg backdrop-blur-md transition-all group bg-indigo-500/15 border border-indigo-500/25 hover:bg-indigo-500/25 hover:border-indigo-500/40"
+            title="Analytics Dashboard"
+          >
+            <BarChart3 className="w-4 h-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
+            <span className="text-[10px] font-mono text-indigo-300/80 uppercase tracking-wider group-hover:text-indigo-200 transition-colors hidden sm:inline">
+              Dashboard
+            </span>
+          </button>
+        </Link>
 
         {/* Shared Lists Button */}
         <button

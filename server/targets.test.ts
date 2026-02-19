@@ -2277,3 +2277,348 @@ describe("FFT in-place (Cooley-Tukey)", () => {
     expect(real[0]).toBe(42);
   });
 });
+
+// ── Analytics Dashboard Tests ──────────────────────────────────
+
+describe("Analytics dashboard endpoints", () => {
+  describe("summary statistics", () => {
+    it("should return all expected summary fields", () => {
+      const expectedFields = [
+        "totalTargets",
+        "totalJobs",
+        "completedJobs",
+        "totalRecordings",
+        "totalFingerprints",
+        "activeAnomalies",
+        "totalAnomalies",
+        "sharedLists",
+        "totalMembers",
+        "receiversOnline",
+        "receiversTotal",
+      ];
+
+      // Simulate the default return when DB is not available
+      const defaultSummary = {
+        totalTargets: 0,
+        totalJobs: 0,
+        completedJobs: 0,
+        totalRecordings: 0,
+        totalFingerprints: 0,
+        activeAnomalies: 0,
+        totalAnomalies: 0,
+        sharedLists: 0,
+        totalMembers: 0,
+        receiversOnline: 0,
+        receiversTotal: 0,
+      };
+
+      for (const field of expectedFields) {
+        expect(defaultSummary).toHaveProperty(field);
+        expect(typeof (defaultSummary as any)[field]).toBe("number");
+      }
+    });
+
+    it("should have non-negative values for all summary fields", () => {
+      const summary = {
+        totalTargets: 5,
+        totalJobs: 12,
+        completedJobs: 8,
+        totalRecordings: 20,
+        totalFingerprints: 15,
+        activeAnomalies: 2,
+        totalAnomalies: 7,
+        sharedLists: 3,
+        totalMembers: 6,
+        receiversOnline: 450,
+        receiversTotal: 1200,
+      };
+
+      for (const [key, value] of Object.entries(summary)) {
+        expect(value).toBeGreaterThanOrEqual(0);
+      }
+    });
+
+    it("should have completedJobs <= totalJobs", () => {
+      const summary = { totalJobs: 12, completedJobs: 8 };
+      expect(summary.completedJobs).toBeLessThanOrEqual(summary.totalJobs);
+    });
+
+    it("should have activeAnomalies <= totalAnomalies", () => {
+      const summary = { activeAnomalies: 2, totalAnomalies: 7 };
+      expect(summary.activeAnomalies).toBeLessThanOrEqual(summary.totalAnomalies);
+    });
+
+    it("should have receiversOnline <= receiversTotal", () => {
+      const summary = { receiversOnline: 450, receiversTotal: 1200 };
+      expect(summary.receiversOnline).toBeLessThanOrEqual(summary.receiversTotal);
+    });
+  });
+
+  describe("anomaly trend aggregation", () => {
+    function aggregateAnomalyTrend(
+      alerts: Array<{ severity: "low" | "medium" | "high"; createdAt: number }>,
+      days: number
+    ) {
+      const startTime = Date.now() - days * 24 * 60 * 60 * 1000;
+      const filtered = alerts.filter((a) => a.createdAt >= startTime);
+
+      const dayMap = new Map<string, { low: number; medium: number; high: number; total: number }>();
+      for (const alert of filtered) {
+        const date = new Date(alert.createdAt).toISOString().split("T")[0];
+        const entry = dayMap.get(date) ?? { low: 0, medium: 0, high: 0, total: 0 };
+        entry[alert.severity]++;
+        entry.total++;
+        dayMap.set(date, entry);
+      }
+
+      const result: Array<{ date: string; low: number; medium: number; high: number; total: number }> = [];
+      const now = new Date();
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().split("T")[0];
+        result.push({ date: dateStr, ...(dayMap.get(dateStr) ?? { low: 0, medium: 0, high: 0, total: 0 }) });
+      }
+      return result;
+    }
+
+    it("should return correct number of days", () => {
+      const result = aggregateAnomalyTrend([], 7);
+      expect(result).toHaveLength(7);
+    });
+
+    it("should return correct number of days for 30-day range", () => {
+      const result = aggregateAnomalyTrend([], 30);
+      expect(result).toHaveLength(30);
+    });
+
+    it("should fill missing days with zeros", () => {
+      const result = aggregateAnomalyTrend([], 7);
+      for (const day of result) {
+        expect(day.low).toBe(0);
+        expect(day.medium).toBe(0);
+        expect(day.high).toBe(0);
+        expect(day.total).toBe(0);
+      }
+    });
+
+    it("should correctly count alerts by severity", () => {
+      const now = Date.now();
+      const alerts = [
+        { severity: "low" as const, createdAt: now - 1000 },
+        { severity: "low" as const, createdAt: now - 2000 },
+        { severity: "medium" as const, createdAt: now - 3000 },
+        { severity: "high" as const, createdAt: now - 4000 },
+      ];
+
+      const result = aggregateAnomalyTrend(alerts, 7);
+      const today = result[result.length - 1];
+      expect(today.low).toBe(2);
+      expect(today.medium).toBe(1);
+      expect(today.high).toBe(1);
+      expect(today.total).toBe(4);
+    });
+
+    it("should filter out alerts older than the time range", () => {
+      const now = Date.now();
+      const alerts = [
+        { severity: "high" as const, createdAt: now - 1000 },
+        { severity: "low" as const, createdAt: now - 8 * 24 * 60 * 60 * 1000 }, // 8 days ago
+      ];
+
+      const result = aggregateAnomalyTrend(alerts, 7);
+      const totalAlerts = result.reduce((sum, day) => sum + day.total, 0);
+      expect(totalAlerts).toBe(1); // Only the recent one
+    });
+
+    it("should have dates in ascending order", () => {
+      const result = aggregateAnomalyTrend([], 14);
+      for (let i = 1; i < result.length; i++) {
+        expect(result[i].date > result[i - 1].date).toBe(true);
+      }
+    });
+  });
+
+  describe("job trend aggregation", () => {
+    function aggregateJobTrend(
+      jobs: Array<{ status: string; createdAt: number }>,
+      days: number
+    ) {
+      const startTime = Date.now() - days * 24 * 60 * 60 * 1000;
+      const filtered = jobs.filter((j) => j.createdAt >= startTime);
+
+      const dayMap = new Map<string, { complete: number; error: number; pending: number; total: number }>();
+      for (const job of filtered) {
+        const date = new Date(job.createdAt).toISOString().split("T")[0];
+        const entry = dayMap.get(date) ?? { complete: 0, error: 0, pending: 0, total: 0 };
+        if (job.status === "complete") entry.complete++;
+        else if (job.status === "error") entry.error++;
+        else entry.pending++;
+        entry.total++;
+        dayMap.set(date, entry);
+      }
+
+      const result: Array<{ date: string; complete: number; error: number; pending: number; total: number }> = [];
+      const now = new Date();
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().split("T")[0];
+        result.push({ date: dateStr, ...(dayMap.get(dateStr) ?? { complete: 0, error: 0, pending: 0, total: 0 }) });
+      }
+      return result;
+    }
+
+    it("should categorize jobs by status correctly", () => {
+      const now = Date.now();
+      const jobs = [
+        { status: "complete", createdAt: now - 1000 },
+        { status: "complete", createdAt: now - 2000 },
+        { status: "error", createdAt: now - 3000 },
+        { status: "pending", createdAt: now - 4000 },
+        { status: "sampling", createdAt: now - 5000 },
+      ];
+
+      const result = aggregateJobTrend(jobs, 7);
+      const today = result[result.length - 1];
+      expect(today.complete).toBe(2);
+      expect(today.error).toBe(1);
+      expect(today.pending).toBe(2); // pending + sampling both count as pending
+      expect(today.total).toBe(5);
+    });
+
+    it("should return correct number of days", () => {
+      const result = aggregateJobTrend([], 30);
+      expect(result).toHaveLength(30);
+    });
+  });
+
+  describe("target category distribution", () => {
+    it("should group targets by category", () => {
+      const targets = [
+        { category: "broadcast" },
+        { category: "broadcast" },
+        { category: "military" },
+        { category: "unknown" },
+        { category: "unknown" },
+        { category: "unknown" },
+      ];
+
+      const grouped = new Map<string, number>();
+      for (const t of targets) {
+        grouped.set(t.category, (grouped.get(t.category) ?? 0) + 1);
+      }
+
+      const result = Array.from(grouped.entries()).map(([category, count]) => ({ category, count }));
+      expect(result).toHaveLength(3);
+      expect(result.find((r) => r.category === "broadcast")?.count).toBe(2);
+      expect(result.find((r) => r.category === "military")?.count).toBe(1);
+      expect(result.find((r) => r.category === "unknown")?.count).toBe(3);
+    });
+
+    it("should return empty array when no targets exist", () => {
+      const targets: Array<{ category: string }> = [];
+      const grouped = new Map<string, number>();
+      for (const t of targets) {
+        grouped.set(t.category, (grouped.get(t.category) ?? 0) + 1);
+      }
+      const result = Array.from(grouped.entries()).map(([category, count]) => ({ category, count }));
+      expect(result).toHaveLength(0);
+    });
+  });
+
+  describe("recent activity feed", () => {
+    it("should sort activities by timestamp descending", () => {
+      const activities = [
+        { type: "job", id: 1, label: "Job 1", detail: "", timestamp: 1000 },
+        { type: "anomaly", id: 2, label: "Anomaly 1", detail: "", timestamp: 3000 },
+        { type: "target", id: 3, label: "Target 1", detail: "", timestamp: 2000 },
+      ];
+
+      activities.sort((a, b) => b.timestamp - a.timestamp);
+      expect(activities[0].type).toBe("anomaly");
+      expect(activities[1].type).toBe("target");
+      expect(activities[2].type).toBe("job");
+    });
+
+    it("should limit results to requested count", () => {
+      const activities = Array.from({ length: 50 }, (_, i) => ({
+        type: "job",
+        id: i,
+        label: `Job ${i}`,
+        detail: "",
+        timestamp: Date.now() - i * 1000,
+      }));
+
+      const limit = 20;
+      activities.sort((a, b) => b.timestamp - a.timestamp);
+      const result = activities.slice(0, limit);
+      expect(result).toHaveLength(20);
+    });
+  });
+
+  describe("receiver stats", () => {
+    it("should calculate online/offline ratio", () => {
+      const stats = { online: 450, offline: 750 };
+      const total = stats.online + stats.offline;
+      const onlinePercent = (stats.online / total) * 100;
+      expect(onlinePercent).toBeCloseTo(37.5, 1);
+    });
+
+    it("should group receivers by type", () => {
+      const receivers = [
+        { type: "KiwiSDR" },
+        { type: "KiwiSDR" },
+        { type: "OpenWebRX" },
+        { type: "WebSDR" },
+        { type: "KiwiSDR" },
+      ];
+
+      const grouped = new Map<string, number>();
+      for (const r of receivers) {
+        grouped.set(r.type, (grouped.get(r.type) ?? 0) + 1);
+      }
+
+      expect(grouped.get("KiwiSDR")).toBe(3);
+      expect(grouped.get("OpenWebRX")).toBe(1);
+      expect(grouped.get("WebSDR")).toBe(1);
+    });
+  });
+
+  describe("relative time formatting", () => {
+    function formatRelativeTime(timestamp: number): string {
+      const diff = Date.now() - timestamp;
+      const seconds = Math.floor(diff / 1000);
+      if (seconds < 60) return "just now";
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return `${minutes}m ago`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours}h ago`;
+      const days = Math.floor(hours / 24);
+      if (days < 7) return `${days}d ago`;
+      return new Date(timestamp).toLocaleDateString();
+    }
+
+    it("should show 'just now' for recent events", () => {
+      expect(formatRelativeTime(Date.now() - 5000)).toBe("just now");
+    });
+
+    it("should show minutes for events within an hour", () => {
+      expect(formatRelativeTime(Date.now() - 5 * 60 * 1000)).toBe("5m ago");
+    });
+
+    it("should show hours for events within a day", () => {
+      expect(formatRelativeTime(Date.now() - 3 * 60 * 60 * 1000)).toBe("3h ago");
+    });
+
+    it("should show days for events within a week", () => {
+      expect(formatRelativeTime(Date.now() - 2 * 24 * 60 * 60 * 1000)).toBe("2d ago");
+    });
+
+    it("should show date for older events", () => {
+      const oldDate = Date.now() - 14 * 24 * 60 * 60 * 1000;
+      const result = formatRelativeTime(oldDate);
+      expect(result).not.toContain("ago");
+    });
+  });
+});

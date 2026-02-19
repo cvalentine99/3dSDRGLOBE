@@ -144,3 +144,12 @@
 - [x] Signal fingerprinting: automatic target linking when new TDoA results match existing fingerprints
 - [x] Signal fingerprinting: fingerprint gallery UI in TargetManager with match confidence scores
 - [x] All 350 vitest tests passing, zero TypeScript errors
+- [x] Dashboard analytics: tRPC endpoints for target count by category, anomaly trends, shared lists stats, fingerprint matches
+- [x] Dashboard analytics: summary stat cards (total targets, active anomalies, shared lists, fingerprints)
+- [x] Dashboard analytics: target category distribution chart (pie/donut)
+- [x] Dashboard analytics: anomaly frequency trend chart (line/area over time)
+- [x] Dashboard analytics: top-matched fingerprints table with similarity scores
+- [x] Dashboard analytics: recent activity feed (latest TDoA jobs, anomalies, shared list changes)
+- [x] Dashboard analytics: responsive layout optimized for ultrawide monitors
+- [x] Dashboard analytics: integrate into app navigation with route and nav button
+- [x] All 374 vitest tests passing, zero TypeScript errors
