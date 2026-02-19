@@ -128,3 +128,19 @@
 - [x] Position prediction: predicted zone rendering on globe (translucent ellipse/cone)
 - [x] Position prediction: prediction display in TargetManager timeline
 - [x] All 287 vitest tests passing, zero TypeScript errors
+- [x] Anomaly detection: server-side detection logic comparing latest position against prediction ellipse
+- [x] Anomaly detection: anomaly_alerts table in database schema for persistent alert history
+- [x] Anomaly detection: notification integration (browser + owner notification) when anomaly detected
+- [x] Anomaly detection: alerts panel UI showing flagged targets with severity and details
+- [x] Anomaly detection: globe markers for anomalous targets (pulsing red warning indicators)
+- [x] Collaborative sharing: shared_target_lists table with invite tokens and permissions
+- [x] Collaborative sharing: invite link generation endpoint with configurable permissions (view/edit)
+- [x] Collaborative sharing: invite acceptance flow with authentication check
+- [x] Collaborative sharing: shared target list view page with real-time updates
+- [x] Collaborative sharing: UI for managing shared lists and invites in TargetManager
+- [x] Signal fingerprinting: spectrogram_snapshots table for storing fingerprint data
+- [x] Signal fingerprinting: FFT-based fingerprint extraction from audio recordings
+- [x] Signal fingerprinting: pattern matching algorithm (cosine similarity) for comparing fingerprints
+- [x] Signal fingerprinting: automatic target linking when new TDoA results match existing fingerprints
+- [x] Signal fingerprinting: fingerprint gallery UI in TargetManager with match confidence scores
+- [x] All 350 vitest tests passing, zero TypeScript errors

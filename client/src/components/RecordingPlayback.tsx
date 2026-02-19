@@ -16,8 +16,10 @@ import {
   Volume2,
   Radio,
   BarChart3,
+  Fingerprint,
 } from "lucide-react";
 import SpectrogramView from "./SpectrogramView";
+import FingerprintPanel from "./FingerprintPanel";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -55,6 +57,7 @@ export default function RecordingPlayback({
 }: RecordingPlaybackProps) {
   const [playingId, setPlayingId] = useState<number | null>(null);
   const [spectrogramId, setSpectrogramId] = useState<number | null>(null);
+  const [fingerprintRecording, setFingerprintRecording] = useState<Recording | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Fetch recordings for this job
@@ -256,6 +259,17 @@ export default function RecordingPlayback({
                   </button>
                 )}
 
+                {/* Fingerprint button */}
+                {isReady && (
+                  <button
+                    onClick={() => setFingerprintRecording(rec)}
+                    className="w-6 h-6 rounded flex items-center justify-center text-white/20 hover:text-purple-400 transition-colors flex-shrink-0"
+                    title="Signal fingerprint"
+                  >
+                    <Fingerprint className="w-3 h-3" />
+                  </button>
+                )}
+
                 {/* Download button */}
                 {isReady && (
                   <a
@@ -292,6 +306,17 @@ export default function RecordingPlayback({
             );
           })}
         </div>
+      )}
+      {/* Fingerprint Panel Modal */}
+      {fingerprintRecording && (
+        <FingerprintPanel
+          isOpen={true}
+          onClose={() => setFingerprintRecording(null)}
+          recordingUrl={fingerprintRecording.fileUrl}
+          recordingId={fingerprintRecording.id}
+          frequencyKhz={parseFloat(fingerprintRecording.frequencyKhz)}
+          mode={fingerprintRecording.mode}
+        />
       )}
     </div>
   );

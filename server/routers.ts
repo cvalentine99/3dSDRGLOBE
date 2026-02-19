@@ -34,12 +34,13 @@ import {
   proxyResultFile,
   selectBestHosts,
 } from "./tdoaService";
-import { tdoaJobs, tdoaTargets, tdoaRecordings, tdoaTargetHistory, TARGET_CATEGORIES } from "../drizzle/schema";
+import { tdoaJobs, tdoaTargets, tdoaRecordings, tdoaTargetHistory, TARGET_CATEGORIES, anomalyAlerts, sharedTargetLists, sharedListMembers, sharedListTargets, signalFingerprints, users } from "../drizzle/schema";
 import { getDb } from "./db";
-import { desc, eq, asc } from "drizzle-orm";
+import { desc, eq, asc, and, inArray } from "drizzle-orm";
 import { recordAllHosts, type RecordingResult } from "./kiwiRecorder";
 import { classifySignal, type ClassificationInput } from "./signalClassifier";
 import { predictPosition, type PredictionResult } from "./positionPredictor";
+import { checkForAnomaly } from "./anomalyDetector";
 
 /* ── Helper functions for CSV/KML import/export ── */
 
@@ -961,7 +962,13 @@ export const appRouter = router({
           lon: String(input.lon),
         }).where(eq(tdoaTargets.id, input.targetId));
 
-        return { id: result.insertId };
+        // Check for anomaly (async, don't block the response)
+        const historyId = result.insertId;
+        checkForAnomaly(input.targetId, input.lat, input.lon, historyId).catch((err) =>
+          console.warn("[AnomalyDetector] Check failed:", err)
+        );
+
+        return { id: historyId };
       }),
 
     /** Get position history for a target (ordered by time) */
@@ -986,6 +993,89 @@ export const appRouter = router({
         .from(tdoaTargetHistory)
         .orderBy(asc(tdoaTargetHistory.observedAt));
     }),
+
+    /** Check a specific target for anomaly against its prediction model */
+    checkAnomaly: publicProcedure
+      .input(z.object({
+        targetId: z.number(),
+        lat: z.number(),
+        lon: z.number(),
+        historyEntryId: z.number(),
+      }))
+      .mutation(async ({ input }) => {
+        return await checkForAnomaly(
+          input.targetId,
+          input.lat,
+          input.lon,
+          input.historyEntryId
+        );
+      }),
+  }),
+
+  /** Anomaly alerts router */
+  anomalies: router({
+    /** List all anomaly alerts, newest first */
+    list: publicProcedure
+      .input(z.object({
+        limit: z.number().min(1).max(100).default(50),
+        unacknowledgedOnly: z.boolean().default(false),
+      }).optional())
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        const limit = input?.limit ?? 50;
+        if (input?.unacknowledgedOnly) {
+          return await db.select().from(anomalyAlerts).where(eq(anomalyAlerts.acknowledged, false)).orderBy(desc(anomalyAlerts.createdAt)).limit(limit);
+        }
+        return await db.select().from(anomalyAlerts).orderBy(desc(anomalyAlerts.createdAt)).limit(limit);
+      }),
+
+    /** Get unacknowledged alert count */
+    unacknowledgedCount: publicProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return 0;
+      const alerts = await db.select().from(anomalyAlerts).where(eq(anomalyAlerts.acknowledged, false));
+      return alerts.length;
+    }),
+
+    /** Acknowledge an alert */
+    acknowledge: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        await db.update(anomalyAlerts).set({ acknowledged: true }).where(eq(anomalyAlerts.id, input.id));
+        return { success: true };
+      }),
+
+    /** Acknowledge all alerts */
+    acknowledgeAll: publicProcedure.mutation(async () => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      await db.update(anomalyAlerts).set({ acknowledged: true }).where(eq(anomalyAlerts.acknowledged, false));
+      return { success: true };
+    }),
+
+    /** Delete an alert */
+    delete: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        await db.delete(anomalyAlerts).where(eq(anomalyAlerts.id, input.id));
+        return { success: true };
+      }),
+
+    /** Get alerts for a specific target */
+    byTarget: publicProcedure
+      .input(z.object({ targetId: z.number() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        return await db.select().from(anomalyAlerts)
+          .where(eq(anomalyAlerts.targetId, input.targetId))
+          .orderBy(desc(anomalyAlerts.createdAt));
+      }),
   }),
 
   recordings: router({
@@ -1086,6 +1176,467 @@ export const appRouter = router({
       return await getAggregateStats();
     }),
   }),
+
+  /** Collaborative target sharing router */
+  sharing: router({
+    /** Create a new shared target list */
+    createList: publicProcedure
+      .input(z.object({
+        name: z.string().min(1).max(256),
+        description: z.string().max(1000).optional(),
+        defaultPermission: z.enum(["view", "edit"]).default("view"),
+        isPublic: z.boolean().default(false),
+        targetIds: z.array(z.number()).optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        const userId = ctx.user?.id;
+        if (!userId) throw new Error("Authentication required");
+
+        // Generate unique invite token
+        const token = Array.from({ length: 32 }, () =>
+          "abcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(Math.random() * 36)]
+        ).join("");
+
+        const now = Date.now();
+        const [result] = await db.insert(sharedTargetLists).values({
+          name: input.name,
+          description: input.description || null,
+          ownerId: userId,
+          inviteToken: token,
+          defaultPermission: input.defaultPermission,
+          isPublic: input.isPublic,
+          createdAt: now,
+          updatedAt: now,
+        });
+
+        const listId = result.insertId;
+
+        // Add targets to the list if provided
+        if (input.targetIds?.length && listId) {
+          for (const targetId of input.targetIds) {
+            await db.insert(sharedListTargets).values({
+              listId,
+              targetId,
+              addedAt: now,
+            });
+          }
+        }
+
+        return { id: listId, inviteToken: token };
+      }),
+
+    /** Get all lists owned by or shared with the current user */
+    myLists: publicProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const userId = ctx.user?.id;
+      if (!userId) return [];
+
+      // Get owned lists
+      const owned = await db.select().from(sharedTargetLists)
+        .where(eq(sharedTargetLists.ownerId, userId))
+        .orderBy(desc(sharedTargetLists.updatedAt));
+
+      // Get lists where user is a member
+      const memberships = await db.select().from(sharedListMembers)
+        .where(eq(sharedListMembers.userId, userId));
+
+      const memberListIds = memberships.map(m => m.listId);
+      let memberLists: typeof owned = [];
+      if (memberListIds.length > 0) {
+        memberLists = await db.select().from(sharedTargetLists)
+          .where(inArray(sharedTargetLists.id, memberListIds));
+      }
+
+      // Combine and deduplicate
+      const allLists = [...owned];
+      for (const ml of memberLists) {
+        if (!allLists.some(l => l.id === ml.id)) {
+          allLists.push(ml);
+        }
+      }
+
+      // Add member count and target count for each list
+      const enriched = await Promise.all(allLists.map(async (list) => {
+        const members = await db.select().from(sharedListMembers)
+          .where(eq(sharedListMembers.listId, list.id));
+        const targets = await db.select().from(sharedListTargets)
+          .where(eq(sharedListTargets.listId, list.id));
+        return {
+          ...list,
+          memberCount: members.length + 1, // +1 for owner
+          targetCount: targets.length,
+          isOwner: list.ownerId === userId,
+          permission: list.ownerId === userId ? "owner" as const :
+            memberships.find(m => m.listId === list.id)?.permission ?? "view" as const,
+        };
+      }));
+
+      return enriched;
+    }),
+
+    /** Get a shared list by invite token (for joining) */
+    getByToken: publicProcedure
+      .input(z.object({ token: z.string() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return null;
+        const lists = await db.select().from(sharedTargetLists)
+          .where(eq(sharedTargetLists.inviteToken, input.token))
+          .limit(1);
+        if (!lists.length) return null;
+
+        const list = lists[0];
+        const owner = await db.select({ name: users.name }).from(users)
+          .where(eq(users.id, list.ownerId)).limit(1);
+        const targets = await db.select().from(sharedListTargets)
+          .where(eq(sharedListTargets.listId, list.id));
+        const members = await db.select().from(sharedListMembers)
+          .where(eq(sharedListMembers.listId, list.id));
+
+        return {
+          id: list.id,
+          name: list.name,
+          description: list.description,
+          ownerName: owner[0]?.name ?? "Unknown",
+          defaultPermission: list.defaultPermission,
+          isPublic: list.isPublic,
+          memberCount: members.length + 1,
+          targetCount: targets.length,
+        };
+      }),
+
+    /** Join a shared list via invite token */
+    joinByToken: publicProcedure
+      .input(z.object({ token: z.string() }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        const userId = ctx.user?.id;
+        if (!userId) throw new Error("Authentication required");
+
+        const lists = await db.select().from(sharedTargetLists)
+          .where(eq(sharedTargetLists.inviteToken, input.token))
+          .limit(1);
+        if (!lists.length) throw new Error("Invalid invite link");
+
+        const list = lists[0];
+
+        // Check if already a member or owner
+        if (list.ownerId === userId) {
+          return { success: true, listId: list.id, message: "You own this list" };
+        }
+
+        const existing = await db.select().from(sharedListMembers)
+          .where(and(
+            eq(sharedListMembers.listId, list.id),
+            eq(sharedListMembers.userId, userId)
+          ))
+          .limit(1);
+
+        if (existing.length) {
+          return { success: true, listId: list.id, message: "Already a member" };
+        }
+
+        await db.insert(sharedListMembers).values({
+          listId: list.id,
+          userId,
+          permission: list.defaultPermission,
+          joinedAt: Date.now(),
+        });
+
+        return { success: true, listId: list.id, message: "Joined successfully" };
+      }),
+
+    /** Get targets in a shared list */
+    getListTargets: publicProcedure
+      .input(z.object({ listId: z.number() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+
+        const listTargetRows = await db.select().from(sharedListTargets)
+          .where(eq(sharedListTargets.listId, input.listId));
+
+        if (!listTargetRows.length) return [];
+
+        const targetIds = listTargetRows.map(lt => lt.targetId);
+        const targets = await db.select().from(tdoaTargets)
+          .where(inArray(tdoaTargets.id, targetIds));
+
+        return targets;
+      }),
+
+    /** Add targets to a shared list */
+    addTargets: publicProcedure
+      .input(z.object({
+        listId: z.number(),
+        targetIds: z.array(z.number()),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+
+        const existing = await db.select().from(sharedListTargets)
+          .where(eq(sharedListTargets.listId, input.listId));
+        const existingIds = new Set(existing.map(e => e.targetId));
+
+        const now = Date.now();
+        let added = 0;
+        for (const targetId of input.targetIds) {
+          if (!existingIds.has(targetId)) {
+            await db.insert(sharedListTargets).values({
+              listId: input.listId,
+              targetId,
+              addedAt: now,
+            });
+            added++;
+          }
+        }
+
+        await db.update(sharedTargetLists)
+          .set({ updatedAt: now })
+          .where(eq(sharedTargetLists.id, input.listId));
+
+        return { added };
+      }),
+
+    /** Remove a target from a shared list */
+    removeTarget: publicProcedure
+      .input(z.object({
+        listId: z.number(),
+        targetId: z.number(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        await db.delete(sharedListTargets)
+          .where(and(
+            eq(sharedListTargets.listId, input.listId),
+            eq(sharedListTargets.targetId, input.targetId)
+          ));
+        return { success: true };
+      }),
+
+    /** Remove a member from a shared list */
+    removeMember: publicProcedure
+      .input(z.object({
+        listId: z.number(),
+        userId: z.number(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        await db.delete(sharedListMembers)
+          .where(and(
+            eq(sharedListMembers.listId, input.listId),
+            eq(sharedListMembers.userId, input.userId)
+          ));
+        return { success: true };
+      }),
+
+    /** Delete a shared list (owner only) */
+    deleteList: publicProcedure
+      .input(z.object({ listId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        const userId = ctx.user?.id;
+        if (!userId) throw new Error("Authentication required");
+
+        const lists = await db.select().from(sharedTargetLists)
+          .where(eq(sharedTargetLists.id, input.listId))
+          .limit(1);
+        if (!lists.length) throw new Error("List not found");
+        if (lists[0].ownerId !== userId) throw new Error("Only the owner can delete this list");
+
+        // Delete all members and targets first
+        await db.delete(sharedListMembers).where(eq(sharedListMembers.listId, input.listId));
+        await db.delete(sharedListTargets).where(eq(sharedListTargets.listId, input.listId));
+        await db.delete(sharedTargetLists).where(eq(sharedTargetLists.id, input.listId));
+
+        return { success: true };
+      }),
+
+    /** Get list members */
+    getMembers: publicProcedure
+      .input(z.object({ listId: z.number() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        const members = await db.select().from(sharedListMembers)
+          .where(eq(sharedListMembers.listId, input.listId));
+
+        // Enrich with user names
+        const enriched = await Promise.all(members.map(async (m) => {
+          const user = await db.select({ name: users.name }).from(users)
+            .where(eq(users.id, m.userId)).limit(1);
+          return {
+            ...m,
+            userName: user[0]?.name ?? "Unknown",
+          };
+        }));
+
+        return enriched;
+      }),
+  }),
+
+  /** Signal fingerprinting router */
+  fingerprints: router({
+    /** Store a signal fingerprint for a target */
+    create: publicProcedure
+      .input(z.object({
+        targetId: z.number(),
+        recordingId: z.number(),
+        historyEntryId: z.number().optional(),
+        frequencyKhz: z.number().optional(),
+        mode: z.string().optional(),
+        spectralPeaks: z.array(z.number()).optional(),
+        bandwidthHz: z.number().optional(),
+        dominantFreqHz: z.number().optional(),
+        spectralCentroid: z.number().optional(),
+        spectralFlatness: z.number().optional(),
+        rmsLevel: z.number().optional(),
+        featureVector: z.array(z.number()).optional(),
+        spectrogramUrl: z.string().optional(),
+        spectrogramKey: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+
+        const [result] = await db.insert(signalFingerprints).values({
+          targetId: input.targetId,
+          recordingId: input.recordingId,
+          historyEntryId: input.historyEntryId ?? null,
+          frequencyKhz: input.frequencyKhz ? String(input.frequencyKhz) : null,
+          mode: input.mode ?? null,
+          spectralPeaks: input.spectralPeaks ?? null,
+          bandwidthHz: input.bandwidthHz ?? null,
+          dominantFreqHz: input.dominantFreqHz ?? null,
+          spectralCentroid: input.spectralCentroid ?? null,
+          spectralFlatness: input.spectralFlatness ?? null,
+          rmsLevel: input.rmsLevel ?? null,
+          featureVector: input.featureVector ?? null,
+          spectrogramUrl: input.spectrogramUrl ?? null,
+          spectrogramKey: input.spectrogramKey ?? null,
+          createdAt: Date.now(),
+        });
+
+        return { id: result.insertId };
+      }),
+
+    /** Get fingerprints for a target */
+    byTarget: publicProcedure
+      .input(z.object({ targetId: z.number() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        return await db.select().from(signalFingerprints)
+          .where(eq(signalFingerprints.targetId, input.targetId))
+          .orderBy(desc(signalFingerprints.createdAt));
+      }),
+
+    /** Find matching fingerprints for a given feature vector using cosine similarity */
+    findMatches: publicProcedure
+      .input(z.object({
+        featureVector: z.array(z.number()),
+        frequencyKhz: z.number().optional(),
+        threshold: z.number().min(0).max(1).default(0.85),
+        limit: z.number().min(1).max(20).default(5),
+      }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+
+        // Get all fingerprints that have feature vectors
+        let allFingerprints = await db.select().from(signalFingerprints);
+
+        // Filter to those with feature vectors
+        allFingerprints = allFingerprints.filter(fp => fp.featureVector != null);
+
+        // If frequency provided, prefer same-frequency matches
+        if (input.frequencyKhz) {
+          const freqStr = String(input.frequencyKhz);
+          allFingerprints.sort((a, b) => {
+            const aMatch = a.frequencyKhz === freqStr ? 0 : 1;
+            const bMatch = b.frequencyKhz === freqStr ? 0 : 1;
+            return aMatch - bMatch;
+          });
+        }
+
+        // Calculate cosine similarity for each fingerprint
+        const matches: Array<{
+          fingerprintId: number;
+          targetId: number;
+          similarity: number;
+          frequencyKhz: string | null;
+          mode: string | null;
+        }> = [];
+
+        for (const fp of allFingerprints) {
+          const fpVector = fp.featureVector as number[];
+          if (!fpVector || fpVector.length !== input.featureVector.length) continue;
+
+          const similarity = cosineSimilarity(input.featureVector, fpVector);
+          if (similarity >= input.threshold) {
+            matches.push({
+              fingerprintId: fp.id,
+              targetId: fp.targetId,
+              similarity,
+              frequencyKhz: fp.frequencyKhz,
+              mode: fp.mode,
+            });
+          }
+        }
+
+        // Sort by similarity descending
+        matches.sort((a, b) => b.similarity - a.similarity);
+
+        // Enrich with target labels
+        const enriched = await Promise.all(
+          matches.slice(0, input.limit).map(async (m) => {
+            const target = await db.select({ label: tdoaTargets.label, category: tdoaTargets.category })
+              .from(tdoaTargets).where(eq(tdoaTargets.id, m.targetId)).limit(1);
+            return {
+              ...m,
+              targetLabel: target[0]?.label ?? "Unknown",
+              targetCategory: target[0]?.category ?? "unknown",
+            };
+          })
+        );
+
+        return enriched;
+      }),
+
+    /** Delete a fingerprint */
+    delete: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        await db.delete(signalFingerprints).where(eq(signalFingerprints.id, input.id));
+        return { success: true };
+      }),
+  }),
 });
+
+/** Cosine similarity between two vectors */
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length || a.length === 0) return 0;
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  const denominator = Math.sqrt(normA) * Math.sqrt(normB);
+  if (denominator === 0) return 0;
+  return dotProduct / denominator;
+}
 
 export type AppRouter = typeof appRouter;

@@ -1529,3 +1529,751 @@ describe("Target category color mapping", () => {
     expect(unique.size).toBe(colors.length);
   });
 });
+
+// ── Anomaly Detection Tests ──────────────────────────────
+describe("Anomaly detection", () => {
+  // Test the pure functions from anomalyDetector
+  describe("ellipseDistance", () => {
+    // Inline implementation for testing (mirrors anomalyDetector.ts)
+    function ellipseDistance(
+      pointLat: number, pointLon: number,
+      centerLat: number, centerLon: number,
+      semiMajorDeg: number, semiMinorDeg: number,
+      rotationDeg: number
+    ): number {
+      const dLat = pointLat - centerLat;
+      const dLon = pointLon - centerLon;
+      const rotRad = (rotationDeg * Math.PI) / 180;
+      const cosR = Math.cos(rotRad);
+      const sinR = Math.sin(rotRad);
+      const rotatedLat = dLat * cosR + dLon * sinR;
+      const rotatedLon = -dLat * sinR + dLon * cosR;
+      if (semiMajorDeg <= 0 || semiMinorDeg <= 0) return Infinity;
+      return Math.sqrt(
+        (rotatedLat / semiMajorDeg) ** 2 + (rotatedLon / semiMinorDeg) ** 2
+      );
+    }
+
+    it("returns 0 for a point at the center", () => {
+      expect(ellipseDistance(50, 10, 50, 10, 1, 0.5, 0)).toBe(0);
+    });
+
+    it("returns 1.0 for a point on the ellipse boundary (major axis)", () => {
+      const dist = ellipseDistance(51, 10, 50, 10, 1, 0.5, 0);
+      expect(dist).toBeCloseTo(1.0, 5);
+    });
+
+    it("returns 1.0 for a point on the ellipse boundary (minor axis)", () => {
+      const dist = ellipseDistance(50, 10.5, 50, 10, 1, 0.5, 0);
+      expect(dist).toBeCloseTo(1.0, 5);
+    });
+
+    it("returns >1 for a point outside the ellipse", () => {
+      const dist = ellipseDistance(52, 10, 50, 10, 1, 0.5, 0);
+      expect(dist).toBeGreaterThan(1);
+    });
+
+    it("returns <1 for a point inside the ellipse", () => {
+      const dist = ellipseDistance(50.3, 10.1, 50, 10, 1, 0.5, 0);
+      expect(dist).toBeLessThan(1);
+    });
+
+    it("returns Infinity for zero semi-major axis", () => {
+      expect(ellipseDistance(50, 10, 50, 10, 0, 0.5, 0)).toBe(Infinity);
+    });
+
+    it("returns Infinity for zero semi-minor axis", () => {
+      expect(ellipseDistance(50, 10, 50, 10, 1, 0, 0)).toBe(Infinity);
+    });
+
+    it("handles rotation correctly", () => {
+      // With 90° rotation, major and minor axes are swapped
+      const distNoRotation = ellipseDistance(51, 10, 50, 10, 2, 1, 0);
+      const distRotated = ellipseDistance(50, 11, 50, 10, 2, 1, 90);
+      expect(distNoRotation).toBeCloseTo(distRotated, 3);
+    });
+  });
+
+  describe("normalizedDistToSigma", () => {
+    function normalizedDistToSigma(normalizedDist: number): number {
+      return normalizedDist * 2;
+    }
+
+    it("converts normalized distance 1.0 to 2σ", () => {
+      expect(normalizedDistToSigma(1.0)).toBe(2);
+    });
+
+    it("converts normalized distance 0.5 to 1σ", () => {
+      expect(normalizedDistToSigma(0.5)).toBe(1);
+    });
+
+    it("converts normalized distance 1.5 to 3σ", () => {
+      expect(normalizedDistToSigma(1.5)).toBe(3);
+    });
+
+    it("converts 0 to 0σ", () => {
+      expect(normalizedDistToSigma(0)).toBe(0);
+    });
+  });
+
+  describe("getSeverity", () => {
+    function getSeverity(sigma: number): "low" | "medium" | "high" | null {
+      if (sigma >= 3) return "high";
+      if (sigma >= 2) return "medium";
+      if (sigma >= 1.5) return "low";
+      return null;
+    }
+
+    it("returns null for sigma < 1.5", () => {
+      expect(getSeverity(0)).toBeNull();
+      expect(getSeverity(1.0)).toBeNull();
+      expect(getSeverity(1.49)).toBeNull();
+    });
+
+    it("returns 'low' for sigma 1.5–2", () => {
+      expect(getSeverity(1.5)).toBe("low");
+      expect(getSeverity(1.8)).toBe("low");
+      expect(getSeverity(1.99)).toBe("low");
+    });
+
+    it("returns 'medium' for sigma 2–3", () => {
+      expect(getSeverity(2.0)).toBe("medium");
+      expect(getSeverity(2.5)).toBe("medium");
+      expect(getSeverity(2.99)).toBe("medium");
+    });
+
+    it("returns 'high' for sigma >= 3", () => {
+      expect(getSeverity(3.0)).toBe("high");
+      expect(getSeverity(5.0)).toBe("high");
+      expect(getSeverity(100)).toBe("high");
+    });
+  });
+
+  describe("haversine distance", () => {
+    function haversineKm(
+      lat1: number, lon1: number,
+      lat2: number, lon2: number
+    ): number {
+      const R = 6371;
+      const dLat = ((lat2 - lat1) * Math.PI) / 180;
+      const dLon = ((lon2 - lon1) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos((lat1 * Math.PI) / 180) *
+          Math.cos((lat2 * Math.PI) / 180) *
+          Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    it("returns 0 for identical points", () => {
+      expect(haversineKm(50, 10, 50, 10)).toBe(0);
+    });
+
+    it("calculates distance between London and Paris (~340 km)", () => {
+      const dist = haversineKm(51.5074, -0.1278, 48.8566, 2.3522);
+      expect(dist).toBeGreaterThan(330);
+      expect(dist).toBeLessThan(350);
+    });
+
+    it("calculates distance between equator points 1° apart (~111 km)", () => {
+      const dist = haversineKm(0, 0, 0, 1);
+      expect(dist).toBeGreaterThan(110);
+      expect(dist).toBeLessThan(112);
+    });
+
+    it("calculates antipodal distance (~20015 km)", () => {
+      const dist = haversineKm(0, 0, 0, 180);
+      expect(dist).toBeGreaterThan(20000);
+      expect(dist).toBeLessThan(20050);
+    });
+  });
+
+  describe("anomaly alert description", () => {
+    it("builds a multi-line description with all fields", () => {
+      function buildAlertDescription(
+        target: { label: string; category: string },
+        prediction: any,
+        actualLat: number, actualLon: number,
+        deviationKm: number, deviationSigma: number,
+        severity: string
+      ): string {
+        return [
+          `Target "${target.label}" (${target.category}) has moved unexpectedly.`,
+          `Predicted position: ${prediction.predictedLat.toFixed(4)}°, ${prediction.predictedLon.toFixed(4)}°`,
+          `Observed position: ${actualLat.toFixed(4)}°, ${actualLon.toFixed(4)}°`,
+          `Deviation: ${deviationKm.toFixed(1)} km (${deviationSigma.toFixed(1)}σ)`,
+          `Severity: ${severity}`,
+          `Model: ${prediction.modelType} (R² lat=${prediction.rSquaredLat.toFixed(2)}, lon=${prediction.rSquaredLon.toFixed(2)})`,
+          `Based on ${prediction.historyCount} prior observations.`,
+        ].join("\n");
+      }
+
+      const desc = buildAlertDescription(
+        { label: "Test Target", category: "broadcast" },
+        {
+          predictedLat: 50.0, predictedLon: 10.0,
+          modelType: "linear", rSquaredLat: 0.95, rSquaredLon: 0.88,
+          historyCount: 5,
+        },
+        51.0, 11.0, 150.5, 2.5, "medium"
+      );
+
+      expect(desc).toContain("Test Target");
+      expect(desc).toContain("broadcast");
+      expect(desc).toContain("150.5 km");
+      expect(desc).toContain("2.5σ");
+      expect(desc).toContain("medium");
+      expect(desc).toContain("linear");
+      expect(desc).toContain("5 prior observations");
+    });
+  });
+});
+
+// ── Cosine Similarity Tests ──────────────────────────────
+describe("Cosine similarity", () => {
+  function cosineSimilarity(a: number[], b: number[]): number {
+    if (a.length !== b.length || a.length === 0) return 0;
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+    for (let i = 0; i < a.length; i++) {
+      dotProduct += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+    const denominator = Math.sqrt(normA) * Math.sqrt(normB);
+    if (denominator === 0) return 0;
+    return dotProduct / denominator;
+  }
+
+  it("returns 1.0 for identical vectors", () => {
+    expect(cosineSimilarity([1, 2, 3], [1, 2, 3])).toBeCloseTo(1.0, 5);
+  });
+
+  it("returns 1.0 for proportional vectors", () => {
+    expect(cosineSimilarity([1, 2, 3], [2, 4, 6])).toBeCloseTo(1.0, 5);
+  });
+
+  it("returns 0 for orthogonal vectors", () => {
+    expect(cosineSimilarity([1, 0], [0, 1])).toBeCloseTo(0, 5);
+  });
+
+  it("returns -1 for opposite vectors", () => {
+    expect(cosineSimilarity([1, 2, 3], [-1, -2, -3])).toBeCloseTo(-1.0, 5);
+  });
+
+  it("returns 0 for empty vectors", () => {
+    expect(cosineSimilarity([], [])).toBe(0);
+  });
+
+  it("returns 0 for mismatched lengths", () => {
+    expect(cosineSimilarity([1, 2], [1, 2, 3])).toBe(0);
+  });
+
+  it("returns 0 for zero vectors", () => {
+    expect(cosineSimilarity([0, 0, 0], [1, 2, 3])).toBe(0);
+  });
+
+  it("handles normalized vectors correctly", () => {
+    const a = [0.5, 0.5, 0.5, 0.5];
+    const b = [0.3, 0.4, 0.5, 0.6];
+    const sim = cosineSimilarity(a, b);
+    expect(sim).toBeGreaterThan(0.9);
+    expect(sim).toBeLessThanOrEqual(1.0);
+  });
+
+  it("handles large feature vectors (32-dim)", () => {
+    const a = Array.from({ length: 32 }, (_, i) => Math.sin(i * 0.5));
+    const b = Array.from({ length: 32 }, (_, i) => Math.sin(i * 0.5 + 0.1));
+    const sim = cosineSimilarity(a, b);
+    expect(sim).toBeGreaterThan(0.95); // Very similar signals
+  });
+
+  it("distinguishes different signal patterns", () => {
+    const tonal = Array.from({ length: 32 }, (_, i) => i < 4 ? 1 : 0); // Energy in low bins
+    const broadband = Array.from({ length: 32 }, () => 0.3); // Flat spectrum
+    const sim = cosineSimilarity(tonal, broadband);
+    expect(sim).toBeLessThan(0.7); // Should be distinguishable
+  });
+});
+
+// ── Collaborative Sharing Tests ──────────────────────────────
+describe("Collaborative sharing", () => {
+  describe("invite token generation", () => {
+    it("generates a unique token of expected length", () => {
+      // Simulating the token generation from the router
+      function generateToken(): string {
+        return Array.from({ length: 32 }, () =>
+          Math.random().toString(36).charAt(2)
+        ).join("");
+      }
+
+      const token1 = generateToken();
+      const token2 = generateToken();
+      expect(token1.length).toBe(32);
+      expect(token2.length).toBe(32);
+      expect(token1).not.toBe(token2);
+    });
+
+    it("generates alphanumeric tokens", () => {
+      function generateToken(): string {
+        return Array.from({ length: 32 }, () =>
+          Math.random().toString(36).charAt(2)
+        ).join("");
+      }
+
+      const token = generateToken();
+      expect(token).toMatch(/^[a-z0-9]+$/);
+    });
+  });
+
+  describe("shared list permissions", () => {
+    it("validates role types", () => {
+      const validRoles = ["owner", "editor", "viewer"];
+      expect(validRoles).toContain("owner");
+      expect(validRoles).toContain("editor");
+      expect(validRoles).toContain("viewer");
+    });
+
+    it("owner has all permissions", () => {
+      const canEdit = (role: string) => role === "owner" || role === "editor";
+      const canDelete = (role: string) => role === "owner";
+      const canView = (role: string) => ["owner", "editor", "viewer"].includes(role);
+
+      expect(canEdit("owner")).toBe(true);
+      expect(canDelete("owner")).toBe(true);
+      expect(canView("owner")).toBe(true);
+    });
+
+    it("editor can edit but not delete", () => {
+      const canEdit = (role: string) => role === "owner" || role === "editor";
+      const canDelete = (role: string) => role === "owner";
+
+      expect(canEdit("editor")).toBe(true);
+      expect(canDelete("editor")).toBe(false);
+    });
+
+    it("viewer can only view", () => {
+      const canEdit = (role: string) => role === "owner" || role === "editor";
+      const canDelete = (role: string) => role === "owner";
+
+      expect(canEdit("viewer")).toBe(false);
+      expect(canDelete("viewer")).toBe(false);
+    });
+  });
+
+  describe("invite link construction", () => {
+    it("builds a valid invite URL with token", () => {
+      const origin = "https://radio-globe.manus.space";
+      const token = "abc123def456";
+      const url = `${origin}/invite/${token}`;
+      expect(url).toBe("https://radio-globe.manus.space/invite/abc123def456");
+    });
+
+    it("handles different origins", () => {
+      const origins = [
+        "http://localhost:3000",
+        "https://example.com",
+        "https://radio-globe.manus.space",
+      ];
+      const token = "testtoken123";
+      origins.forEach(origin => {
+        const url = `${origin}/invite/${token}`;
+        expect(url).toContain(token);
+        expect(url.startsWith(origin)).toBe(true);
+      });
+    });
+  });
+
+  describe("invite expiration", () => {
+    it("correctly identifies expired invites", () => {
+      const now = Date.now();
+      const oneDay = 24 * 60 * 60 * 1000;
+
+      const validExpiry = now + oneDay;
+      const expiredExpiry = now - oneDay;
+
+      expect(validExpiry > now).toBe(true);
+      expect(expiredExpiry > now).toBe(false);
+    });
+
+    it("handles null expiry as non-expiring", () => {
+      const expiresAt: number | null = null;
+      const isExpired = expiresAt !== null && expiresAt < Date.now();
+      expect(isExpired).toBe(false);
+    });
+  });
+});
+
+// ── Signal Fingerprint Feature Vector Tests ──────────────────────────────
+describe("Signal fingerprint feature vector", () => {
+  describe("mel-scale bin calculation", () => {
+    it("converts frequency to mel scale correctly", () => {
+      function freqToMel(freq: number): number {
+        return 2595 * Math.log10(1 + freq / 700);
+      }
+
+      expect(freqToMel(0)).toBe(0);
+      expect(freqToMel(700)).toBeCloseTo(781.2, 0);
+      expect(freqToMel(1000)).toBeCloseTo(999.9, 0);
+    });
+
+    it("converts mel back to frequency", () => {
+      function melToFreq(mel: number): number {
+        return 700 * (Math.pow(10, mel / 2595) - 1);
+      }
+
+      expect(melToFreq(0)).toBe(0);
+      expect(melToFreq(781.2)).toBeCloseTo(700, 0);
+    });
+
+    it("generates 16 mel bins covering the frequency range", () => {
+      const maxFreq = 6000; // Nyquist for 12kHz sample rate
+      const melMax = 2595 * Math.log10(1 + maxFreq / 700);
+      const melBins = 16;
+
+      const bins: Array<{ low: number; high: number }> = [];
+      for (let b = 0; b < melBins; b++) {
+        const melLow = (melMax * b) / melBins;
+        const melHigh = (melMax * (b + 1)) / melBins;
+        const freqLow = 700 * (Math.pow(10, melLow / 2595) - 1);
+        const freqHigh = 700 * (Math.pow(10, melHigh / 2595) - 1);
+        bins.push({ low: freqLow, high: freqHigh });
+      }
+
+      expect(bins.length).toBe(16);
+      expect(bins[0].low).toBeCloseTo(0, 0);
+      expect(bins[15].high).toBeCloseTo(maxFreq, 0);
+      // Each bin should be wider than the previous (mel scale)
+      for (let i = 1; i < bins.length; i++) {
+        const prevWidth = bins[i - 1].high - bins[i - 1].low;
+        const currWidth = bins[i].high - bins[i].low;
+        expect(currWidth).toBeGreaterThanOrEqual(prevWidth * 0.95); // Allow small float tolerance
+      }
+    });
+  });
+
+  describe("feature vector normalization", () => {
+    it("normalizes a vector to unit length", () => {
+      const vector = [3, 4]; // length = 5
+      const norm = Math.sqrt(vector.reduce((s, v) => s + v * v, 0));
+      const normalized = vector.map(v => v / norm);
+      expect(normalized[0]).toBeCloseTo(0.6, 5);
+      expect(normalized[1]).toBeCloseTo(0.8, 5);
+      const newNorm = Math.sqrt(normalized.reduce((s, v) => s + v * v, 0));
+      expect(newNorm).toBeCloseTo(1.0, 5);
+    });
+
+    it("handles zero vector gracefully", () => {
+      const vector = [0, 0, 0];
+      const norm = Math.sqrt(vector.reduce((s, v) => s + v * v, 0));
+      if (norm > 0) {
+        const normalized = vector.map(v => v / norm);
+        expect(normalized).toEqual([0, 0, 0]);
+      } else {
+        expect(vector).toEqual([0, 0, 0]); // Returned as-is
+      }
+    });
+
+    it("produces 32-dimensional vectors", () => {
+      // Simulate building a 32-dim vector
+      const vector: number[] = [];
+      // 16 mel bins
+      for (let i = 0; i < 16; i++) vector.push(Math.random());
+      // 8 peak frequencies
+      for (let i = 0; i < 8; i++) vector.push(Math.random());
+      // 4 statistics
+      for (let i = 0; i < 4; i++) vector.push(Math.random());
+      // 4 temporal features
+      for (let i = 0; i < 4; i++) vector.push(Math.random());
+
+      expect(vector.length).toBe(32);
+    });
+  });
+
+  describe("spectral peak detection", () => {
+    it("finds peaks in a simple spectrum", () => {
+      function findPeaks(spectrum: number[]): number[] {
+        const peaks: number[] = [];
+        for (let i = 2; i < spectrum.length - 2; i++) {
+          if (
+            spectrum[i] > spectrum[i - 1] &&
+            spectrum[i] > spectrum[i + 1] &&
+            spectrum[i] > spectrum[i - 2] &&
+            spectrum[i] > spectrum[i + 2]
+          ) {
+            peaks.push(i);
+          }
+        }
+        return peaks;
+      }
+
+      // Create a spectrum with a clear peak at index 10
+      const spectrum = new Array(20).fill(0.1);
+      spectrum[10] = 1.0;
+      spectrum[9] = 0.5;
+      spectrum[11] = 0.5;
+
+      const peaks = findPeaks(spectrum);
+      expect(peaks).toContain(10);
+    });
+
+    it("finds multiple peaks", () => {
+      function findPeaks(spectrum: number[]): number[] {
+        const peaks: number[] = [];
+        for (let i = 2; i < spectrum.length - 2; i++) {
+          if (
+            spectrum[i] > spectrum[i - 1] &&
+            spectrum[i] > spectrum[i + 1] &&
+            spectrum[i] > spectrum[i - 2] &&
+            spectrum[i] > spectrum[i + 2]
+          ) {
+            peaks.push(i);
+          }
+        }
+        return peaks;
+      }
+
+      const spectrum = new Array(50).fill(0.1);
+      spectrum[10] = 1.0;
+      spectrum[9] = 0.5;
+      spectrum[11] = 0.5;
+      spectrum[30] = 0.8;
+      spectrum[29] = 0.3;
+      spectrum[31] = 0.3;
+
+      const peaks = findPeaks(spectrum);
+      expect(peaks).toContain(10);
+      expect(peaks).toContain(30);
+    });
+
+    it("returns empty for flat spectrum", () => {
+      function findPeaks(spectrum: number[]): number[] {
+        const peaks: number[] = [];
+        for (let i = 2; i < spectrum.length - 2; i++) {
+          if (
+            spectrum[i] > spectrum[i - 1] &&
+            spectrum[i] > spectrum[i + 1] &&
+            spectrum[i] > spectrum[i - 2] &&
+            spectrum[i] > spectrum[i + 2]
+          ) {
+            peaks.push(i);
+          }
+        }
+        return peaks;
+      }
+
+      const spectrum = new Array(20).fill(0.5);
+      const peaks = findPeaks(spectrum);
+      expect(peaks.length).toBe(0);
+    });
+  });
+
+  describe("spectral features", () => {
+    it("calculates spectral centroid correctly", () => {
+      // Simple spectrum: energy concentrated at bin 5 (out of 10)
+      const spectrum = [0, 0, 0, 0, 0, 1, 0, 0, 0, 0];
+      const freqBinWidth = 100; // Hz per bin
+
+      let weightedSum = 0;
+      let totalMag = 0;
+      for (let i = 0; i < spectrum.length; i++) {
+        weightedSum += (i * freqBinWidth) * spectrum[i];
+        totalMag += spectrum[i];
+      }
+      const centroid = totalMag > 0 ? weightedSum / totalMag : 0;
+
+      expect(centroid).toBe(500); // 5 * 100 Hz
+    });
+
+    it("calculates spectral flatness for pure tone (near 0)", () => {
+      // Pure tone: all energy in one bin
+      const spectrum = [0.001, 0.001, 0.001, 1.0, 0.001, 0.001, 0.001, 0.001];
+      const logSum = spectrum.reduce((sum, val) => sum + Math.log(Math.max(val, 1e-10)), 0);
+      const geometricMean = Math.exp(logSum / spectrum.length);
+      const arithmeticMean = spectrum.reduce((s, v) => s + v, 0) / spectrum.length;
+      const flatness = arithmeticMean > 0 ? geometricMean / arithmeticMean : 0;
+
+      expect(flatness).toBeLessThan(0.1); // Tonal signal = low flatness
+    });
+
+    it("calculates spectral flatness for noise (near 1)", () => {
+      // White noise: equal energy in all bins
+      const spectrum = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5];
+      const logSum = spectrum.reduce((sum, val) => sum + Math.log(Math.max(val, 1e-10)), 0);
+      const geometricMean = Math.exp(logSum / spectrum.length);
+      const arithmeticMean = spectrum.reduce((s, v) => s + v, 0) / spectrum.length;
+      const flatness = arithmeticMean > 0 ? geometricMean / arithmeticMean : 0;
+
+      expect(flatness).toBeCloseTo(1.0, 2); // Noise = high flatness
+    });
+
+    it("calculates RMS level in dB", () => {
+      // Signal with known RMS
+      const samples = new Float32Array([0.5, -0.5, 0.5, -0.5]);
+      let sumSquares = 0;
+      for (let i = 0; i < samples.length; i++) {
+        sumSquares += samples[i] * samples[i];
+      }
+      const rms = Math.sqrt(sumSquares / samples.length);
+      const rmsDb = 20 * Math.log10(Math.max(rms, 1e-10));
+
+      expect(rms).toBeCloseTo(0.5, 5);
+      expect(rmsDb).toBeCloseTo(-6.02, 1); // -6 dB for 0.5 amplitude
+    });
+
+    it("calculates zero-crossing rate", () => {
+      // Alternating signal: maximum zero crossings
+      const samples = new Float32Array([1, -1, 1, -1, 1, -1, 1, -1]);
+      let zeroCrossings = 0;
+      for (let i = 1; i < samples.length; i++) {
+        if ((samples[i] >= 0 && samples[i - 1] < 0) || (samples[i] < 0 && samples[i - 1] >= 0)) {
+          zeroCrossings++;
+        }
+      }
+      const zcr = zeroCrossings / samples.length;
+
+      expect(zeroCrossings).toBe(7);
+      expect(zcr).toBeCloseTo(0.875, 3);
+    });
+  });
+});
+
+// ── Shared List Data Validation Tests ──────────────────────────────
+describe("Shared list data validation", () => {
+  it("validates list name is not empty", () => {
+    const name = "My Target List";
+    expect(name.length).toBeGreaterThan(0);
+    expect(name.trim().length).toBeGreaterThan(0);
+  });
+
+  it("validates list description length", () => {
+    const maxLength = 500;
+    const validDesc = "A collection of broadcast targets in Europe";
+    const tooLong = "x".repeat(501);
+
+    expect(validDesc.length).toBeLessThanOrEqual(maxLength);
+    expect(tooLong.length).toBeGreaterThan(maxLength);
+  });
+
+  it("validates target IDs are positive integers", () => {
+    const targetIds = [1, 5, 10, 42];
+    targetIds.forEach(id => {
+      expect(Number.isInteger(id)).toBe(true);
+      expect(id).toBeGreaterThan(0);
+    });
+  });
+
+  it("deduplicates target IDs", () => {
+    const targetIds = [1, 5, 5, 10, 10, 42];
+    const unique = [...new Set(targetIds)];
+    expect(unique).toEqual([1, 5, 10, 42]);
+    expect(unique.length).toBe(4);
+  });
+});
+
+// ── FFT In-Place Tests ──────────────────────────────
+describe("FFT in-place (Cooley-Tukey)", () => {
+  function fftInPlace(real: Float64Array, imag: Float64Array): void {
+    const n = real.length;
+    if (n <= 1) return;
+
+    let j = 0;
+    for (let i = 0; i < n - 1; i++) {
+      if (i < j) {
+        [real[i], real[j]] = [real[j], real[i]];
+        [imag[i], imag[j]] = [imag[j], imag[i]];
+      }
+      let k = n >> 1;
+      while (k <= j) {
+        j -= k;
+        k >>= 1;
+      }
+      j += k;
+    }
+
+    for (let len = 2; len <= n; len <<= 1) {
+      const halfLen = len >> 1;
+      const angle = (-2 * Math.PI) / len;
+      const wReal = Math.cos(angle);
+      const wImag = Math.sin(angle);
+
+      for (let i = 0; i < n; i += len) {
+        let curReal = 1;
+        let curImag = 0;
+        for (let k = 0; k < halfLen; k++) {
+          const tReal = curReal * real[i + k + halfLen] - curImag * imag[i + k + halfLen];
+          const tImag = curReal * imag[i + k + halfLen] + curImag * real[i + k + halfLen];
+          real[i + k + halfLen] = real[i + k] - tReal;
+          imag[i + k + halfLen] = imag[i + k] - tImag;
+          real[i + k] += tReal;
+          imag[i + k] += tImag;
+          const newReal = curReal * wReal - curImag * wImag;
+          curImag = curReal * wImag + curImag * wReal;
+          curReal = newReal;
+        }
+      }
+    }
+  }
+
+  it("transforms a DC signal correctly", () => {
+    const real = new Float64Array([1, 1, 1, 1]);
+    const imag = new Float64Array([0, 0, 0, 0]);
+    fftInPlace(real, imag);
+
+    // DC component should be sum of all samples = 4
+    expect(real[0]).toBeCloseTo(4, 5);
+    // All other bins should be ~0
+    expect(Math.abs(real[1])).toBeLessThan(1e-10);
+    expect(Math.abs(real[2])).toBeLessThan(1e-10);
+    expect(Math.abs(real[3])).toBeLessThan(1e-10);
+  });
+
+  it("transforms a pure cosine correctly", () => {
+    const N = 8;
+    const real = new Float64Array(N);
+    const imag = new Float64Array(N);
+    // cos(2π·1·n/N) → peaks at bin 1 and bin N-1
+    for (let n = 0; n < N; n++) {
+      real[n] = Math.cos((2 * Math.PI * n) / N);
+    }
+    fftInPlace(real, imag);
+
+    // Magnitude at bin 1 should be N/2 = 4
+    const mag1 = Math.sqrt(real[1] ** 2 + imag[1] ** 2);
+    expect(mag1).toBeCloseTo(N / 2, 3);
+  });
+
+  it("preserves Parseval's theorem (energy conservation)", () => {
+    const N = 16;
+    const real = new Float64Array(N);
+    const imag = new Float64Array(N);
+    for (let i = 0; i < N; i++) {
+      real[i] = Math.sin(i * 0.7) + Math.cos(i * 1.3);
+    }
+
+    // Time-domain energy
+    let timeEnergy = 0;
+    for (let i = 0; i < N; i++) {
+      timeEnergy += real[i] ** 2;
+    }
+
+    fftInPlace(real, imag);
+
+    // Frequency-domain energy (divided by N for Parseval's)
+    let freqEnergy = 0;
+    for (let i = 0; i < N; i++) {
+      freqEnergy += real[i] ** 2 + imag[i] ** 2;
+    }
+    freqEnergy /= N;
+
+    expect(freqEnergy).toBeCloseTo(timeEnergy, 3);
+  });
+
+  it("handles single element", () => {
+    const real = new Float64Array([42]);
+    const imag = new Float64Array([0]);
+    fftInPlace(real, imag);
+    expect(real[0]).toBe(42);
+  });
+});

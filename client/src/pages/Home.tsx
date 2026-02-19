@@ -18,12 +18,14 @@ import StationList from "@/components/StationList";
 import KeyboardNavIndicator from "@/components/KeyboardNavIndicator";
 import MilitaryRfPanel from "@/components/MilitaryRfPanel";
 import AlertSettings from "@/components/AlertSettings";
+import AnomalyAlertPanel from "@/components/AnomalyAlertPanel";
+import SharedListPanel from "@/components/SharedListPanel";
 import WatchlistPanel from "@/components/WatchlistPanel";
 import PropagationOverlay from "@/components/PropagationOverlay";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { AnimatePresence } from "framer-motion";
 import { motion } from "framer-motion";
-import { Radar, Bell, Eye, Activity, Crosshair, Target } from "lucide-react";
+import { Radar, Bell, Eye, Activity, Crosshair, Target, AlertTriangle, Users } from "lucide-react";
 import { getUnacknowledgedCount } from "@/lib/alertService";
 import { getWatchlistCount, getOnlineCount } from "@/lib/watchlistService";
 import type { IonosondeStation } from "@/lib/propagationService";
@@ -111,6 +113,14 @@ function HomeContent() {
     heatmapBounds?: { north: number; south: number; east: number; west: number };
   } | null>(null);
   const [targetsOpen, setTargetsOpen] = useState(false);
+  const [anomalyPanelOpen, setAnomalyPanelOpen] = useState(false);
+  const [sharingPanelOpen, setSharingPanelOpen] = useState(false);
+
+  // Fetch unacknowledged anomaly alert count
+  const anomalyCountQuery = trpc.anomalies.unacknowledgedCount.useQuery(undefined, {
+    refetchInterval: 15000,
+  });
+  const anomalyCount = anomalyCountQuery.data ?? 0;
 
   // Fetch saved TDoA targets for globe overlay
   const targetsQuery = trpc.targets.list.useQuery(undefined, {
@@ -433,6 +443,43 @@ function HomeContent() {
           )}
         </button>
 
+        {/* Anomaly Detection Button */}
+        <button
+          onClick={() => setAnomalyPanelOpen(!anomalyPanelOpen)}
+          className={`relative flex items-center gap-2 px-3 py-2 rounded-lg backdrop-blur-md transition-all group ${
+            anomalyPanelOpen
+              ? "bg-red-500/25 border-red-400/40 border"
+              : "bg-red-500/15 border border-red-500/25 hover:bg-red-500/25 hover:border-red-500/40"
+          }`}
+          title="Anomaly Detection Alerts"
+        >
+          <AlertTriangle className="w-4 h-4 text-red-400 group-hover:text-red-300 transition-colors" />
+          <span className="text-[10px] font-mono text-red-300/80 uppercase tracking-wider group-hover:text-red-200 transition-colors hidden sm:inline">
+            Anomaly
+          </span>
+          {anomalyCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-red-500 text-[8px] text-white font-bold flex items-center justify-center shadow-lg shadow-red-500/30 animate-pulse">
+              {anomalyCount > 9 ? "9+" : anomalyCount}
+            </span>
+          )}
+        </button>
+
+        {/* Shared Lists Button */}
+        <button
+          onClick={() => setSharingPanelOpen(!sharingPanelOpen)}
+          className={`relative flex items-center gap-2 px-3 py-2 rounded-lg backdrop-blur-md transition-all group ${
+            sharingPanelOpen
+              ? "bg-blue-500/25 border-blue-400/40 border"
+              : "bg-blue-500/15 border border-blue-500/25 hover:bg-blue-500/25 hover:border-blue-500/40"
+          }`}
+          title="Shared Target Lists"
+        >
+          <Users className="w-4 h-4 text-blue-400 group-hover:text-blue-300 transition-colors" />
+          <span className="text-[10px] font-mono text-blue-300/80 uppercase tracking-wider group-hover:text-blue-200 transition-colors hidden sm:inline">
+            Share
+          </span>
+        </button>
+
         {/* TDoA Triangulation Button */}
         <button
           onClick={() => setTdoaOpen(!tdoaOpen)}
@@ -522,6 +569,28 @@ function HomeContent() {
       <AnimatePresence>
         {alertsOpen && <AlertSettings onClose={() => setAlertsOpen(false)} />}
       </AnimatePresence>
+
+      {/* Anomaly Alert Panel */}
+      <AnomalyAlertPanel
+        isOpen={anomalyPanelOpen}
+        onClose={() => setAnomalyPanelOpen(false)}
+        targets={(targetsQuery.data as any[])?.map((t: any) => ({
+          id: t.id,
+          label: t.label,
+          category: t.category,
+        })) ?? []}
+      />
+
+      {/* Shared Lists Panel */}
+      <SharedListPanel
+        isOpen={sharingPanelOpen}
+        onClose={() => setSharingPanelOpen(false)}
+        availableTargets={(targetsQuery.data as any[])?.map((t: any) => ({
+          id: t.id,
+          label: t.label,
+          category: t.category || "unknown",
+        })) ?? []}
+      />
 
       {/* Watchlist Panel */}
       <AnimatePresence>

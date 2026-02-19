@@ -332,3 +332,174 @@ export const tdoaRecordings = mysqlTable(
 
 export type TdoaRecording = typeof tdoaRecordings.$inferSelect;
 export type InsertTdoaRecording = typeof tdoaRecordings.$inferInsert;
+
+/**
+ * Anomaly alerts — flagged when a target's latest position deviates
+ * significantly from the prediction model (outside confidence ellipse).
+ */
+export const anomalyAlerts = mysqlTable(
+  "anomaly_alerts",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** FK to tdoa_targets.id */
+    targetId: int("targetId").notNull(),
+    /** FK to tdoa_target_history.id that triggered the alert */
+    historyEntryId: int("historyEntryId").notNull(),
+    /** Severity: low (1-2σ), medium (2-3σ), high (>3σ) */
+    severity: mysqlEnum("severity", ["low", "medium", "high"]).default("medium").notNull(),
+    /** Deviation distance in km from predicted position */
+    deviationKm: float("deviationKm").notNull(),
+    /** How many sigma the deviation represents */
+    deviationSigma: float("deviationSigma").notNull(),
+    /** Predicted latitude at time of observation */
+    predictedLat: decimal("predictedLat", { precision: 10, scale: 6 }).notNull(),
+    /** Predicted longitude at time of observation */
+    predictedLon: decimal("predictedLon", { precision: 10, scale: 6 }).notNull(),
+    /** Actual observed latitude */
+    actualLat: decimal("actualLat", { precision: 10, scale: 6 }).notNull(),
+    /** Actual observed longitude */
+    actualLon: decimal("actualLon", { precision: 10, scale: 6 }).notNull(),
+    /** Human-readable description of the anomaly */
+    description: text("description"),
+    /** Whether the alert has been acknowledged by the user */
+    acknowledged: boolean("acknowledged").default(false).notNull(),
+    /** Whether owner notification was sent */
+    notificationSent: boolean("notificationSent").default(false).notNull(),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    index("idx_anomaly_targetId").on(table.targetId),
+    index("idx_anomaly_severity").on(table.severity),
+    index("idx_anomaly_acknowledged").on(table.acknowledged),
+    index("idx_anomaly_createdAt").on(table.createdAt),
+  ]
+);
+
+export type AnomalyAlert = typeof anomalyAlerts.$inferSelect;
+export type InsertAnomalyAlert = typeof anomalyAlerts.$inferInsert;
+
+/**
+ * Shared target lists — collaborative collections of targets
+ * that can be shared with other users via invite links.
+ */
+export const sharedTargetLists = mysqlTable(
+  "shared_target_lists",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** List name */
+    name: varchar("name", { length: 256 }).notNull(),
+    /** Description of the list */
+    description: text("description"),
+    /** Owner user ID (FK to users.id) */
+    ownerId: int("ownerId").notNull(),
+    /** Unique invite token for sharing */
+    inviteToken: varchar("inviteToken", { length: 64 }).notNull().unique(),
+    /** Default permission for invited users */
+    defaultPermission: mysqlEnum("defaultPermission", ["view", "edit"]).default("view").notNull(),
+    /** Whether the list is publicly accessible (no auth needed to view) */
+    isPublic: boolean("isPublic").default(false).notNull(),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+    updatedAt: bigint("updatedAt", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    index("idx_shared_lists_ownerId").on(table.ownerId),
+    index("idx_shared_lists_inviteToken").on(table.inviteToken),
+  ]
+);
+
+export type SharedTargetList = typeof sharedTargetLists.$inferSelect;
+export type InsertSharedTargetList = typeof sharedTargetLists.$inferInsert;
+
+/**
+ * Members of shared target lists — tracks who has access and their permission level.
+ */
+export const sharedListMembers = mysqlTable(
+  "shared_list_members",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** FK to shared_target_lists.id */
+    listId: int("listId").notNull(),
+    /** FK to users.id */
+    userId: int("userId").notNull(),
+    /** Permission level for this member */
+    permission: mysqlEnum("permission", ["view", "edit"]).default("view").notNull(),
+    joinedAt: bigint("joinedAt", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    index("idx_members_listId").on(table.listId),
+    index("idx_members_userId").on(table.userId),
+  ]
+);
+
+export type SharedListMember = typeof sharedListMembers.$inferSelect;
+export type InsertSharedListMember = typeof sharedListMembers.$inferInsert;
+
+/**
+ * Target-to-list mapping — which targets belong to which shared lists.
+ */
+export const sharedListTargets = mysqlTable(
+  "shared_list_targets",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** FK to shared_target_lists.id */
+    listId: int("listId").notNull(),
+    /** FK to tdoa_targets.id */
+    targetId: int("targetId").notNull(),
+    addedAt: bigint("addedAt", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    index("idx_list_targets_listId").on(table.listId),
+    index("idx_list_targets_targetId").on(table.targetId),
+  ]
+);
+
+export type SharedListTarget = typeof sharedListTargets.$inferSelect;
+export type InsertSharedListTarget = typeof sharedListTargets.$inferInsert;
+
+/**
+ * Signal fingerprints — spectral signatures extracted from audio recordings.
+ * Used for pattern matching to automatically link new TDoA results to existing targets.
+ */
+export const signalFingerprints = mysqlTable(
+  "signal_fingerprints",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** FK to tdoa_targets.id */
+    targetId: int("targetId").notNull(),
+    /** FK to tdoa_recordings.id that this fingerprint was extracted from */
+    recordingId: int("recordingId").notNull(),
+    /** FK to tdoa_target_history.id */
+    historyEntryId: int("historyEntryId"),
+    /** Frequency in kHz */
+    frequencyKhz: decimal("frequencyKhz", { precision: 10, scale: 2 }),
+    /** Modulation mode */
+    mode: varchar("mode", { length: 8 }),
+    /** Spectral peak frequencies (JSON array of Hz values) */
+    spectralPeaks: json("spectralPeaks"),
+    /** Bandwidth estimate in Hz */
+    bandwidthHz: float("bandwidthHz"),
+    /** Dominant frequency in Hz (strongest spectral component) */
+    dominantFreqHz: float("dominantFreqHz"),
+    /** Spectral centroid in Hz */
+    spectralCentroid: float("spectralCentroid"),
+    /** Spectral flatness (0 = tonal, 1 = noise-like) */
+    spectralFlatness: float("spectralFlatness"),
+    /** RMS energy level */
+    rmsLevel: float("rmsLevel"),
+    /** Compact feature vector for fast comparison (JSON array of floats) */
+    featureVector: json("featureVector"),
+    /** S3 URL to the spectrogram image snapshot */
+    spectrogramUrl: varchar("spectrogramUrl", { length: 1024 }),
+    /** S3 file key for the spectrogram */
+    spectrogramKey: varchar("spectrogramKey", { length: 512 }),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    index("idx_fingerprints_targetId").on(table.targetId),
+    index("idx_fingerprints_recordingId").on(table.recordingId),
+    index("idx_fingerprints_frequencyKhz").on(table.frequencyKhz),
+  ]
+);
+
+export type SignalFingerprint = typeof signalFingerprints.$inferSelect;
+export type InsertSignalFingerprint = typeof signalFingerprints.$inferInsert;
