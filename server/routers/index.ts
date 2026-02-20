@@ -12,6 +12,7 @@ import { anomaliesRouter } from "./anomalies";
 import { analyticsRouter } from "./analytics";
 import { ucdpRouter } from "./ucdp";
 import { geofenceRouter } from "./geofence";
+import { chatRouter } from "./chat";
 
 export const appRouter = router({
   system: systemRouter,
@@ -27,6 +28,7 @@ export const appRouter = router({
   analytics: analyticsRouter,
   ucdp: ucdpRouter,
   geofence: geofenceRouter,
+  chat: chatRouter,
 });
 
 export type AppRouter = typeof appRouter;

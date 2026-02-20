@@ -25,6 +25,7 @@ import PropagationOverlay from "@/components/PropagationOverlay";
 import ConflictOverlay, { type SlimConflictEvent } from "@/components/ConflictOverlay";
 import SigintConflictTimeline from "@/components/SigintConflictTimeline";
 import GeofencePanel from "@/components/GeofencePanel";
+import IntelChat from "@/components/IntelChat";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { AnimatePresence } from "framer-motion";
 import { motion } from "framer-motion";
@@ -842,6 +843,8 @@ function HomeContent() {
         onClose={() => setHelpOpen(false)}
         shortcuts={shortcuts}
       />
+      {/* HybridRAG Intelligence Chat */}
+      <IntelChat />
     </div>
   );
 }

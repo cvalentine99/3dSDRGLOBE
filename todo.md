@@ -248,3 +248,13 @@
 - [x] SIGINT PDF Export: download button in SigintConflictTimeline component
 - [x] Vitest tests for geofencing, sweep scheduler, and PDF export (45 tests)
 - [x] All 573 vitest tests passing across 18 test files, zero TypeScript errors
+- [x] HybridRAG Chat: popup dialog UI in lower-right corner with toggle button
+- [x] HybridRAG Chat: server-side RAG engine with data retrieval across all systems
+- [x] HybridRAG Chat: LLM integration with tool-use for structured data queries
+- [x] HybridRAG Chat: tRPC chat endpoint with message send/history/clear
+- [x] HybridRAG Chat: context assembly from receivers, targets, conflicts, SIGINT logs, geofences, alerts
+- [x] HybridRAG Chat: message history persistence (in-memory per session)
+- [x] HybridRAG Chat: markdown rendering in chat responses (Streamdown)
+- [x] HybridRAG Chat: integrate into Home.tsx globe view
+- [x] Vitest tests for HybridRAG chat engine (ragChat.test.ts)
+- [x] All 642 tests passing across 19 test files, zero TypeScript errors
