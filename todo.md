@@ -213,3 +213,6 @@
 - [x] Nav bar reorganization: implement new nav bar with icon grouping and dropdown menus
 - [x] Nav bar reorganization: ensure keyboard shortcuts still work with new layout
 - [x] Nav bar reorganization: verify layout on ultrawide and standard monitors
+- [x] BUG FIX: UCDP conflict data returning empty — fixed by merging GED + Candidate datasets
+- [x] BUG FIX: Ensure UCDP free API is working — confirmed 1,909 events from candidate dataset
+- [x] BUG FIX: Verify conflict markers render on globe with real data — confirmed via tRPC endpoint

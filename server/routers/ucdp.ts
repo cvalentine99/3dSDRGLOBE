@@ -3,10 +3,15 @@ import { z } from "zod";
 
 // ── UCDP API Configuration ──────────────────────────────────────────
 const UCDP_BASE = "https://ucdpapi.pcr.uu.se/api";
-const GED_VERSION = "25.1"; // Latest GED version
-const CANDIDATE_VERSION = "25.0.12"; // Latest candidate (near-real-time) version
+const GED_VERSION = "25.1"; // Full verified dataset (up to ~end of 2024)
+const CANDIDATE_VERSION = "25.0.12"; // Near-real-time candidate data (2025+)
 const PAGE_SIZE = 1000; // Max allowed by UCDP API
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour cache
+
+// The GED dataset typically covers up to the end of the previous year.
+// Candidate data covers the current year onward.
+// We use Jan 1 of the current year as the cutover point.
+const GED_CUTOFF_DATE = "2025-01-01";
 
 // ── Types ───────────────────────────────────────────────────────────
 export interface UcdpEvent {
@@ -78,33 +83,23 @@ function getCached(key: string): CacheEntry | null {
   return entry;
 }
 
-// ── UCDP API fetcher ────────────────────────────────────────────────
-async function fetchUcdpEvents(params: {
+// ── Single-dataset UCDP API fetcher ─────────────────────────────────
+async function fetchFromDataset(params: {
+  version: string;
   startDate?: string;
   endDate?: string;
   region?: string;
   typeOfViolence?: string;
   country?: string;
-  dataset?: "ged" | "candidate";
-  maxPages?: number;
+  maxPages: number;
 }): Promise<{ events: UcdpEvent[]; totalCount: number }> {
-  const dataset = params.dataset ?? "ged";
-  const version = dataset === "candidate" ? CANDIDATE_VERSION : GED_VERSION;
-  const maxPages = params.maxPages ?? 10; // Default: fetch up to 10 pages (10,000 events)
-
-  const cacheKey = getCacheKey({ ...params, dataset });
-  const cached = getCached(cacheKey);
-  if (cached) {
-    return { events: cached.data, totalCount: cached.totalCount };
-  }
-
   const allEvents: UcdpEvent[] = [];
   let page = 0;
   let totalCount = 0;
   let totalPages = 1;
 
-  while (page < totalPages && page < maxPages) {
-    const url = new URL(`${UCDP_BASE}/gedevents/${version}`);
+  while (page < totalPages && page < params.maxPages) {
+    const url = new URL(`${UCDP_BASE}/gedevents/${params.version}`);
     url.searchParams.set("pagesize", String(PAGE_SIZE));
     url.searchParams.set("page", String(page));
 
@@ -117,11 +112,12 @@ async function fetchUcdpEvents(params: {
 
     const res = await fetch(url.toString(), {
       headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!res.ok) {
       throw new Error(
-        `UCDP API error: ${res.status} ${res.statusText}`
+        `UCDP API error: ${res.status} ${res.statusText} (${params.version})`
       );
     }
 
@@ -132,7 +128,94 @@ async function fetchUcdpEvents(params: {
     page++;
   }
 
-  // Cache the result
+  return { events: allEvents, totalCount };
+}
+
+// ── Merged fetcher: GED for older data + Candidate for recent ───────
+async function fetchUcdpEvents(params: {
+  startDate?: string;
+  endDate?: string;
+  region?: string;
+  typeOfViolence?: string;
+  country?: string;
+  maxPages?: number;
+}): Promise<{ events: UcdpEvent[]; totalCount: number }> {
+  const maxPages = params.maxPages ?? 10;
+
+  // Check merged cache first
+  const cacheKey = getCacheKey({ ...params, dataset: "merged" });
+  const cached = getCached(cacheKey);
+  if (cached) {
+    return { events: cached.data, totalCount: cached.totalCount };
+  }
+
+  const requestStart = params.startDate ?? "2020-01-01";
+  const requestEnd = params.endDate;
+
+  // Determine which datasets to query based on the date range
+  const needsGed = requestStart < GED_CUTOFF_DATE;
+  const needsCandidate = !requestEnd || requestEnd >= GED_CUTOFF_DATE;
+
+  const fetches: Promise<{ events: UcdpEvent[]; totalCount: number }>[] = [];
+
+  if (needsGed) {
+    // Fetch GED data for the portion before the cutoff
+    const gedEnd =
+      requestEnd && requestEnd < GED_CUTOFF_DATE
+        ? requestEnd
+        : "2024-12-31";
+    fetches.push(
+      fetchFromDataset({
+        version: GED_VERSION,
+        startDate: requestStart,
+        endDate: gedEnd,
+        region: params.region,
+        typeOfViolence: params.typeOfViolence,
+        country: params.country,
+        maxPages: Math.ceil(maxPages / (needsCandidate ? 2 : 1)),
+      })
+    );
+  }
+
+  if (needsCandidate) {
+    // Fetch candidate data for the portion from the cutoff onward
+    const candidateStart =
+      requestStart >= GED_CUTOFF_DATE ? requestStart : GED_CUTOFF_DATE;
+    fetches.push(
+      fetchFromDataset({
+        version: CANDIDATE_VERSION,
+        startDate: candidateStart,
+        endDate: requestEnd,
+        region: params.region,
+        typeOfViolence: params.typeOfViolence,
+        country: params.country,
+        maxPages: Math.ceil(maxPages / (needsGed ? 2 : 1)),
+      })
+    );
+  }
+
+  // Execute in parallel
+  const results = await Promise.all(fetches);
+
+  // Merge and deduplicate by event ID
+  const eventMap = new Map<number, UcdpEvent>();
+  let totalCount = 0;
+
+  for (const result of results) {
+    totalCount += result.totalCount;
+    for (const event of result.events) {
+      if (!eventMap.has(event.id)) {
+        eventMap.set(event.id, event);
+      }
+    }
+  }
+
+  const allEvents = Array.from(eventMap.values());
+
+  // Sort by date descending (most recent first)
+  allEvents.sort((a, b) => b.date_end.localeCompare(a.date_end));
+
+  // Cache the merged result
   cache.set(cacheKey, {
     data: allEvents,
     totalCount,
@@ -178,6 +261,7 @@ export const ucdpRouter = router({
   /**
    * Get conflict events for the globe overlay.
    * Returns slim events to minimize payload size.
+   * Merges GED (verified, up to ~2024) and Candidate (near-real-time, 2025+) datasets.
    * Defaults to last 365 days of data.
    */
   getEvents: publicProcedure
@@ -189,7 +273,6 @@ export const ucdpRouter = router({
           region: z.string().optional(),
           typeOfViolence: z.string().optional(), // "1", "2", "3", or "1,2" etc.
           country: z.string().optional(),
-          dataset: z.enum(["ged", "candidate"]).optional(),
           maxPages: z.number().min(1).max(50).optional(),
         })
         .optional()
@@ -215,29 +298,37 @@ export const ucdpRouter = router({
 
   /**
    * Get full detail for a single event by ID.
+   * Tries GED first, then falls back to candidate dataset.
    */
   getEventDetail: publicProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
-      const url = `${UCDP_BASE}/gedevents/${GED_VERSION}/${input.id}`;
-      const res = await fetch(url, {
-        headers: { Accept: "application/json" },
-      });
-
-      if (!res.ok) {
-        // Try candidate dataset
-        const candidateUrl = `${UCDP_BASE}/gedevents/${CANDIDATE_VERSION}/${input.id}`;
-        const candidateRes = await fetch(candidateUrl, {
+      // Try GED first
+      const gedUrl = `${UCDP_BASE}/gedevents/${GED_VERSION}/${input.id}`;
+      try {
+        const res = await fetch(gedUrl, {
           headers: { Accept: "application/json" },
+          signal: AbortSignal.timeout(15_000),
         });
-        if (!candidateRes.ok) {
-          throw new Error(`Event ${input.id} not found`);
+        if (res.ok) {
+          const data = await res.json();
+          const event = data.Result?.[0] ?? data;
+          if (event && event.id) return event as UcdpEvent;
         }
-        const data = await candidateRes.json();
-        return (data.Result?.[0] ?? data) as UcdpEvent;
+      } catch {
+        // Fall through to candidate
       }
 
-      const data = await res.json();
+      // Try candidate dataset
+      const candidateUrl = `${UCDP_BASE}/gedevents/${CANDIDATE_VERSION}/${input.id}`;
+      const candidateRes = await fetch(candidateUrl, {
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!candidateRes.ok) {
+        throw new Error(`Event ${input.id} not found in either GED or candidate dataset`);
+      }
+      const data = await candidateRes.json();
       return (data.Result?.[0] ?? data) as UcdpEvent;
     }),
 
@@ -253,7 +344,6 @@ export const ucdpRouter = router({
           region: z.string().optional(),
           typeOfViolence: z.string().optional(),
           country: z.string().optional(),
-          dataset: z.enum(["ged", "candidate"]).optional(),
         })
         .optional()
     )

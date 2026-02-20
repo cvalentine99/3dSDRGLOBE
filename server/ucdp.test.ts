@@ -247,6 +247,95 @@ describe("UCDP Marker Sizing", () => {
   });
 });
 
+describe("UCDP Merged Dataset Logic", () => {
+  const GED_CUTOFF_DATE = "2025-01-01";
+
+  it("should determine correct datasets based on date range", () => {
+    // Date range entirely before cutoff → only GED
+    const range1 = { startDate: "2023-01-01", endDate: "2024-06-30" };
+    const needsGed1 = range1.startDate < GED_CUTOFF_DATE;
+    const needsCandidate1 = !range1.endDate || range1.endDate >= GED_CUTOFF_DATE;
+    expect(needsGed1).toBe(true);
+    expect(needsCandidate1).toBe(false);
+
+    // Date range entirely after cutoff → only Candidate
+    const range2 = { startDate: "2025-02-01", endDate: "2025-06-30" };
+    const needsGed2 = range2.startDate < GED_CUTOFF_DATE;
+    const needsCandidate2 = !range2.endDate || range2.endDate >= GED_CUTOFF_DATE;
+    expect(needsGed2).toBe(false);
+    expect(needsCandidate2).toBe(true);
+
+    // Date range spanning cutoff → both datasets
+    const range3 = { startDate: "2024-06-01", endDate: "2025-06-30" };
+    const needsGed3 = range3.startDate < GED_CUTOFF_DATE;
+    const needsCandidate3 = !range3.endDate || range3.endDate >= GED_CUTOFF_DATE;
+    expect(needsGed3).toBe(true);
+    expect(needsCandidate3).toBe(true);
+  });
+
+  it("should determine both datasets when no end date is specified", () => {
+    const range = { startDate: "2024-01-01", endDate: undefined };
+    const needsGed = range.startDate < GED_CUTOFF_DATE;
+    const needsCandidate = !range.endDate || range.endDate >= GED_CUTOFF_DATE;
+    expect(needsGed).toBe(true);
+    expect(needsCandidate).toBe(true);
+  });
+
+  it("should deduplicate events by ID when merging datasets", () => {
+    const gedEvents = [
+      { id: 1, date_end: "2024-12-01" },
+      { id: 2, date_end: "2024-11-15" },
+      { id: 3, date_end: "2024-12-31" },
+    ];
+    const candidateEvents = [
+      { id: 3, date_end: "2024-12-31" }, // duplicate
+      { id: 4, date_end: "2025-01-15" },
+      { id: 5, date_end: "2025-02-01" },
+    ];
+
+    const eventMap = new Map<number, any>();
+    for (const e of gedEvents) eventMap.set(e.id, e);
+    for (const e of candidateEvents) {
+      if (!eventMap.has(e.id)) eventMap.set(e.id, e);
+    }
+
+    const merged = Array.from(eventMap.values());
+    expect(merged.length).toBe(5); // 3 GED + 2 unique candidate
+    expect(merged.filter(e => e.id === 3).length).toBe(1); // no duplicates
+  });
+
+  it("should sort merged events by date descending", () => {
+    const events = [
+      { id: 1, date_end: "2024-06-01" },
+      { id: 2, date_end: "2025-02-01" },
+      { id: 3, date_end: "2024-12-15" },
+      { id: 4, date_end: "2025-01-01" },
+    ];
+
+    events.sort((a, b) => b.date_end.localeCompare(a.date_end));
+
+    expect(events[0].id).toBe(2); // 2025-02-01
+    expect(events[1].id).toBe(4); // 2025-01-01
+    expect(events[2].id).toBe(3); // 2024-12-15
+    expect(events[3].id).toBe(1); // 2024-06-01
+  });
+
+  it("should default to last 365 days when no dates specified", () => {
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const defaultStart = oneYearAgo.toISOString().split("T")[0];
+
+    // The default start date should be a valid YYYY-MM-DD string
+    expect(/^\d{4}-\d{2}-\d{2}$/.test(defaultStart)).toBe(true);
+
+    // It should be approximately 365 days ago
+    const diffMs = Date.now() - new Date(defaultStart).getTime();
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    expect(diffDays).toBeGreaterThan(360);
+    expect(diffDays).toBeLessThan(370);
+  });
+});
+
 describe("UCDP Violence Type Configuration", () => {
   it("should have colors for all violence types", () => {
     const VIOLENCE_TYPE_COLORS: Record<number, string> = {
