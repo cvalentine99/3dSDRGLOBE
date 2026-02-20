@@ -330,3 +330,56 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
 
   return (await response.json()) as InvokeResult;
 }
+
+/**
+ * Streaming variant of invokeLLM — returns a ReadableStream of SSE chunks.
+ * Each chunk is a partial response from the LLM.
+ */
+export async function invokeLLMStreaming(params: InvokeParams): Promise<Response> {
+  assertApiKey();
+
+  const {
+    messages,
+    tools,
+    toolChoice,
+    tool_choice,
+  } = params;
+
+  const payload: Record<string, unknown> = {
+    model: "gemini-2.5-flash",
+    messages: messages.map(normalizeMessage),
+    stream: true,
+  };
+
+  if (tools && tools.length > 0) {
+    payload.tools = tools;
+  }
+
+  const normalizedToolChoice = normalizeToolChoice(
+    toolChoice || tool_choice,
+    tools
+  );
+  if (normalizedToolChoice) {
+    payload.tool_choice = normalizedToolChoice;
+  }
+
+  payload.max_tokens = 32768;
+
+  const response = await fetch(resolveApiUrl(), {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${ENV.forgeApiKey}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `LLM streaming invoke failed: ${response.status} ${response.statusText} – ${errorText}`
+    );
+  }
+
+  return response;
+}

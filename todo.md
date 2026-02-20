@@ -258,3 +258,20 @@
 - [x] HybridRAG Chat: integrate into Home.tsx globe view
 - [x] Vitest tests for HybridRAG chat engine (ragChat.test.ts)
 - [x] All 642 tests passing across 19 test files, zero TypeScript errors
+- [x] Streaming Chat: SSE-based token streaming endpoint (/api/chat/stream)
+- [x] Streaming Chat: invokeLLMStreaming function in server/_core/llm.ts
+- [x] Streaming Chat: processChatStreaming in ragEngine.ts with tool-call iterations
+- [x] Streaming Chat: IntelChat UI consumes SSE stream with token-by-token rendering
+- [x] Streaming Chat: status indicators during tool-call phases ("Querying receivers...", etc.)
+- [x] Streaming Chat: graceful error handling and AbortController cleanup
+- [x] Chat Persistence: chat_messages table in database schema
+- [x] Chat Persistence: chat router rewritten with DB storage (getHistory, clearHistory, sendMessage)
+- [x] Chat Persistence: conversation history loads on chat open from DB
+- [x] Chat Persistence: clear conversation deletes from database
+- [x] Globe Actions: [GLOBE:FLY_TO|HIGHLIGHT|OVERLAY:params:label] format in LLM responses
+- [x] Globe Actions: parseGlobeActions/stripGlobeActions in IntelChat
+- [x] Globe Actions: clickable action buttons rendered in chat messages (FLY_TO, HIGHLIGHT, OVERLAY)
+- [x] Globe Actions: setGlobeTarget exposed in RadioContext for fly-to navigation
+- [x] Globe Actions: GLOBE_ACTION_PROMPT added to RAG system prompt for LLM to suggest actions
+- [x] Vitest tests for streaming, DB persistence, and globe actions (streamingChatGlobe.test.ts)
+- [x] All 692 tests passing across 20 test files, zero TypeScript errors

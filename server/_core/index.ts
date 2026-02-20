@@ -59,6 +59,73 @@ async function startServer() {
     }
   });
 
+  // SSE streaming endpoint for chat
+  app.post("/api/chat/stream", async (req, res) => {
+    try {
+      // Authenticate user from cookie
+      const { sdk } = await import("./sdk");
+      const user = await sdk.authenticateRequest(req);
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { message } = req.body;
+      if (!message || typeof message !== "string" || message.length > 4000) {
+        return res.status(400).json({ error: "Invalid message" });
+      }
+
+      // Set SSE headers
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("X-Accel-Buffering", "no");
+      res.flushHeaders();
+
+      // Save user message to DB
+      const { loadHistory, saveMessage } = await import("../routers/chat");
+      await saveMessage(user.openId, "user", message);
+
+      // Load conversation history
+      const history = await loadHistory(user.openId);
+
+      // Process through streaming RAG engine
+      const { processChatStreaming } = await import("../ragEngine");
+      const fullResponse = await processChatStreaming(
+        history.slice(0, -1),
+        message,
+        (event) => {
+          res.write(`data: ${JSON.stringify(event)}\n\n`);
+        }
+      );
+
+      // Save assistant response to DB
+      // Extract globe actions from the response
+      const globeActionRegex = /\[GLOBE:(FLY_TO|HIGHLIGHT|OVERLAY):([^:]+):([^\]]+)\]/g;
+      const globeActions: unknown[] = [];
+      let match;
+      while ((match = globeActionRegex.exec(fullResponse)) !== null) {
+        globeActions.push({
+          type: match[1],
+          params: match[2],
+          label: match[3],
+        });
+      }
+
+      await saveMessage(user.openId, "assistant", fullResponse, globeActions);
+
+      res.write("data: [DONE]\n\n");
+      res.end();
+    } catch (err) {
+      console.error("[SSE Chat] Error:", err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Internal server error" });
+      } else {
+        res.write(`data: ${JSON.stringify({ type: "error", data: "An error occurred during processing." })}\n\n`);
+        res.end();
+      }
+    }
+  });
+
   // tRPC API
   app.use(
     "/api/trpc",

@@ -2,48 +2,67 @@
  * chat.ts — tRPC router for the HybridRAG chat assistant
  *
  * Provides endpoints for:
- * - Sending messages and getting AI responses
- * - Retrieving conversation history
- * - Clearing conversation history
+ * - Sending messages and getting AI responses (non-streaming fallback)
+ * - Retrieving conversation history from database
+ * - Clearing conversation history from database
  *
- * Messages are stored in-memory per session (no DB table needed).
- * The RAG engine handles tool-calling and data retrieval.
+ * Messages are persisted in the chat_messages table.
+ * SSE streaming is handled by a separate Express endpoint.
  */
 
 import { z } from "zod";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, router } from "../_core/trpc";
 import { processChat, type ChatMessage } from "../ragEngine";
+import { getDb } from "../db";
+import { chatMessages } from "../../drizzle/schema";
+import { eq, desc, asc } from "drizzle-orm";
 
-// ── In-Memory Conversation Store ───────────────────────────────────
-// Keyed by user openId. Each user gets their own conversation history.
-// Conversations are cleared on server restart (ephemeral by design).
+const MAX_HISTORY = 50;
 
-const MAX_HISTORY_PER_USER = 50; // Keep last 50 messages per user
-const conversations = new Map<string, ChatMessage[]>();
+/** Load conversation history from DB for a user */
+export async function loadHistory(userOpenId: string): Promise<ChatMessage[]> {
+  const db = await getDb();
+  if (!db) return [];
 
-function getConversation(userId: string): ChatMessage[] {
-  if (!conversations.has(userId)) {
-    conversations.set(userId, []);
-  }
-  return conversations.get(userId)!;
+  const rows = await db
+    .select()
+    .from(chatMessages)
+    .where(eq(chatMessages.userOpenId, userOpenId))
+    .orderBy(desc(chatMessages.createdAt))
+    .limit(MAX_HISTORY);
+
+  // Reverse so oldest first
+  return rows.reverse().map((r) => ({
+    role: r.role as "user" | "assistant",
+    content: r.content,
+  }));
 }
 
-function addMessage(userId: string, msg: ChatMessage): void {
-  const conv = getConversation(userId);
-  conv.push(msg);
-  // Trim to max history (keep recent messages)
-  if (conv.length > MAX_HISTORY_PER_USER) {
-    const excess = conv.length - MAX_HISTORY_PER_USER;
-    conv.splice(0, excess);
-  }
+/** Save a message to the DB */
+export async function saveMessage(
+  userOpenId: string,
+  role: "user" | "assistant",
+  content: string,
+  globeActions?: unknown[]
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+
+  await db.insert(chatMessages).values({
+    userOpenId,
+    role,
+    content,
+    globeActions: globeActions && globeActions.length > 0 ? globeActions : null,
+    createdAt: Date.now(),
+  });
 }
 
 // ── Router ─────────────────────────────────────────────────────────
 
 export const chatRouter = router({
   /**
-   * Send a message and get an AI response.
-   * The RAG engine will query relevant data sources and synthesize a response.
+   * Send a message and get an AI response (non-streaming fallback).
+   * For streaming, use the /api/chat/stream SSE endpoint instead.
    */
   sendMessage: protectedProcedure
     .input(
@@ -53,17 +72,22 @@ export const chatRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.openId;
-      const history = getConversation(userId);
 
-      // Add user message to history
-      addMessage(userId, { role: "user", content: input.message });
+      // Save user message to DB
+      await saveMessage(userId, "user", input.message);
+
+      // Load conversation history from DB
+      const history = await loadHistory(userId);
 
       try {
-        // Process through RAG engine (passes conversation history for context)
-        const response = await processChat(history.slice(0, -1), input.message);
+        // Process through RAG engine
+        const response = await processChat(
+          history.slice(0, -1), // Exclude the just-added user message
+          input.message
+        );
 
-        // Add assistant response to history
-        addMessage(userId, { role: "assistant", content: response });
+        // Save assistant response to DB
+        await saveMessage(userId, "assistant", response);
 
         return {
           response,
@@ -74,7 +98,7 @@ export const chatRouter = router({
 
         const errorMsg =
           "I encountered an error while processing your request. Please try again or rephrase your question.";
-        addMessage(userId, { role: "assistant", content: errorMsg });
+        await saveMessage(userId, "assistant", errorMsg);
 
         return {
           response: errorMsg,
@@ -86,14 +110,25 @@ export const chatRouter = router({
   /**
    * Get the current conversation history for the authenticated user.
    */
-  getHistory: protectedProcedure.query(({ ctx }) => {
+  getHistory: protectedProcedure.query(async ({ ctx }) => {
     const userId = ctx.user.openId;
-    const history = getConversation(userId);
+    const db = await getDb();
+    if (!db) return { messages: [] };
+
+    const rows = await db
+      .select()
+      .from(chatMessages)
+      .where(eq(chatMessages.userOpenId, userId))
+      .orderBy(asc(chatMessages.createdAt))
+      .limit(MAX_HISTORY);
+
     return {
-      messages: history.map((m, i) => ({
-        id: i,
-        role: m.role,
-        content: m.content,
+      messages: rows.map((r: typeof chatMessages.$inferSelect) => ({
+        id: r.id,
+        role: r.role,
+        content: r.content,
+        globeActions: r.globeActions as unknown[] | null,
+        createdAt: r.createdAt,
       })),
     };
   }),
@@ -101,9 +136,15 @@ export const chatRouter = router({
   /**
    * Clear the conversation history for the authenticated user.
    */
-  clearHistory: protectedProcedure.mutation(({ ctx }) => {
+  clearHistory: protectedProcedure.mutation(async ({ ctx }) => {
     const userId = ctx.user.openId;
-    conversations.delete(userId);
+    const db = await getDb();
+    if (!db) return { success: false };
+
+    await db
+      .delete(chatMessages)
+      .where(eq(chatMessages.userOpenId, userId));
+
     return { success: true };
   }),
 });

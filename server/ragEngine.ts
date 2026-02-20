@@ -782,3 +782,203 @@ export async function processChat(
 
   return "Analysis complete.";
 }
+
+// ── Globe Action Prompt Addition ──────────────────────────────────
+
+const GLOBE_ACTION_PROMPT = `
+
+## Globe Actions
+When your response references specific locations, receivers, or targets, you can embed interactive globe actions.
+Use these markers in your response text — the UI will render them as clickable buttons:
+
+- \`[GLOBE:FLY_TO:lat,lng:label]\` — Fly the globe camera to a specific location
+  Example: [GLOBE:FLY_TO:48.8566,2.3522:Paris, France]
+- \`[GLOBE:HIGHLIGHT:receiverId:label]\` — Highlight a specific receiver on the globe
+  Example: [GLOBE:HIGHLIGHT:42:KiwiSDR Brussels]
+- \`[GLOBE:OVERLAY:conflict:label]\` — Toggle the conflict overlay on
+  Example: [GLOBE:OVERLAY:conflict:Show Conflict Zones]
+- \`[GLOBE:OVERLAY:propagation:label]\` — Toggle the propagation overlay on
+  Example: [GLOBE:OVERLAY:propagation:Show Propagation]
+
+Use these actions sparingly and only when they add value to the analysis. Place them naturally within your response text near the relevant discussion.`;
+
+// ── Streaming RAG Function ────────────────────────────────────────
+
+import { invokeLLMStreaming } from "./_core/llm";
+
+export type StreamCallback = (event: {
+  type: "status" | "token" | "done" | "error";
+  data: string;
+}) => void;
+
+/**
+ * Process a chat message through the HybridRAG engine with streaming output.
+ * Tool calls are executed non-streaming, then the final response is streamed token-by-token.
+ */
+export async function processChatStreaming(
+  conversationHistory: ChatMessage[],
+  userMessage: string,
+  onEvent: StreamCallback
+): Promise<string> {
+  // Build message array with system prompt + globe actions
+  const messages: Message[] = [
+    { role: "system", content: SYSTEM_PROMPT + GLOBE_ACTION_PROMPT },
+    ...conversationHistory.map((m) => ({
+      role: m.role as "system" | "user" | "assistant",
+      content: m.content,
+    })),
+    { role: "user", content: userMessage },
+  ];
+
+  // First LLM call (non-streaming) to handle potential tool calls
+  onEvent({ type: "status", data: "Analyzing query..." });
+
+  let response = await invokeLLM({
+    messages,
+    tools: RAG_TOOLS,
+    tool_choice: "auto",
+  });
+
+  let choice = response.choices[0];
+  if (!choice) {
+    const msg = "I was unable to process your request. Please try again.";
+    onEvent({ type: "error", data: msg });
+    return msg;
+  }
+
+  // Tool-calling loop (non-streaming)
+  let iterations = 0;
+  const MAX_ITERATIONS = 5;
+
+  while (
+    choice.message.tool_calls &&
+    choice.message.tool_calls.length > 0 &&
+    iterations < MAX_ITERATIONS
+  ) {
+    iterations++;
+
+    // Add assistant message with tool calls to context
+    messages.push({
+      role: "assistant",
+      content: choice.message.content || "",
+    });
+
+    // Execute each tool call
+    for (const toolCall of choice.message.tool_calls) {
+      let args: Record<string, unknown> = {};
+      try {
+        args = JSON.parse(toolCall.function.arguments);
+      } catch {
+        args = {};
+      }
+
+      const toolName = toolCall.function.name
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+      onEvent({ type: "status", data: `Querying ${toolName}...` });
+
+      console.log(
+        `[RAG-Stream] Executing tool: ${toolCall.function.name}`,
+        JSON.stringify(args).slice(0, 200)
+      );
+
+      const result = await executeTool(toolCall.function.name, args);
+
+      messages.push({
+        role: "tool",
+        content: result,
+        tool_call_id: toolCall.id,
+        name: toolCall.function.name,
+      });
+    }
+
+    // Check if more tool calls are needed
+    response = await invokeLLM({
+      messages,
+      tools: RAG_TOOLS,
+      tool_choice: "auto",
+    });
+
+    choice = response.choices[0];
+    if (!choice) break;
+  }
+
+  // If the last non-streaming call already has a final text response (no more tool calls),
+  // stream the final response token-by-token
+  onEvent({ type: "status", data: "Generating analysis..." });
+
+  try {
+    // Make a streaming call for the final response
+    const streamResponse = await invokeLLMStreaming({
+      messages,
+    });
+
+    if (!streamResponse.body) {
+      // Fallback: use the non-streaming response
+      const content = extractContent(choice);
+      onEvent({ type: "token", data: content });
+      onEvent({ type: "done", data: "" });
+      return content;
+    }
+
+    let fullContent = "";
+    const reader = streamResponse.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      // Process SSE lines
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || ""; // Keep incomplete line in buffer
+
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6).trim();
+        if (data === "[DONE]") {
+          onEvent({ type: "done", data: "" });
+          return fullContent;
+        }
+
+        try {
+          const chunk = JSON.parse(data);
+          const delta = chunk.choices?.[0]?.delta;
+          if (delta?.content) {
+            fullContent += delta.content;
+            onEvent({ type: "token", data: delta.content });
+          }
+        } catch {
+          // Skip malformed chunks
+        }
+      }
+    }
+
+    onEvent({ type: "done", data: "" });
+    return fullContent || extractContent(choice);
+  } catch (err) {
+    console.error("[RAG-Stream] Streaming error:", err);
+    // Fallback to non-streaming content
+    const content = extractContent(choice);
+    onEvent({ type: "token", data: content });
+    onEvent({ type: "done", data: "" });
+    return content;
+  }
+}
+
+/** Helper to extract text content from an LLM response choice */
+function extractContent(choice: { message: { content: string | Array<{ type: string; text?: string }> } }): string {
+  const content = choice?.message?.content;
+  if (!content) return "Analysis complete.";
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((c) => c.type === "text")
+      .map((c) => c.text || "")
+      .join("\n");
+  }
+  return "Analysis complete.";
+}

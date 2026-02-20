@@ -599,3 +599,31 @@ export const conflictSweepHistory = mysqlTable(
 
 export type ConflictSweepHistory = typeof conflictSweepHistory.$inferSelect;
 export type InsertConflictSweepHistory = typeof conflictSweepHistory.$inferInsert;
+
+/**
+ * Chat messages — persistent conversation history for the HybridRAG Intelligence Chat.
+ * Stores user queries and assistant responses with optional globe action metadata.
+ */
+export const chatMessages = mysqlTable(
+  "chat_messages",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** User open ID (from auth) */
+    userOpenId: varchar("userOpenId", { length: 256 }).notNull(),
+    /** Message role: user or assistant */
+    role: mysqlEnum("role", ["user", "assistant"]).default("user").notNull(),
+    /** Message content (markdown for assistant, plain text for user) */
+    content: text("content").notNull(),
+    /** Globe actions embedded in assistant responses (JSON array) */
+    globeActions: json("globeActions"),
+    /** Timestamp (Unix ms) */
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    index("idx_chat_userOpenId").on(table.userOpenId),
+    index("idx_chat_createdAt").on(table.createdAt),
+  ]
+);
+
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type InsertChatMessage = typeof chatMessages.$inferInsert;

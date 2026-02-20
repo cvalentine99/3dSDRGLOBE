@@ -58,6 +58,7 @@ interface RadioContextType {
   setShowPanel: (show: boolean) => void;
   setHoveredStation: (station: Station | null) => void;
   clearGlobeTarget: () => void;
+  setGlobeTarget: (target: GlobeTarget) => void;
   filteredStations: Station[];
   bandCounts: Record<BandType, number>;
   typeCounts: Record<ReceiverType, number>;
@@ -321,6 +322,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         setShowPanel,
         setHoveredStation,
         clearGlobeTarget,
+        setGlobeTarget,
         filteredStations,
         bandCounts,
         typeCounts,

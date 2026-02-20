@@ -2,8 +2,9 @@
  * IntelChat.tsx — HybridRAG Intelligence Chat Popup
  *
  * Floating chat dialog in the lower-right corner that provides
- * an AI-powered intelligence analyst interface. Uses the RAG engine
- * to query across all Valentine RF data sources.
+ * an AI-powered intelligence analyst interface. Uses SSE streaming
+ * for token-by-token response rendering. Messages are persisted in DB.
+ * Supports globe actions (fly-to, highlight, overlay toggle).
  *
  * Design: "Ether" dark atmospheric style matching the globe UI.
  */
@@ -11,11 +12,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useRadio } from "@/contexts/RadioContext";
 import { getLoginUrl } from "@/const";
 import { motion, AnimatePresence } from "framer-motion";
 import { Streamdown } from "streamdown";
 import {
-  MessageSquare,
   X,
   Send,
   Trash2,
@@ -26,14 +27,53 @@ import {
   Maximize2,
   AlertTriangle,
   Sparkles,
+  MapPin,
+  Radio,
+  Layers,
+  Navigation,
 } from "lucide-react";
+
+// ── Types ────────────────────────────────────────────────────────
+
+interface GlobeAction {
+  type: "FLY_TO" | "HIGHLIGHT" | "OVERLAY";
+  params: string;
+  label: string;
+}
 
 interface ChatMsg {
   id: number;
   role: "user" | "assistant" | "system";
   content: string;
+  globeActions?: GlobeAction[];
   timestamp?: number;
+  isStreaming?: boolean;
+  statusText?: string;
 }
+
+// ── Globe Action Parser ──────────────────────────────────────────
+
+const GLOBE_ACTION_REGEX = /\[GLOBE:(FLY_TO|HIGHLIGHT|OVERLAY):([^:]+):([^\]]+)\]/g;
+
+function parseGlobeActions(text: string): GlobeAction[] {
+  const actions: GlobeAction[] = [];
+  let match;
+  const regex = new RegExp(GLOBE_ACTION_REGEX.source, "g");
+  while ((match = regex.exec(text)) !== null) {
+    actions.push({
+      type: match[1] as GlobeAction["type"],
+      params: match[2],
+      label: match[3],
+    });
+  }
+  return actions;
+}
+
+function stripGlobeActions(text: string): string {
+  return text.replace(GLOBE_ACTION_REGEX, "").trim();
+}
+
+// ── Constants ────────────────────────────────────────────────────
 
 const SUGGESTED_QUERIES = [
   "Give me a system status overview",
@@ -44,32 +84,37 @@ const SUGGESTED_QUERIES = [
   "Show recent sweep results",
 ];
 
+// ── Main Component ───────────────────────────────────────────────
+
 export default function IntelChat() {
   const { isAuthenticated } = useAuth();
+  const { setGlobeTarget } = useRadio();
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [statusText, setStatusText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const abortRef = useRef<AbortController | null>(null);
 
-  // tRPC mutations/queries
-  const sendMessage = trpc.chat.sendMessage.useMutation();
+  // tRPC queries
   const clearHistory = trpc.chat.clearHistory.useMutation();
   const historyQuery = trpc.chat.getHistory.useQuery(undefined, {
     enabled: isAuthenticated && isOpen,
     refetchOnWindowFocus: false,
   });
 
-  // Load history when opening
+  // Load history from DB when opening
   useEffect(() => {
     if (historyQuery.data && isOpen) {
       const loaded = historyQuery.data.messages.map((m) => ({
         id: m.id,
         role: m.role as "user" | "assistant",
         content: m.content,
+        globeActions: (m.globeActions as GlobeAction[] | null) || undefined,
       }));
       if (loaded.length > 0) {
         setMessages(loaded);
@@ -80,7 +125,7 @@ export default function IntelChat() {
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
+  }, [messages, isLoading, statusText]);
 
   // Focus input when opening
   useEffect(() => {
@@ -89,52 +134,184 @@ export default function IntelChat() {
     }
   }, [isOpen]);
 
-  const handleSend = useCallback(async () => {
-    const trimmed = input.trim();
-    if (!trimmed || isLoading) return;
+  // ── SSE Streaming Send ─────────────────────────────────────────
 
-    const userMsg: ChatMsg = {
-      id: Date.now(),
-      role: "user",
-      content: trimmed,
-      timestamp: Date.now(),
-    };
+  const sendStreaming = useCallback(
+    async (messageText: string) => {
+      if (isLoading) return;
 
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-    setIsLoading(true);
-
-    try {
-      const result = await sendMessage.mutateAsync({ message: trimmed });
-      const assistantMsg: ChatMsg = {
-        id: Date.now() + 1,
-        role: "assistant",
-        content: result.response,
-        timestamp: result.timestamp,
-      };
-      setMessages((prev) => [...prev, assistantMsg]);
-
-      if (!isOpen) {
-        setUnreadCount((c) => c + 1);
-      }
-    } catch (err) {
-      const errorMsg: ChatMsg = {
-        id: Date.now() + 1,
-        role: "assistant",
-        content:
-          "Connection error. Please check your network and try again.",
+      const userMsg: ChatMsg = {
+        id: Date.now(),
+        role: "user",
+        content: messageText,
         timestamp: Date.now(),
       };
-      setMessages((prev) => [...prev, errorMsg]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [input, isLoading, sendMessage, isOpen]);
+
+      setMessages((prev) => [...prev, userMsg]);
+      setInput("");
+      setIsLoading(true);
+      setStatusText("Connecting...");
+
+      // Create a placeholder for the streaming assistant message
+      const assistantId = Date.now() + 1;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: assistantId,
+          role: "assistant",
+          content: "",
+          isStreaming: true,
+          timestamp: Date.now(),
+        },
+      ]);
+
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        const response = await fetch("/api/chat/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: messageText }),
+          credentials: "include",
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error("No response body");
+
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let fullContent = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const data = line.slice(6).trim();
+            if (data === "[DONE]") break;
+
+            try {
+              const event = JSON.parse(data);
+
+              if (event.type === "status") {
+                setStatusText(event.data);
+              } else if (event.type === "token") {
+                fullContent += event.data;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? { ...m, content: fullContent }
+                      : m
+                  )
+                );
+              } else if (event.type === "done") {
+                // Parse globe actions from final content
+                const actions = parseGlobeActions(fullContent);
+                const cleanContent = stripGlobeActions(fullContent);
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? {
+                          ...m,
+                          content: cleanContent,
+                          isStreaming: false,
+                          globeActions:
+                            actions.length > 0 ? actions : undefined,
+                        }
+                      : m
+                  )
+                );
+              } else if (event.type === "error") {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? {
+                          ...m,
+                          content:
+                            event.data ||
+                            "An error occurred during analysis.",
+                          isStreaming: false,
+                        }
+                      : m
+                  )
+                );
+              }
+            } catch {
+              // Skip malformed SSE data
+            }
+          }
+        }
+
+        // Finalize if not already done
+        if (fullContent) {
+          const actions = parseGlobeActions(fullContent);
+          const cleanContent = stripGlobeActions(fullContent);
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? {
+                    ...m,
+                    content: cleanContent || m.content,
+                    isStreaming: false,
+                    globeActions: actions.length > 0 ? actions : m.globeActions,
+                  }
+                : m
+            )
+          );
+        }
+
+        if (!isOpen) {
+          setUnreadCount((c) => c + 1);
+        }
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") return;
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? {
+                  ...m,
+                  content:
+                    "Connection error. Please check your network and try again.",
+                  isStreaming: false,
+                }
+              : m
+          )
+        );
+      } finally {
+        setIsLoading(false);
+        setStatusText("");
+        abortRef.current = null;
+      }
+    },
+    [isLoading, isOpen]
+  );
+
+  // ── Handlers ───────────────────────────────────────────────────
+
+  const handleSend = useCallback(() => {
+    const trimmed = input.trim();
+    if (!trimmed || isLoading) return;
+    sendStreaming(trimmed);
+  }, [input, isLoading, sendStreaming]);
 
   const handleClear = useCallback(async () => {
     try {
+      if (abortRef.current) abortRef.current.abort();
       await clearHistory.mutateAsync();
       setMessages([]);
+      setIsLoading(false);
+      setStatusText("");
     } catch {
       // ignore
     }
@@ -152,48 +329,41 @@ export default function IntelChat() {
 
   const handleSuggestionClick = useCallback(
     (query: string) => {
-      setInput(query);
-      // Auto-send after a tick
-      setTimeout(() => {
-        const userMsg: ChatMsg = {
-          id: Date.now(),
-          role: "user",
-          content: query,
-          timestamp: Date.now(),
-        };
-        setMessages((prev) => [...prev, userMsg]);
-        setIsLoading(true);
-        sendMessage
-          .mutateAsync({ message: query })
-          .then((result) => {
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: Date.now() + 1,
-                role: "assistant",
-                content: result.response,
-                timestamp: result.timestamp,
-              },
-            ]);
-          })
-          .catch(() => {
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: Date.now() + 1,
-                role: "assistant",
-                content: "Connection error. Please try again.",
-                timestamp: Date.now(),
-              },
-            ]);
-          })
-          .finally(() => {
-            setIsLoading(false);
-            setInput("");
-          });
-      }, 50);
+      sendStreaming(query);
     },
-    [sendMessage]
+    [sendStreaming]
+  );
+
+  const handleGlobeAction = useCallback(
+    (action: GlobeAction) => {
+      switch (action.type) {
+        case "FLY_TO": {
+          const [latStr, lngStr] = action.params.split(",");
+          const lat = parseFloat(latStr);
+          const lng = parseFloat(lngStr);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            setGlobeTarget({ lat, lng, zoom: 3 });
+          }
+          break;
+        }
+        case "HIGHLIGHT": {
+          // Fly to the receiver's general area — the highlight is visual
+          // For now, just set a globe target if we have coordinates
+          const receiverId = action.params;
+          console.log(`[IntelChat] Highlight receiver: ${receiverId}`);
+          // The receiver highlight would need to be wired through RadioContext
+          // For now, show a visual indicator
+          break;
+        }
+        case "OVERLAY": {
+          const overlay = action.params.toLowerCase();
+          console.log(`[IntelChat] Toggle overlay: ${overlay}`);
+          // Overlay toggling would need to be wired through Home.tsx state
+          break;
+        }
+      }
+    },
+    [setGlobeTarget]
   );
 
   const toggleOpen = useCallback(() => {
@@ -203,7 +373,7 @@ export default function IntelChat() {
     });
   }, []);
 
-  // ── Render ──────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────
 
   return (
     <>
@@ -247,9 +417,14 @@ export default function IntelChat() {
             style={{
               bottom: isExpanded ? 16 : 80,
               right: isExpanded ? 16 : 24,
-              width: isExpanded ? "min(900px, calc(100vw - 32px))" : "min(440px, calc(100vw - 48px))",
-              height: isExpanded ? "calc(100vh - 32px)" : "min(640px, calc(100vh - 120px))",
-              background: "linear-gradient(180deg, #0a1628 0%, #060e1a 100%)",
+              width: isExpanded
+                ? "min(900px, calc(100vw - 32px))"
+                : "min(440px, calc(100vw - 48px))",
+              height: isExpanded
+                ? "calc(100vh - 32px)"
+                : "min(640px, calc(100vh - 120px))",
+              background:
+                "linear-gradient(180deg, #0a1628 0%, #060e1a 100%)",
               border: "1px solid rgba(0, 200, 255, 0.15)",
             }}
           >
@@ -257,7 +432,8 @@ export default function IntelChat() {
             <div
               className="flex items-center justify-between px-4 py-3 shrink-0"
               style={{
-                background: "linear-gradient(90deg, rgba(0,200,255,0.08) 0%, rgba(0,100,200,0.05) 100%)",
+                background:
+                  "linear-gradient(90deg, rgba(0,200,255,0.08) 0%, rgba(0,100,200,0.05) 100%)",
                 borderBottom: "1px solid rgba(0, 200, 255, 0.1)",
               }}
             >
@@ -271,7 +447,7 @@ export default function IntelChat() {
                     INTEL ANALYST
                   </h3>
                   <p className="text-[10px] text-cyan-500/60 uppercase tracking-widest">
-                    HybridRAG • All Sources
+                    HybridRAG • SSE Stream • DB Persist
                   </p>
                 </div>
               </div>
@@ -326,7 +502,8 @@ export default function IntelChat() {
                     <div
                       className="w-14 h-14 rounded-full flex items-center justify-center"
                       style={{
-                        background: "radial-gradient(circle, rgba(0,200,255,0.15) 0%, transparent 70%)",
+                        background:
+                          "radial-gradient(circle, rgba(0,200,255,0.15) 0%, transparent 70%)",
                         border: "1px solid rgba(0,200,255,0.2)",
                       }}
                     >
@@ -338,8 +515,8 @@ export default function IntelChat() {
                       </h4>
                       <p className="text-xs text-cyan-500/50 max-w-[280px]">
                         Ask me about receivers, targets, conflict events,
-                        anomalies, geofence zones, or signal fingerprints.
-                        I can cross-reference across all data sources.
+                        anomalies, geofence zones, or signal fingerprints. I
+                        can cross-reference across all data sources.
                       </p>
                     </div>
                   </div>
@@ -369,9 +546,16 @@ export default function IntelChat() {
               ) : (
                 <>
                   {messages.map((msg) => (
-                    <MessageBubble key={msg.id} message={msg} />
+                    <MessageBubble
+                      key={msg.id}
+                      message={msg}
+                      onGlobeAction={handleGlobeAction}
+                    />
                   ))}
-                  {isLoading && <ThinkingIndicator />}
+                  {isLoading && statusText && (
+                    <StatusIndicator text={statusText} />
+                  )}
+                  {isLoading && !statusText && <ThinkingIndicator />}
                   <div ref={messagesEndRef} />
                 </>
               )}
@@ -434,9 +618,15 @@ export default function IntelChat() {
   );
 }
 
-// ── Sub-Components ────────────────────────────────────────────────
+// ── Sub-Components ───────────────────────────────────────────────
 
-function MessageBubble({ message }: { message: ChatMsg }) {
+function MessageBubble({
+  message,
+  onGlobeAction,
+}: {
+  message: ChatMsg;
+  onGlobeAction: (action: GlobeAction) => void;
+}) {
   const isUser = message.role === "user";
 
   return (
@@ -473,9 +663,26 @@ function MessageBubble({ message }: { message: ChatMsg }) {
         {isUser ? (
           <p className="whitespace-pre-wrap break-words">{message.content}</p>
         ) : (
-          <div className="prose prose-invert prose-sm max-w-none [&_table]:text-xs [&_th]:px-2 [&_td]:px-2 [&_th]:py-1 [&_td]:py-1 [&_table]:border-cyan-500/20 [&_th]:border-cyan-500/20 [&_td]:border-cyan-500/20 [&_h1]:text-cyan-200 [&_h2]:text-cyan-200 [&_h3]:text-cyan-200 [&_strong]:text-cyan-200 [&_a]:text-cyan-400 [&_code]:text-amber-300 [&_code]:bg-amber-400/10 [&_pre]:bg-black/30">
-            <Streamdown>{message.content}</Streamdown>
-          </div>
+          <>
+            <div className="prose prose-invert prose-sm max-w-none [&_table]:text-xs [&_th]:px-2 [&_td]:px-2 [&_th]:py-1 [&_td]:py-1 [&_table]:border-cyan-500/20 [&_th]:border-cyan-500/20 [&_td]:border-cyan-500/20 [&_h1]:text-cyan-200 [&_h2]:text-cyan-200 [&_h3]:text-cyan-200 [&_strong]:text-cyan-200 [&_a]:text-cyan-400 [&_code]:text-amber-300 [&_code]:bg-amber-400/10 [&_pre]:bg-black/30">
+              <Streamdown>{message.content}</Streamdown>
+            </div>
+            {message.isStreaming && (
+              <span className="inline-block w-1.5 h-4 bg-cyan-400 animate-pulse ml-0.5 align-text-bottom" />
+            )}
+            {/* Globe Action Buttons */}
+            {message.globeActions && message.globeActions.length > 0 && (
+              <div className="mt-2 pt-2 flex flex-wrap gap-1.5" style={{ borderTop: "1px solid rgba(0, 200, 255, 0.08)" }}>
+                {message.globeActions.map((action, i) => (
+                  <GlobeActionButton
+                    key={i}
+                    action={action}
+                    onClick={() => onGlobeAction(action)}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
       {isUser && (
@@ -489,6 +696,92 @@ function MessageBubble({ message }: { message: ChatMsg }) {
           <User className="w-3.5 h-3.5 text-blue-300" />
         </div>
       )}
+    </div>
+  );
+}
+
+function GlobeActionButton({
+  action,
+  onClick,
+}: {
+  action: GlobeAction;
+  onClick: () => void;
+}) {
+  const iconMap = {
+    FLY_TO: <Navigation className="w-3 h-3" />,
+    HIGHLIGHT: <Radio className="w-3 h-3" />,
+    OVERLAY: <Layers className="w-3 h-3" />,
+  };
+
+  const colorMap = {
+    FLY_TO: {
+      bg: "rgba(0, 200, 255, 0.1)",
+      border: "rgba(0, 200, 255, 0.2)",
+      text: "rgb(100, 220, 255)",
+      hoverBg: "rgba(0, 200, 255, 0.2)",
+    },
+    HIGHLIGHT: {
+      bg: "rgba(255, 180, 0, 0.1)",
+      border: "rgba(255, 180, 0, 0.2)",
+      text: "rgb(255, 200, 80)",
+      hoverBg: "rgba(255, 180, 0, 0.2)",
+    },
+    OVERLAY: {
+      bg: "rgba(100, 255, 150, 0.1)",
+      border: "rgba(100, 255, 150, 0.2)",
+      text: "rgb(130, 255, 170)",
+      hoverBg: "rgba(100, 255, 150, 0.2)",
+    },
+  };
+
+  const colors = colorMap[action.type];
+
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all duration-150 hover:scale-[1.02]"
+      style={{
+        background: colors.bg,
+        border: `1px solid ${colors.border}`,
+        color: colors.text,
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLElement).style.background = colors.hoverBg;
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLElement).style.background = colors.bg;
+      }}
+      title={`${action.type}: ${action.params}`}
+    >
+      {iconMap[action.type]}
+      <span className="truncate max-w-[150px]">{action.label}</span>
+      <MapPin className="w-2.5 h-2.5 opacity-50" />
+    </button>
+  );
+}
+
+function StatusIndicator({ text }: { text: string }) {
+  return (
+    <div className="flex gap-2 justify-start">
+      <div
+        className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+        style={{
+          background: "rgba(0, 200, 255, 0.1)",
+          border: "1px solid rgba(0, 200, 255, 0.15)",
+        }}
+      >
+        <Bot className="w-3.5 h-3.5 text-cyan-400" />
+      </div>
+      <div
+        className="rounded-xl rounded-bl-sm px-4 py-3 flex items-center gap-2"
+        style={{
+          background: "rgba(0, 200, 255, 0.05)",
+          border: "1px solid rgba(0, 200, 255, 0.08)",
+        }}
+      >
+        <Loader2 className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
+        <span className="text-xs text-cyan-400/60">{text}</span>
+      </div>
     </div>
   );
 }
