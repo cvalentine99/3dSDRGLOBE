@@ -208,3 +208,8 @@
 - [x] Timeline Scrubber: play/pause controls with configurable speed
 - [x] Timeline Scrubber: filter conflict events by current timeline position
 - [x] Timeline Scrubber: visual month/year indicator during playback
+- [x] Nav bar reorganization: audit all current buttons and categorize by function
+- [x] Nav bar reorganization: design grouped layout that preserves center title visibility
+- [x] Nav bar reorganization: implement new nav bar with icon grouping and dropdown menus
+- [x] Nav bar reorganization: ensure keyboard shortcuts still work with new layout
+- [x] Nav bar reorganization: verify layout on ultrawide and standard monitors

@@ -26,7 +26,8 @@ import ConflictOverlay, { type SlimConflictEvent } from "@/components/ConflictOv
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { AnimatePresence } from "framer-motion";
 import { motion } from "framer-motion";
-import { Radar, Bell, Eye, Activity, Crosshair, Target, AlertTriangle, Users, BarChart3, Flame } from "lucide-react";
+import { Radar, Bell, Eye, Activity, Crosshair, Target, AlertTriangle, Users, BarChart3, Flame, Layers, Shield } from "lucide-react";
+import NavBarGroup, { type NavBarItem } from "@/components/NavBarGroup";
 import { getUnacknowledgedCount } from "@/lib/alertService";
 import { getWatchlistCount, getOnlineCount } from "@/lib/watchlistService";
 import type { IonosondeStation } from "@/lib/propagationService";
@@ -34,7 +35,7 @@ import TDoAPanel from "@/components/TDoAPanel";
 import KiwiWaterfall from "@/components/KiwiWaterfall";
 import TargetManager from "@/components/TargetManager";
 import { trpc } from "@/lib/trpc";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import type { SavedTargetData, DriftTrailEntry, PredictionData } from "@/components/TDoAGlobeOverlay";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import ShortcutHelpOverlay from "@/components/ShortcutHelpOverlay";
@@ -443,12 +444,12 @@ function HomeContent() {
         </div>
       </motion.div>
 
-      {/* Top-right button group */}
+      {/* Top-right button group — grouped into dropdown menus */}
       <motion.div
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 1, duration: 0.5 }}
-        className="absolute top-5 right-4 z-20 flex items-center gap-2"
+        className="absolute top-5 right-4 z-20 flex items-center gap-1.5"
       >
         {/* Theme Toggle */}
         <ThemeToggle />
@@ -463,198 +464,127 @@ function HomeContent() {
           <span className="text-sm font-mono font-bold text-muted-foreground group-hover:text-foreground/80 transition-colors">?</span>
         </button>
 
-        {/* Propagation Overlay Button */}
-        <button
-          onClick={() => setPropVisible(!propVisible)}
-          className={`relative flex items-center gap-2 px-3 py-2 rounded-lg backdrop-blur-md transition-all group ${
-            propVisible
-              ? 'bg-cyan-500/25 border border-cyan-500/40'
-              : 'bg-cyan-500/10 border border-cyan-500/20 hover:bg-cyan-500/20 hover:border-cyan-500/30'
-          }`}
-          title="HF Propagation Overlay"
-          aria-label="HF Propagation Overlay"
-        >
-          <Activity className={`w-4 h-4 transition-colors ${propVisible ? 'text-cyan-600 dark:text-cyan-300' : 'text-cyan-600 dark:text-cyan-400 group-hover:text-cyan-700 dark:group-hover:text-cyan-300'}`} />
-          <span className={`text-[10px] font-mono uppercase tracking-wider transition-colors hidden sm:inline ${
-            propVisible ? 'text-cyan-700 dark:text-cyan-200' : 'text-cyan-600/80 dark:text-cyan-300/80 group-hover:text-cyan-700 dark:group-hover:text-cyan-200'
-          }`}>
-            Prop
-          </span>
-        </button>
+        {/* Separator */}
+        <div className="w-px h-6 bg-border/50 mx-0.5" />
 
-        {/* Conflict Data Overlay Button */}
-        <button
-          onClick={() => setConflictVisible(!conflictVisible)}
-          className={`relative flex items-center gap-2 px-3 py-2 rounded-lg backdrop-blur-md transition-all group ${
-            conflictVisible
-              ? 'bg-red-500/25 border border-red-500/40'
-              : 'bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30'
-          }`}
-          title="Conflict Data Overlay (UCDP)"
-          aria-label="Conflict Data Overlay"
-        >
-          <Flame className={`w-4 h-4 transition-colors ${conflictVisible ? 'text-red-600 dark:text-red-300' : 'text-red-600 dark:text-red-400 group-hover:text-red-700 dark:group-hover:text-red-300'}`} />
-          <span className={`text-[10px] font-mono uppercase tracking-wider transition-colors hidden sm:inline ${
-            conflictVisible ? 'text-red-700 dark:text-red-200' : 'text-red-600/80 dark:text-red-300/80 group-hover:text-red-700 dark:group-hover:text-red-200'
-          }`}>
-            Conflict
-          </span>
-        </button>
+        {/* Overlays Group — Propagation + Conflict */}
+        <NavBarGroup
+          label="Overlays"
+          icon={<Layers className="w-4 h-4" />}
+          colorClass="cyan"
+          items={[
+            {
+              id: "propagation",
+              label: "HF Propagation",
+              icon: <Activity className="w-4 h-4" />,
+              onClick: () => setPropVisible(!propVisible),
+              active: propVisible,
+              colorClass: "cyan",
+            },
+            {
+              id: "conflict",
+              label: "Conflict Data (UCDP)",
+              icon: <Flame className="w-4 h-4" />,
+              onClick: () => setConflictVisible(!conflictVisible),
+              active: conflictVisible,
+              colorClass: "red",
+            },
+          ]}
+        />
 
-        {/* Watchlist Button */}
-        <button
-          onClick={() => setWatchlistOpen(true)}
-          className="relative flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/25 backdrop-blur-md hover:bg-emerald-500/25 hover:border-emerald-500/40 transition-all group"
-          title="Watchlist — Background Monitoring"
-          aria-label="Watchlist — Background Monitoring"
-        >
-          <Eye className="w-4 h-4 text-emerald-600 dark:text-emerald-400 group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors" />
-          <span className="text-[10px] font-mono text-emerald-600/80 dark:text-emerald-300/80 uppercase tracking-wider group-hover:text-emerald-700 dark:group-hover:text-emerald-200 transition-colors hidden sm:inline">
-            Watch
-          </span>
-          {watchCount > 0 && (
-            <span className="text-[9px] font-mono text-emerald-600/70 dark:text-emerald-400/70 hidden sm:inline">
-              {watchOnline}/{watchCount}
-            </span>
-          )}
-          {watchCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-emerald-500 text-[8px] text-white font-bold flex items-center justify-center shadow-lg shadow-emerald-500/30 sm:hidden">
-              {watchCount}
-            </span>
-          )}
-        </button>
+        {/* SIGINT Tools Group — TDoA + Targets + Mil-RF */}
+        <NavBarGroup
+          label="SIGINT"
+          icon={<Crosshair className="w-4 h-4" />}
+          colorClass="violet"
+          items={[
+            {
+              id: "tdoa",
+              label: "TDoA Triangulation",
+              icon: <Crosshair className="w-4 h-4" />,
+              onClick: () => setTdoaOpen(!tdoaOpen),
+              active: tdoaOpen,
+              badge: tdoaSelectedHosts.length > 0 ? tdoaSelectedHosts.length : null,
+              colorClass: "violet",
+            },
+            {
+              id: "targets",
+              label: "Saved Targets",
+              icon: <Target className="w-4 h-4" />,
+              onClick: () => setTargetsOpen(!targetsOpen),
+              active: targetsOpen,
+              badge: savedTargets.length > 0 ? savedTargets.length : null,
+              colorClass: "rose",
+            },
+            {
+              id: "milrf",
+              label: "Military RF Intel",
+              icon: <Radar className="w-4 h-4" />,
+              onClick: () => setMilRfOpen(true),
+              colorClass: "red",
+            },
+          ]}
+        />
 
-        {/* Alert Settings Button */}
-        <button
-          onClick={() => setAlertsOpen(true)}
-          className="relative flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/15 border border-amber-500/25 backdrop-blur-md hover:bg-amber-500/25 hover:border-amber-500/40 transition-all group"
-          title="Alert Configuration"
-          aria-label="Alert Configuration"
-        >
-          <Bell className="w-4 h-4 text-amber-600 dark:text-amber-400 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors" />
-          <span className="text-[10px] font-mono text-amber-600/80 dark:text-amber-300/80 uppercase tracking-wider group-hover:text-amber-700 dark:group-hover:text-amber-200 transition-colors hidden sm:inline">
-            Alerts
-          </span>
-          {unackAlerts > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-red-500 text-[8px] text-white font-bold flex items-center justify-center shadow-lg shadow-red-500/30 animate-pulse">
-              {unackAlerts > 9 ? "9+" : unackAlerts}
-            </span>
-          )}
-        </button>
+        {/* Monitoring Group — Watchlist + Alerts + Anomaly */}
+        <NavBarGroup
+          label="Monitor"
+          icon={<Shield className="w-4 h-4" />}
+          colorClass="emerald"
+          items={[
+            {
+              id: "watchlist",
+              label: `Watchlist${watchCount > 0 ? ` (${watchOnline}/${watchCount})` : ""}`,
+              icon: <Eye className="w-4 h-4" />,
+              onClick: () => setWatchlistOpen(true),
+              badge: watchCount > 0 ? watchCount : null,
+              colorClass: "emerald",
+            },
+            {
+              id: "alerts",
+              label: "Alert Settings",
+              icon: <Bell className="w-4 h-4" />,
+              onClick: () => setAlertsOpen(true),
+              badge: unackAlerts > 0 ? unackAlerts : null,
+              badgePulse: unackAlerts > 0,
+              colorClass: "amber",
+            },
+            {
+              id: "anomaly",
+              label: "Anomaly Detection",
+              icon: <AlertTriangle className="w-4 h-4" />,
+              onClick: () => setAnomalyPanelOpen(!anomalyPanelOpen),
+              active: anomalyPanelOpen,
+              badge: anomalyCount > 0 ? anomalyCount : null,
+              badgePulse: anomalyCount > 0,
+              colorClass: "red",
+            },
+          ]}
+        />
 
-        {/* Anomaly Detection Button */}
-        <button
-          onClick={() => setAnomalyPanelOpen(!anomalyPanelOpen)}
-          className={`relative flex items-center gap-2 px-3 py-2 rounded-lg backdrop-blur-md transition-all group ${
-            anomalyPanelOpen
-              ? "bg-red-500/25 border-red-400/40 border"
-              : "bg-red-500/15 border border-red-500/25 hover:bg-red-500/25 hover:border-red-500/40"
-          }`}
-          title="Anomaly Detection Alerts"
-          aria-label="Anomaly Detection Alerts"
-        >
-          <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 group-hover:text-red-700 dark:group-hover:text-red-300 transition-colors" />
-          <span className="text-[10px] font-mono text-red-600/80 dark:text-red-300/80 uppercase tracking-wider group-hover:text-red-700 dark:group-hover:text-red-200 transition-colors hidden sm:inline">
-            Anomaly
-          </span>
-          {anomalyCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-red-500 text-[8px] text-white font-bold flex items-center justify-center shadow-lg shadow-red-500/30 animate-pulse">
-              {anomalyCount > 9 ? "9+" : anomalyCount}
-            </span>
-          )}
-        </button>
-
-        {/* Dashboard Analytics Button */}
-        <Link href="/dashboard">
-          <button
-            className="relative flex items-center gap-2 px-3 py-2 rounded-lg backdrop-blur-md transition-all group bg-indigo-500/15 border border-indigo-500/25 hover:bg-indigo-500/25 hover:border-indigo-500/40"
-            title="Analytics Dashboard"
-            aria-label="Analytics Dashboard"
-          >
-            <BarChart3 className="w-4 h-4 text-indigo-600 dark:text-indigo-400 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors" />
-            <span className="text-[10px] font-mono text-indigo-600/80 dark:text-indigo-300/80 uppercase tracking-wider group-hover:text-indigo-700 dark:group-hover:text-indigo-200 transition-colors hidden sm:inline">
-              Dashboard
-            </span>
-          </button>
-        </Link>
-
-        {/* Shared Lists Button */}
-        <button
-          onClick={() => setSharingPanelOpen(!sharingPanelOpen)}
-          className={`relative flex items-center gap-2 px-3 py-2 rounded-lg backdrop-blur-md transition-all group ${
-            sharingPanelOpen
-              ? "bg-blue-500/25 border-blue-400/40 border"
-              : "bg-blue-500/15 border border-blue-500/25 hover:bg-blue-500/25 hover:border-blue-500/40"
-          }`}
-          title="Shared Target Lists"
-          aria-label="Shared Target Lists"
-        >
-          <Users className="w-4 h-4 text-blue-600 dark:text-blue-400 group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-colors" />
-          <span className="text-[10px] font-mono text-blue-600/80 dark:text-blue-300/80 uppercase tracking-wider group-hover:text-blue-700 dark:group-hover:text-blue-200 transition-colors hidden sm:inline">
-            Share
-          </span>
-        </button>
-
-        {/* TDoA Triangulation Button */}
-        <button
-          onClick={() => setTdoaOpen(!tdoaOpen)}
-          className={`relative flex items-center gap-2 px-3 py-2 rounded-lg backdrop-blur-md transition-all group ${
-            tdoaOpen
-              ? 'bg-violet-500/25 border border-violet-500/40'
-              : 'bg-violet-500/10 border border-violet-500/20 hover:bg-violet-500/20 hover:border-violet-500/30'
-          }`}
-          title="TDoA Triangulation — Geolocate signal sources"
-          aria-label="TDoA Triangulation"
-        >
-          <Crosshair className={`w-4 h-4 transition-colors ${tdoaOpen ? 'text-violet-600 dark:text-violet-300' : 'text-violet-600 dark:text-violet-400 group-hover:text-violet-700 dark:group-hover:text-violet-300'}`} />
-          <span className={`text-[10px] font-mono uppercase tracking-wider transition-colors hidden sm:inline ${
-            tdoaOpen ? 'text-violet-700 dark:text-violet-200' : 'text-violet-600/80 dark:text-violet-300/80 group-hover:text-violet-700 dark:group-hover:text-violet-200'
-          }`}>
-            TDoA
-          </span>
-          {tdoaSelectedHosts.length > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-violet-500 text-[8px] text-white font-bold flex items-center justify-center shadow-lg shadow-violet-500/30">
-              {tdoaSelectedHosts.length}
-            </span>
-          )}
-        </button>
-
-        {/* Saved Targets Button */}
-        <button
-          onClick={() => setTargetsOpen(!targetsOpen)}
-          className={`relative flex items-center gap-2 px-3 py-2 rounded-lg backdrop-blur-md transition-all group ${
-            targetsOpen
-              ? 'bg-rose-500/25 border border-rose-500/40'
-              : 'bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/30'
-          }`}
-          title="Saved Targets — Multi-target tracking overlay"
-          aria-label="Saved Targets"
-        >
-          <Target className={`w-4 h-4 transition-colors ${targetsOpen ? 'text-rose-600 dark:text-rose-300' : 'text-rose-600 dark:text-rose-400 group-hover:text-rose-700 dark:group-hover:text-rose-300'}`} />
-          <span className={`text-[10px] font-mono uppercase tracking-wider transition-colors hidden sm:inline ${
-            targetsOpen ? 'text-rose-700 dark:text-rose-200' : 'text-rose-600/80 dark:text-rose-300/80 group-hover:text-rose-700 dark:group-hover:text-rose-200'
-          }`}>
-            Targets
-          </span>
-          {savedTargets.length > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-rose-500 text-[8px] text-white font-bold flex items-center justify-center shadow-lg shadow-rose-500/30">
-              {savedTargets.length}
-            </span>
-          )}
-        </button>
-
-        {/* Military RF Intel Button */}
-        <button
-          onClick={() => setMilRfOpen(true)}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/15 border border-red-500/25 backdrop-blur-md hover:bg-red-500/25 hover:border-red-500/40 transition-all group"
-          title="Military RF Intelligence Database"
-          aria-label="Military RF Intelligence Database"
-        >
-          <Radar className="w-4 h-4 text-red-600 dark:text-red-400 group-hover:text-red-700 dark:group-hover:text-red-300 transition-colors" />
-          <span className="text-[10px] font-mono text-red-600/80 dark:text-red-300/80 uppercase tracking-wider group-hover:text-red-700 dark:group-hover:text-red-200 transition-colors hidden sm:inline">
-            Mil-RF Intel
-          </span>
-        </button>
+        {/* Collaboration Group — Share + Dashboard */}
+        <NavBarGroup
+          label="Collab"
+          icon={<Users className="w-4 h-4" />}
+          colorClass="blue"
+          items={[
+            {
+              id: "share",
+              label: "Shared Target Lists",
+              icon: <Users className="w-4 h-4" />,
+              onClick: () => setSharingPanelOpen(!sharingPanelOpen),
+              active: sharingPanelOpen,
+              colorClass: "blue",
+            },
+            {
+              id: "dashboard",
+              label: "Analytics Dashboard",
+              icon: <BarChart3 className="w-4 h-4" />,
+              onClick: () => navigate("/dashboard"),
+              colorClass: "indigo",
+            },
+          ]}
+        />
       </motion.div>
 
       {/* Saved Targets Panel */}
