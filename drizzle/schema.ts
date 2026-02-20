@@ -503,3 +503,99 @@ export const signalFingerprints = mysqlTable(
 
 export type SignalFingerprint = typeof signalFingerprints.$inferSelect;
 export type InsertSignalFingerprint = typeof signalFingerprints.$inferInsert;
+
+/**
+ * Custom geofence zones — user-drawn polygon regions on the globe.
+ * When a tracked target enters or leaves a zone, an alert is triggered.
+ * Zones can be "exclusion" (alert on entry) or "inclusion" (alert on exit).
+ */
+export const geofenceZones = mysqlTable(
+  "geofence_zones",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** User-assigned name for the zone */
+    name: varchar("name", { length: 256 }).notNull(),
+    /** Zone type: exclusion = alert on entry, inclusion = alert on exit */
+    zoneType: mysqlEnum("zoneType", ["exclusion", "inclusion"]).default("exclusion").notNull(),
+    /** Polygon vertices as JSON array of {lat, lon} objects */
+    polygon: json("polygon").notNull(),
+    /** Fill color for rendering on globe (hex) */
+    color: varchar("color", { length: 9 }).default("#ff000066").notNull(),
+    /** Whether this zone is active for alert checking */
+    enabled: boolean("enabled").default(true).notNull(),
+    /** Whether this zone is visible on the globe */
+    visible: boolean("visible").default(true).notNull(),
+    /** Optional description/notes */
+    description: text("description"),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+    updatedAt: bigint("updatedAt", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    index("idx_geofence_enabled").on(table.enabled),
+  ]
+);
+
+export type GeofenceZone = typeof geofenceZones.$inferSelect;
+export type InsertGeofenceZone = typeof geofenceZones.$inferInsert;
+
+/**
+ * Geofence alert log — records when targets enter or leave geofence zones.
+ * Links to anomaly_alerts for unified alert management.
+ */
+export const geofenceAlerts = mysqlTable(
+  "geofence_alerts",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** FK to geofence_zones.id */
+    zoneId: int("zoneId").notNull(),
+    /** FK to tdoa_targets.id */
+    targetId: int("targetId").notNull(),
+    /** FK to anomaly_alerts.id (the unified alert record) */
+    anomalyAlertId: int("anomalyAlertId"),
+    /** Event type: entered or exited the zone */
+    eventType: mysqlEnum("eventType", ["entered", "exited"]).default("entered").notNull(),
+    /** Target latitude at time of event */
+    lat: decimal("lat", { precision: 10, scale: 6 }).notNull(),
+    /** Target longitude at time of event */
+    lon: decimal("lon", { precision: 10, scale: 6 }).notNull(),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    index("idx_geofence_alerts_zoneId").on(table.zoneId),
+    index("idx_geofence_alerts_targetId").on(table.targetId),
+  ]
+);
+
+export type GeofenceAlert = typeof geofenceAlerts.$inferSelect;
+export type InsertGeofenceAlert = typeof geofenceAlerts.$inferInsert;
+
+/**
+ * Conflict zone sweep history — records each scheduled sweep run.
+ */
+export const conflictSweepHistory = mysqlTable(
+  "conflict_sweep_history",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** Number of targets checked */
+    targetsChecked: int("targetsChecked").default(0).notNull(),
+    /** Number of targets found in conflict zones */
+    targetsInConflict: int("targetsInConflict").default(0).notNull(),
+    /** Number of targets that triggered geofence alerts */
+    geofenceAlertCount: int("geofenceAlertCount").default(0).notNull(),
+    /** Number of new alerts generated */
+    newAlerts: int("newAlerts").default(0).notNull(),
+    /** Duration of the sweep in milliseconds */
+    durationMs: int("durationMs"),
+    /** Summary of results as JSON */
+    summary: json("summary"),
+    /** Sweep trigger: scheduled or manual */
+    trigger: mysqlEnum("trigger", ["scheduled", "manual"]).default("scheduled").notNull(),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    index("idx_sweep_createdAt").on(table.createdAt),
+  ]
+);
+
+export type ConflictSweepHistory = typeof conflictSweepHistory.$inferSelect;
+export type InsertConflictSweepHistory = typeof conflictSweepHistory.$inferInsert;

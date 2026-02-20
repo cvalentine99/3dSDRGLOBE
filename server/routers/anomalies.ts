@@ -11,6 +11,14 @@ import {
   hasValidConflictCache,
   type ConflictEvent,
 } from "../conflictZoneChecker";
+import {
+  triggerManualSweep,
+  getSweepSchedulerStatus,
+  startConflictSweepScheduler,
+  stopConflictSweepScheduler,
+} from "../conflictSweepScheduler";
+import { conflictSweepHistory } from "../../drizzle/schema";
+import { desc as descOrder } from "drizzle-orm";
 
 export const anomaliesRouter = router({
   /** List anomaly alerts (optionally filter by type: all, position, conflict) */
@@ -149,5 +157,40 @@ export const anomaliesRouter = router({
         cacheAvailable: hasValidConflictCache(),
         totalCachedEvents: events.length,
       };
+    }),
+
+  /** Trigger a manual conflict zone sweep */
+  triggerSweep: publicProcedure.mutation(async () => {
+    return await triggerManualSweep();
+  }),
+
+  /** Get sweep scheduler status */
+  sweepStatus: publicProcedure.query(() => {
+    return getSweepSchedulerStatus();
+  }),
+
+  /** Start the sweep scheduler */
+  startSweepScheduler: publicProcedure.mutation(() => {
+    startConflictSweepScheduler();
+    return { success: true, status: getSweepSchedulerStatus() };
+  }),
+
+  /** Stop the sweep scheduler */
+  stopSweepScheduler: publicProcedure.mutation(() => {
+    stopConflictSweepScheduler();
+    return { success: true, status: getSweepSchedulerStatus() };
+  }),
+
+  /** Get sweep history */
+  sweepHistory: publicProcedure
+    .input(z.object({ limit: z.number().min(1).max(50).default(20) }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      return await db
+        .select()
+        .from(conflictSweepHistory)
+        .orderBy(descOrder(conflictSweepHistory.createdAt))
+        .limit(input?.limit ?? 20);
     }),
 });

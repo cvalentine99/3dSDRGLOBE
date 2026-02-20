@@ -27,7 +27,9 @@ import {
   TrendingUp,
   Zap,
   Crosshair,
+  FileText,
 } from "lucide-react";
+import { generateSigintPdfReport } from "@/lib/sigintPdfExport";
 import {
   getAllMonitoredStations,
   type StationLog,
@@ -315,6 +317,20 @@ export default function SigintConflictTimeline({
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {timeline.length > 0 && (
+              <button
+                onClick={() => generateSigintPdfReport({
+                  timeline,
+                  correlations,
+                  timeFilter,
+                  selectedStation,
+                })}
+                className="p-1.5 text-muted-foreground/70 hover:text-amber-400 rounded-lg transition-colors"
+                title="Export as PDF intelligence report"
+              >
+                <FileText className="w-3.5 h-3.5" />
+              </button>
+            )}
             {correlations.length > 0 && (
               <button
                 onClick={handleExport}

@@ -71,6 +71,13 @@
       "when": 1771533771505,
       "tag": "0009_demonic_butterfly",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1771607188647,
+      "tag": "0010_brown_hellfire_club",
+      "breakpoints": true
     }
   ]
 }

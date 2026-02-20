@@ -1,0 +1,13 @@
+{
+  "query": "SHOW TABLES LIKE 'conflict_sweep%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3xenzgJ3NGNThF2.2d7d812ed0e5 --database 8ixynDjhKaWGr2C97gbZUT --execute SHOW TABLES LIKE 'conflict_sweep%';",
+  "rows": [
+    {
+      "Tables_in_8ixynDjhKaWGr2C97gbZUT (conflict_sweep%)": "conflict_sweep_history"
+    }
+  ],
+  "messages": [],
+  "stdout": "Tables_in_8ixynDjhKaWGr2C97gbZUT (conflict_sweep%)\nconflict_sweep_history\n",
+  "stderr": "",
+  "execution_time_ms": 56
+}

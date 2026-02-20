@@ -24,10 +24,11 @@ import WatchlistPanel from "@/components/WatchlistPanel";
 import PropagationOverlay from "@/components/PropagationOverlay";
 import ConflictOverlay, { type SlimConflictEvent } from "@/components/ConflictOverlay";
 import SigintConflictTimeline from "@/components/SigintConflictTimeline";
+import GeofencePanel from "@/components/GeofencePanel";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { AnimatePresence } from "framer-motion";
 import { motion } from "framer-motion";
-import { Radar, Bell, Eye, Activity, Crosshair, Target, AlertTriangle, Users, BarChart3, Flame, Layers, Shield } from "lucide-react";
+import { Radar, Bell, Eye, Activity, Crosshair, Target, AlertTriangle, Users, BarChart3, Flame, Layers, Shield, Hexagon } from "lucide-react";
 import NavBarGroup, { type NavBarItem } from "@/components/NavBarGroup";
 import { getUnacknowledgedCount } from "@/lib/alertService";
 import { getWatchlistCount, getOnlineCount } from "@/lib/watchlistService";
@@ -131,6 +132,9 @@ function HomeContent() {
   const [, setConflictTick] = useState(0); // force re-render when events change
   const [heatmapMode, setHeatmapMode] = useState(false);
   const [conflictZoneStations, setConflictZoneStations] = useState<Set<string>>(new Set());
+  const [geofencePanelOpen, setGeofencePanelOpen] = useState(false);
+  const [geofenceDrawing, setGeofenceDrawing] = useState(false);
+  const [geofenceVertices, setGeofenceVertices] = useState<Array<{lat: number; lon: number}>>([]);
   const [correlationRadius, setCorrelationRadius] = useState(200);
   const [, navigate] = useLocation();
 
@@ -390,6 +394,12 @@ function HomeContent() {
           conflictEvents={conflictVisible ? conflictEventsRef.current : []}
           conflictHeatmapMode={conflictVisible && heatmapMode}
           conflictZoneStations={conflictVisible ? conflictZoneStations : undefined}
+          geofenceDrawing={geofenceDrawing}
+          onGeofenceVertexAdd={(lat: number, lon: number) => {
+            setGeofenceVertices((prev) => [...prev, { lat, lon }]);
+          }}
+          geofenceVertices={geofenceVertices}
+          geofenceZones={geofencePanelOpen ? undefined : undefined}
         />
       </GlobeErrorBoundary>
 
@@ -562,6 +572,14 @@ function HomeContent() {
               colorClass: "red",
             },
             {
+              id: "geofence",
+              label: "Geofence Zones",
+              icon: <Hexagon className="w-4 h-4" />,
+              onClick: () => setGeofencePanelOpen(!geofencePanelOpen),
+              active: geofencePanelOpen,
+              colorClass: "orange",
+            },
+            {
               id: "sigint-conflict",
               label: "SIGINT × Conflict",
               icon: <Activity className="w-4 h-4" />,
@@ -725,6 +743,29 @@ function HomeContent() {
           onIonosondesLoaded={handleIonosondesLoaded}
         />
       </AnimatePresence>
+
+      {/* Geofence Zone Panel */}
+      <GeofencePanel
+        isOpen={geofencePanelOpen}
+        onClose={() => setGeofencePanelOpen(false)}
+        drawingVertices={geofenceVertices}
+        isDrawing={geofenceDrawing}
+        onStartDrawing={() => {
+          setGeofenceDrawing(true);
+          setGeofenceVertices([]);
+        }}
+        onFinishDrawing={() => {
+          setGeofenceDrawing(false);
+          setGeofenceVertices([]);
+        }}
+        onCancelDrawing={() => {
+          setGeofenceDrawing(false);
+          setGeofenceVertices([]);
+        }}
+        onUndoVertex={() => {
+          setGeofenceVertices((prev) => prev.slice(0, -1));
+        }}
+      />
 
       {/* SIGINT × Conflict Timeline */}
       <SigintConflictTimeline

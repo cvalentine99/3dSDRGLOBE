@@ -230,3 +230,21 @@
 - [x] Expanded Date Range: update timeline scrubber to handle wider date ranges
 - [x] Vitest tests for conflict zone alerts, expanded date range, and SIGINT timeline correlation (39 tests)
 - [x] All 528 vitest tests passing, zero TypeScript errors
+- [x] Geofencing: database schema for custom geofence zones (geofence_zones table)
+- [x] Geofencing: server-side geofence CRUD endpoints (create, update, delete, list)
+- [x] Geofencing: point-in-polygon detection for target position vs geofence zones
+- [x] Geofencing: alert generation when targets enter/leave geofence zones
+- [x] Geofencing: globe drawing UI for creating polygon zones (click-to-draw)
+- [x] Geofencing: zone management panel with edit/delete/toggle visibility
+- [x] Geofencing: visual rendering of zones on globe (filled polygons with borders)
+- [x] Geofencing: integrate geofence checks into addHistoryEntry flow
+- [x] Scheduled Sweep: background job that re-checks all targets against conflict data every 30 min
+- [x] Scheduled Sweep: integrate with existing conflict zone checker and geofence engine
+- [x] Scheduled Sweep: tRPC endpoints for sweep status and manual trigger
+- [x] Scheduled Sweep: sweep history log with results summary
+- [x] SIGINT PDF Export: client-side PDF generation using jsPDF
+- [x] SIGINT PDF Export: formatted report with header, summary stats, and correlation table
+- [x] SIGINT PDF Export: timeline chart rendering in PDF
+- [x] SIGINT PDF Export: download button in SigintConflictTimeline component
+- [x] Vitest tests for geofencing, sweep scheduler, and PDF export (45 tests)
+- [x] All 573 vitest tests passing across 18 test files, zero TypeScript errors

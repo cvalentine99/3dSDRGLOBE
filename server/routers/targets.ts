@@ -12,6 +12,7 @@ import { classifySignal } from "../signalClassifier";
 import { predictPosition } from "../positionPredictor";
 import { checkForAnomaly } from "../anomalyDetector";
 import { checkConflictZoneProximity } from "../conflictZoneChecker";
+import { checkGeofences } from "../geofenceEngine";
 
 export const targetsRouter = router({
   /** Auto-classify a target using LLM */
@@ -422,6 +423,11 @@ ${placemarks}
       // Check for conflict zone proximity (async, don't block the response)
       checkConflictZoneProximity(input.targetId, input.lat, input.lon, historyId).catch((err) =>
         console.warn("[ConflictZoneChecker] Check failed:", err)
+      );
+
+      // Check geofence zones (async, don't block the response)
+      checkGeofences(input.targetId, input.lat, input.lon, historyId).catch((err) =>
+        console.warn("[GeofenceEngine] Check failed:", err)
       );
 
       return { id: historyId };

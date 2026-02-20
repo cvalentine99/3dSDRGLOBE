@@ -102,13 +102,21 @@ interface GlobeProps {
   conflictHeatmapMode?: boolean;
   /** Set of station labels that are near conflict zones (for highlighting) */
   conflictZoneStations?: Set<string>;
+  /** Whether the user is drawing a geofence zone */
+  geofenceDrawing?: boolean;
+  /** Callback when user clicks globe during geofence drawing */
+  onGeofenceVertexAdd?: (lat: number, lon: number) => void;
+  /** Current geofence drawing vertices */
+  geofenceVertices?: Array<{ lat: number; lon: number }>;
+  /** Saved geofence zones to render */
+  geofenceZones?: Array<{ id: number; polygon: Array<{ lat: number; lon: number }>; color: string; visible: boolean }>;
 }
 
 export interface GlobeHandle {
   captureScreenshot: () => string | null;
 }
 
-const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = [], isStationOnline, tdoaOverlay, savedTargets = [], driftTrailData, predictions = [], conflictEvents = [], conflictHeatmapMode = false, conflictZoneStations }, ref) {
+const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = [], isStationOnline, tdoaOverlay, savedTargets = [], driftTrailData, predictions = [], conflictEvents = [], conflictHeatmapMode = false, conflictZoneStations, geofenceDrawing = false, onGeofenceVertexAdd, geofenceVertices = [], geofenceZones = [] }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ionoGroupRef = useRef<THREE.Group | null>(null);
   const tdoaGroupRef = useRef<THREE.Group | null>(null);
@@ -116,6 +124,11 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
   const driftTrailGroupRef = useRef<THREE.Group | null>(null);
   const predictionGroupRef = useRef<THREE.Group | null>(null);
   const conflictGroupRef = useRef<THREE.Group | null>(null);
+  const geofenceGroupRef = useRef<THREE.Group | null>(null);
+  const geofenceDrawingRef = useRef(geofenceDrawing);
+  const onGeofenceVertexAddRef = useRef(onGeofenceVertexAdd);
+  geofenceDrawingRef.current = geofenceDrawing;
+  onGeofenceVertexAddRef.current = onGeofenceVertexAdd;
   const [webglError, setWebglError] = useState<string | null>(null);
   const contextManagerRef = useRef<WebGLContextManager | null>(null);
   const fpsGovernorRef = useRef<FPSGovernor | null>(null);
@@ -336,6 +349,11 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
     const conflictGroup = new THREE.Group();
     scene.add(conflictGroup);
     conflictGroupRef.current = conflictGroup;
+
+    // Geofence polygon overlay group
+    const geofenceGroup = new THREE.Group();
+    scene.add(geofenceGroup);
+    geofenceGroupRef.current = geofenceGroup;
 
     // Ring group for selected station pulse
     const ringGroup = new THREE.Group();
@@ -788,6 +806,22 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
       s.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
       s.raycaster.setFromCamera(s.mouse, s.camera);
+
+      // Geofence drawing mode: click on globe surface to add vertex
+      if (geofenceDrawingRef.current && onGeofenceVertexAddRef.current) {
+        const globeIntersects = s.raycaster.intersectObject(s.globe);
+        if (globeIntersects.length > 0) {
+          const point = globeIntersects[0].point;
+          // Convert 3D point back to lat/lon
+          const r = point.length();
+          const lat = 90 - Math.acos(point.y / r) * (180 / Math.PI);
+          const lon = -(Math.atan2(-point.x, point.z) * (180 / Math.PI)) - 180;
+          const normalizedLon = ((lon + 540) % 360) - 180;
+          onGeofenceVertexAddRef.current(lat, normalizedLon);
+        }
+        return; // Don't process station clicks during drawing
+      }
+
       const meshes = s.markerMeshes.map((m) => m.mesh);
       const intersects = s.raycaster.intersectObjects(meshes);
 
@@ -1264,6 +1298,97 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
       }
     };
   }, [conflictEvents, conflictHeatmapMode]);
+
+  // Render geofence polygons on the globe surface
+  useEffect(() => {
+    const geofenceGroup = geofenceGroupRef.current;
+    if (!geofenceGroup) return;
+
+    // Clear existing geofence meshes
+    while (geofenceGroup.children.length > 0) {
+      const child = geofenceGroup.children[0];
+      geofenceGroup.remove(child);
+      if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
+        child.geometry.dispose();
+        if (child.material instanceof THREE.Material) child.material.dispose();
+      }
+    }
+
+    // Render drawing-in-progress vertices and lines
+    if (geofenceVertices.length > 0) {
+      const points: THREE.Vector3[] = geofenceVertices.map((v) =>
+        latLngToVector3(v.lat, v.lon, GLOBE_RADIUS * 1.008)
+      );
+
+      // Draw vertex dots
+      const dotGeo = new THREE.SphereGeometry(0.03, 6, 6);
+      const dotMat = new THREE.MeshBasicMaterial({ color: 0xff8800 });
+      for (const pt of points) {
+        const dot = new THREE.Mesh(dotGeo, dotMat.clone());
+        dot.position.copy(pt);
+        geofenceGroup.add(dot);
+      }
+
+      // Draw connecting lines
+      if (points.length >= 2) {
+        const linePoints = [...points];
+        if (points.length >= 3) linePoints.push(points[0]); // Close polygon
+        const lineGeo = new THREE.BufferGeometry().setFromPoints(linePoints);
+        const lineMat = new THREE.LineBasicMaterial({
+          color: 0xff8800,
+          linewidth: 2,
+          transparent: true,
+          opacity: 0.9,
+        });
+        const line = new THREE.Line(lineGeo, lineMat);
+        geofenceGroup.add(line);
+      }
+
+      // Draw filled polygon if 3+ vertices
+      if (points.length >= 3) {
+        const shape = new THREE.Shape();
+        // Project to 2D for triangulation, then map back
+        // Use a simple fan triangulation from centroid
+        const indices: number[] = [];
+        const positions: number[] = [];
+        // Centroid
+        const cx = points.reduce((s, p) => s + p.x, 0) / points.length;
+        const cy = points.reduce((s, p) => s + p.y, 0) / points.length;
+        const cz = points.reduce((s, p) => s + p.z, 0) / points.length;
+        positions.push(cx, cy, cz); // index 0 = centroid
+        for (const pt of points) {
+          positions.push(pt.x, pt.y, pt.z);
+        }
+        for (let i = 1; i <= points.length; i++) {
+          const next = i === points.length ? 1 : i + 1;
+          indices.push(0, i, next);
+        }
+        const fillGeo = new THREE.BufferGeometry();
+        fillGeo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+        fillGeo.setIndex(indices);
+        const fillMat = new THREE.MeshBasicMaterial({
+          color: 0xff8800,
+          transparent: true,
+          opacity: 0.15,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        });
+        const fillMesh = new THREE.Mesh(fillGeo, fillMat);
+        geofenceGroup.add(fillMesh);
+      }
+    }
+
+    return () => {
+      while (geofenceGroup.children.length > 0) {
+        const child = geofenceGroup.children[0];
+        geofenceGroup.remove(child);
+        if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
+          child.geometry.dispose();
+          if (child.material instanceof THREE.Material) child.material.dispose();
+        }
+      }
+    };
+  }, [geofenceVertices, geofenceZones]);
 
   // Auto-rotate globe to continent/region when globeTarget changes
   useEffect(() => {

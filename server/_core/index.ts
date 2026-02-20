@@ -83,6 +83,17 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+
+    // Start the conflict zone sweep scheduler after a delay
+    // to allow the UCDP cache to populate first
+    setTimeout(async () => {
+      try {
+        const { startConflictSweepScheduler } = await import("../conflictSweepScheduler");
+        startConflictSweepScheduler();
+      } catch (err) {
+        console.warn("[Server] Failed to start conflict sweep scheduler:", err);
+      }
+    }, 60_000); // Wait 60s for UCDP cache to populate
   });
 }
 
