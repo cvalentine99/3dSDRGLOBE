@@ -296,3 +296,6 @@
 - [x] Deduplication engine — merge new receivers with existing stations.json by URL matching
 - [x] tRPC endpoint for triggering directory refresh and getting aggregated station data
 - [x] Vitest tests for directory aggregator (17 tests)
+- [x] Directory Sources status indicator in Monitor panel (show fetch status, timestamps, manual refresh)
+- [x] Integrate ReceiverBook.de API as 4th directory source (1,512 receivers from /map page)
+- [x] New Receivers highlight mode with pulsing violet rings on globe for freshly discovered stations

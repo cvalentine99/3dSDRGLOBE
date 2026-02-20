@@ -3,8 +3,9 @@
  *
  * Fetches receiver listings from:
  *   1. KiwiSDR GPS JSON (kiwisdr.com/tdoa/files/kiwi.gps.json) — ~500 receivers
- *   2. WebSDR.org HTML (websdr.ewi.utwente.nl/org/) — ~125 receivers
- *   3. sdr-list.xyz HTML (NovaSDR/PhantomSDR) — ~25 receivers
+ *   2. WebSDR.org AJAX JSON (websdr.ewi.utwente.nl) — ~125 receivers
+ *   3. sdr-list.xyz RSC (NovaSDR/PhantomSDR) — ~25 receivers
+ *   4. ReceiverBook.de map (receiverbook.de/map) — ~1500 receivers
  *
  * Merges with existing stations.json and deduplicates by normalized URL.
  */
@@ -398,6 +399,120 @@ export async function fetchSdrListDirectory(): Promise<{
   return { stations, errors };
 }
 
+/* ── Source 4: ReceiverBook.de Map ──────────────── */
+
+/**
+ * ReceiverBook.de aggregates KiwiSDR and OpenWebRX receivers.
+ * The /map page embeds a `var receivers = [...]` JS array with full
+ * coordinates, labels, URLs, and type info for ~1500 receivers.
+ */
+const RECEIVERBOOK_MAP_URL = "https://receiverbook.de/map";
+
+interface ReceiverBookEntry {
+  label: string;
+  location: {
+    coordinates: [number, number]; // [lon, lat]
+    type: string;
+  };
+  receivers: {
+    label: string;
+    version?: string;
+    url: string;
+    type: string; // "OpenWebRX", "KiwiSDR", etc.
+  }[];
+}
+
+export async function fetchReceiverBookDirectory(): Promise<{
+  stations: DirectoryStation[];
+  errors: string[];
+}> {
+  const errors: string[] = [];
+  const stations: DirectoryStation[] = [];
+
+  try {
+    const res = await axios.get<string>(RECEIVERBOOK_MAP_URL, {
+      timeout: 20000,
+      responseType: "text",
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        Accept: "text/html",
+      },
+    });
+
+    const html = res.data;
+
+    // Extract the `var receivers = [...]` array from the HTML
+    const match = html.match(/var\s+receivers\s*=\s*(\[[\s\S]*?\]);/);
+    if (!match) {
+      errors.push("ReceiverBook: could not find receivers array in HTML");
+      return { stations, errors };
+    }
+
+    let entries: ReceiverBookEntry[];
+    try {
+      entries = JSON.parse(match[1]);
+    } catch (parseErr: any) {
+      errors.push(`ReceiverBook: JSON parse failed: ${parseErr.message}`);
+      return { stations, errors };
+    }
+
+    for (const entry of entries) {
+      if (
+        !entry.location?.coordinates ||
+        !Array.isArray(entry.receivers) ||
+        entry.receivers.length === 0
+      ) {
+        continue;
+      }
+
+      const [lon, lat] = entry.location.coordinates;
+      if (typeof lon !== "number" || typeof lat !== "number") continue;
+      if (lat === 0 && lon === 0) continue; // Skip null-island entries
+
+      const mappedReceivers: DirectoryReceiver[] = entry.receivers
+        .filter((r) => r.url)
+        .map((r) => {
+          // Normalize type to our known types
+          let type: DirectoryReceiver["type"] = "OpenWebRX";
+          const t = (r.type || "").toLowerCase();
+          if (t.includes("kiwi")) type = "KiwiSDR";
+          else if (t.includes("websdr")) type = "WebSDR";
+          else if (t.includes("openwebrx")) type = "OpenWebRX";
+
+          return {
+            label: r.label || entry.label || "Unknown",
+            url: r.url.replace(/\/$/, ""),
+            type,
+            version: r.version,
+          };
+        });
+
+      if (mappedReceivers.length === 0) continue;
+
+      stations.push({
+        label: entry.label || mappedReceivers[0].label,
+        location: {
+          coordinates: [lon, lat],
+          type: "Point",
+        },
+        receivers: mappedReceivers,
+        source: "receiverbook",
+      });
+    }
+
+    console.log(
+      `[DirectoryAggregator] ReceiverBook.de: fetched ${stations.length} stations (${stations.reduce((n, s) => n + s.receivers.length, 0)} receivers)`
+    );
+  } catch (err: any) {
+    const msg = `ReceiverBook.de fetch failed: ${err.message}`;
+    errors.push(msg);
+    console.warn(`[DirectoryAggregator] ${msg}`);
+  }
+
+  return { stations, errors };
+}
+
 /* ── Aggregation & Deduplication ───────────────────── */
 
 /**
@@ -476,10 +591,11 @@ export async function aggregateDirectories(
   }));
 
   // Fetch all sources in parallel
-  const [kiwiResult, websdrResult, sdrListResult] = await Promise.all([
+  const [kiwiResult, websdrResult, sdrListResult, receiverBookResult] = await Promise.all([
     fetchKiwiSdrDirectory(),
     fetchWebSdrDirectory(),
     fetchSdrListDirectory(),
+    fetchReceiverBookDirectory(),
   ]);
 
   // Merge with deduplication
@@ -487,7 +603,8 @@ export async function aggregateDirectories(
     taggedExisting,
     kiwiResult.stations,
     websdrResult.stations,
-    sdrListResult.stations
+    sdrListResult.stations,
+    receiverBookResult.stations
   );
 
   const totalNew = merged.length - existingCount;
@@ -545,6 +662,21 @@ export async function aggregateDirectories(
             )
         ).length,
         errors: sdrListResult.errors,
+      },
+      {
+        name: "ReceiverBook.de",
+        fetched: receiverBookResult.stations.length,
+        newStations: receiverBookResult.stations.filter(
+          (s) =>
+            !taggedExisting.some((e) =>
+              e.receivers.some((er) =>
+                s.receivers.some(
+                  (sr) => normalizeUrl(er.url) === normalizeUrl(sr.url)
+                )
+              )
+            )
+        ).length,
+        errors: receiverBookResult.errors,
       },
     ],
     totalStations: merged.length,

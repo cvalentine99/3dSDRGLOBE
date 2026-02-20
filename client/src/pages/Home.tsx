@@ -29,7 +29,7 @@ import IntelChat from "@/components/IntelChat";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { AnimatePresence } from "framer-motion";
 import { motion } from "framer-motion";
-import { Radar, Bell, Eye, Activity, Crosshair, Target, AlertTriangle, Users, BarChart3, Flame, Layers, Shield, Hexagon } from "lucide-react";
+import { Radar, Bell, Eye, Activity, Crosshair, Target, AlertTriangle, Users, BarChart3, Flame, Layers, Shield, Hexagon, Database, Sparkles } from "lucide-react";
 import NavBarGroup, { type NavBarItem } from "@/components/NavBarGroup";
 import { getUnacknowledgedCount } from "@/lib/alertService";
 import { getWatchlistCount, getOnlineCount } from "@/lib/watchlistService";
@@ -44,6 +44,7 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import ShortcutHelpOverlay from "@/components/ShortcutHelpOverlay";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useTheme } from "@/contexts/ThemeContext";
+import DirectorySourcesPanel from "@/components/DirectorySourcesPanel";
 
 /** Local error boundary specifically for the Globe component to catch WebGL crashes */
 class GlobeErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string | null }> {
@@ -100,7 +101,7 @@ function formatCountdown(targetMs: number): string {
 }
 
 function HomeContent() {
-  const { loading, stations, selectedStation, filteredStations, selectStation, setShowPanel, highlightedStationLabel, overlayToggles } = useRadio();
+  const { loading, stations, selectedStation, filteredStations, selectStation, setShowPanel, highlightedStationLabel, overlayToggles, newStationLabels, directorySources } = useRadio();
   const { isStationOnline, progress: batchProgress, autoRefresh } = useReceiverStatusMap(stations, loading);
   const { highlightedStation, highlightedIndex, isKeyNavActive } = useKeyboardNav();
   const { theme } = useTheme();
@@ -137,6 +138,8 @@ function HomeContent() {
   const [geofenceDrawing, setGeofenceDrawing] = useState(false);
   const [geofenceVertices, setGeofenceVertices] = useState<Array<{lat: number; lon: number}>>([]);
   const [correlationRadius, setCorrelationRadius] = useState(200);
+  const [dirSourcesOpen, setDirSourcesOpen] = useState(false);
+  const [newReceiversHighlight, setNewReceiversHighlight] = useState(false);
   const [, navigate] = useLocation();
 
   // Keyboard shortcuts
@@ -418,6 +421,7 @@ function HomeContent() {
           geofenceVertices={geofenceVertices}
           geofenceZones={geofencePanelOpen ? undefined : undefined}
           highlightedStationLabel={highlightedStationLabel}
+          newStationLabels={newReceiversHighlight ? newStationLabels : undefined}
         />
       </GlobeErrorBoundary>
 
@@ -599,16 +603,33 @@ function HomeContent() {
             },
             {
               id: "sigint-conflict",
-              label: "SIGINT × Conflict",
+              label: "SIGINT \u00d7 Conflict",
               icon: <Activity className="w-4 h-4" />,
               onClick: () => setConflictTimelineOpen(!conflictTimelineOpen),
               active: conflictTimelineOpen,
               colorClass: "cyan",
             },
+            {
+              id: "dir-sources",
+              label: `Directory Sources${directorySources.length > 0 ? ` (${directorySources.filter(s => s.fetched > 0 && !s.name.includes('static')).length})` : ""}`,
+              icon: <Database className="w-4 h-4" />,
+              onClick: () => setDirSourcesOpen(!dirSourcesOpen),
+              active: dirSourcesOpen,
+              colorClass: "blue",
+            },
+            {
+              id: "new-receivers",
+              label: `New Receivers${newStationLabels.size > 0 ? ` (${newStationLabels.size})` : ""}`,
+              icon: <Sparkles className="w-4 h-4" />,
+              onClick: () => setNewReceiversHighlight(!newReceiversHighlight),
+              active: newReceiversHighlight,
+              badge: newStationLabels.size > 0 ? newStationLabels.size : null,
+              colorClass: "violet",
+            },
           ]}
         />
 
-        {/* Collaboration Group — Share + Dashboard */}
+          {/* Collaboration Group — Share + Dashboard */}
         <NavBarGroup
           label="Collab"
           icon={<Users className="w-4 h-4" />}
@@ -807,6 +828,12 @@ function HomeContent() {
         onConflictZoneStations={setConflictZoneStations}
         correlationRadius={correlationRadius}
         onCorrelationRadiusChange={setCorrelationRadius}
+      />
+
+      {/* Directory Sources Panel */}
+      <DirectorySourcesPanel
+        open={dirSourcesOpen}
+        onClose={() => setDirSourcesOpen(false)}
       />
 
       {/* Search & Filter */}

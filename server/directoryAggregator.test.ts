@@ -149,3 +149,100 @@ describe("mergeStations", () => {
     expect(mergeStations([], [makeStation("A", "http://a.com")])).toHaveLength(1);
   });
 });
+
+/* ── ReceiverBook integration tests ─────────────────── */
+
+describe("ReceiverBook deduplication", () => {
+  const makeStation = (
+    label: string,
+    url: string,
+    type: "KiwiSDR" | "OpenWebRX" | "WebSDR" = "KiwiSDR",
+    source = "static"
+  ): DirectoryStation => ({
+    label,
+    location: { coordinates: [0, 0], type: "Point" },
+    receivers: [{ label, url, type }],
+    source,
+  });
+
+  it("deduplicates ReceiverBook stations against existing by URL", () => {
+    const existing = [makeStation("Existing Kiwi", "http://kiwi.example.com:8073")];
+    const receiverBookStations = [
+      makeStation("ReceiverBook Kiwi", "http://kiwi.example.com:8073/", "KiwiSDR", "receiverbook"),
+      makeStation("New OpenWebRX", "http://openwebrx.example.com:8073", "OpenWebRX", "receiverbook"),
+    ];
+    const result = mergeStations(existing, receiverBookStations);
+    expect(result).toHaveLength(2); // Existing + 1 new (dedup removes the duplicate)
+    expect(result[0].label).toBe("Existing Kiwi"); // existing takes priority
+    expect(result[1].label).toBe("New OpenWebRX");
+  });
+
+  it("deduplicates ReceiverBook against KiwiSDR GPS and WebSDR sources", () => {
+    const existing = [makeStation("A", "http://a.com:8073")];
+    const kiwiGps = [makeStation("B", "http://b.com:8073", "KiwiSDR", "kiwisdr-gps")];
+    const websdr = [makeStation("C", "http://c.com:8073", "WebSDR", "websdr-org")];
+    const sdrList = [makeStation("D", "http://d.com:8073", "KiwiSDR", "sdr-list")];
+    const receiverBook = [
+      makeStation("B dup", "http://b.com:8073", "KiwiSDR", "receiverbook"),
+      makeStation("C dup", "http://c.com:8073", "WebSDR", "receiverbook"),
+      makeStation("E", "http://e.com:8073", "OpenWebRX", "receiverbook"),
+    ];
+    const result = mergeStations(existing, kiwiGps, websdr, sdrList, receiverBook);
+    // A, B, C, D, E = 5 unique stations
+    expect(result).toHaveLength(5);
+    // B should be from kiwiGps (first seen), not receiverBook
+    expect(result.find((s) => normalizeUrl(s.receivers[0].url) === "b.com:8073")?.label).toBe("B");
+    // E should be from receiverBook (only source)
+    expect(result.find((s) => normalizeUrl(s.receivers[0].url) === "e.com:8073")?.label).toBe("E");
+  });
+
+  it("handles ReceiverBook stations with different protocol (http vs https)", () => {
+    const existing = [makeStation("Kiwi HTTPS", "https://kiwi.example.com:8073")];
+    const receiverBook = [
+      makeStation("Kiwi HTTP", "http://kiwi.example.com:8073", "KiwiSDR", "receiverbook"),
+    ];
+    const result = mergeStations(existing, receiverBook);
+    expect(result).toHaveLength(1); // Same after normalization
+    expect(result[0].label).toBe("Kiwi HTTPS"); // existing takes priority
+  });
+});
+
+/* ── Directory source info structure tests ──────────── */
+
+describe("DirectoryStation source tracking", () => {
+  const makeStation = (
+    label: string,
+    url: string,
+    type: "KiwiSDR" | "OpenWebRX" | "WebSDR" = "KiwiSDR",
+    source = "static"
+  ): DirectoryStation => ({
+    label,
+    location: { coordinates: [0, 0], type: "Point" },
+    receivers: [{ label, url, type }],
+    source,
+  });
+
+  it("preserves source field through merge", () => {
+    const existing = [makeStation("A", "http://a.com:8073", "KiwiSDR", "static")];
+    const kiwiGps = [makeStation("B", "http://b.com:8073", "KiwiSDR", "kiwisdr-gps")];
+    const receiverBook = [makeStation("C", "http://c.com:8073", "OpenWebRX", "receiverbook")];
+    const result = mergeStations(existing, kiwiGps, receiverBook);
+    expect(result).toHaveLength(3);
+    expect(result[0].source).toBe("static");
+    expect(result[1].source).toBe("kiwisdr-gps");
+    expect(result[2].source).toBe("receiverbook");
+  });
+
+  it("counts new stations correctly when all sources overlap", () => {
+    const existing = [
+      makeStation("A", "http://a.com:8073"),
+      makeStation("B", "http://b.com:8073"),
+    ];
+    const kiwiGps = [
+      makeStation("A dup", "http://a.com:8073", "KiwiSDR", "kiwisdr-gps"),
+      makeStation("B dup", "http://b.com:8073", "KiwiSDR", "kiwisdr-gps"),
+    ];
+    const result = mergeStations(existing, kiwiGps);
+    expect(result).toHaveLength(2); // No new stations
+  });
+});

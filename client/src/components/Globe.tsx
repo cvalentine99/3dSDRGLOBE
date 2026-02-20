@@ -112,13 +112,15 @@ interface GlobeProps {
   geofenceZones?: Array<{ id: number; polygon: Array<{ lat: number; lon: number }>; color: string; visible: boolean }>;
   /** Station label to highlight with pulse/glow effect (from IntelChat HIGHLIGHT action) */
   highlightedStationLabel?: string | null;
+  /** Set of station labels that are newly discovered from directory aggregation */
+  newStationLabels?: Set<string>;
 }
 
 export interface GlobeHandle {
   captureScreenshot: () => string | null;
 }
 
-const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = [], isStationOnline, tdoaOverlay, savedTargets = [], driftTrailData, predictions = [], conflictEvents = [], conflictHeatmapMode = false, conflictZoneStations, geofenceDrawing = false, onGeofenceVertexAdd, geofenceVertices = [], geofenceZones = [], highlightedStationLabel = null }, ref) {
+const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = [], isStationOnline, tdoaOverlay, savedTargets = [], driftTrailData, predictions = [], conflictEvents = [], conflictHeatmapMode = false, conflictZoneStations, geofenceDrawing = false, onGeofenceVertexAdd, geofenceVertices = [], geofenceZones = [], highlightedStationLabel = null, newStationLabels }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ionoGroupRef = useRef<THREE.Group | null>(null);
   const tdoaGroupRef = useRef<THREE.Group | null>(null);
@@ -592,10 +594,31 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
         ring.userData.phase = Math.random() * Math.PI * 2; // random phase offset
         markerGroup.add(ring);
       }
+
+      // Add a pulsing violet ring for newly discovered stations from directory aggregation
+      const isNewStation = newStationLabels?.has(station.label);
+      if (isNewStation) {
+        const ringGeo = new THREE.RingGeometry(0.6, 0.9, 16);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: 0xa78bfa, // violet-400
+          transparent: true,
+          opacity: 0.6,
+          side: THREE.DoubleSide,
+          depthTest: false,
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.position.copy(pos);
+        ring.lookAt(0, 0, 0);
+        ring.scale.setScalar(0.1);
+        ring.userData.isNewStationRing = true;
+        ring.userData.baseScale = 0.1;
+        ring.userData.phase = Math.random() * Math.PI * 2;
+        markerGroup.add(ring);
+      }
     });
 
     sceneRef.current.markerMeshes = meshes;
-  }, [filteredStations, isStationOnline, conflictZoneStations]);
+  }, [filteredStations, isStationOnline, conflictZoneStations, newStationLabels]);
 
   useEffect(() => {
     updateMarkers();
@@ -791,6 +814,15 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
             child.scale.setScalar(pulseScale);
             const mat = child.material as THREE.MeshBasicMaterial;
             mat.opacity = 0.3 + 0.2 * Math.sin(elapsed * 2 + phase);
+          }
+          // Animate new station discovery rings (violet pulsing)
+          if (child instanceof THREE.Mesh && child.userData.isNewStationRing) {
+            const phase = child.userData.phase ?? 0;
+            const base = child.userData.baseScale ?? 0.1;
+            const pulseScale = base * (1 + 0.4 * Math.sin(elapsed * 3 + phase));
+            child.scale.setScalar(pulseScale);
+            const mat = child.material as THREE.MeshBasicMaterial;
+            mat.opacity = 0.25 + 0.35 * Math.sin(elapsed * 3 + phase);
           }
         });
       }

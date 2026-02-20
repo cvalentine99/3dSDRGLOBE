@@ -76,6 +76,18 @@ interface RadioContextType {
   setHighlightedStationLabel: (label: string | null) => void;
   // Overlay toggles (registered by Home.tsx, consumed by IntelChat)
   overlayToggles: React.MutableRefObject<Record<string, (value?: boolean) => void>>;
+  // Directory aggregation
+  newStationLabels: Set<string>;
+  directorySources: DirectorySourceInfo[];
+  refreshDirectories: () => void;
+  directoryRefreshing: boolean;
+}
+
+export interface DirectorySourceInfo {
+  name: string;
+  fetched: number;
+  newStations: number;
+  errors: string[];
 }
 
 const RadioContext = createContext<RadioContextType | null>(null);
@@ -97,6 +109,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const [favorites, setFavorites] = useState<Set<string>>(() => loadFavorites());
   const [highlightedStationLabel, setHighlightedStationLabel] = useState<string | null>(null);
   const overlayTogglesRef = useRef<Record<string, (value?: boolean) => void>>({});
+  const [newStationLabels, setNewStationLabels] = useState<Set<string>>(new Set());
+  const [directorySources, setDirectorySources] = useState<DirectorySourceInfo[]>([]);
+  const [directoryRefreshing, setDirectoryRefreshing] = useState(false);
+  const staticDataRef = useRef<Station[]>([]);
 
   const clearGlobeTarget = useCallback(() => setGlobeTarget(null), []);
 
@@ -139,6 +155,103 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Shared function to fetch directory aggregation and update state
+  const fetchDirectoryAggregation = useCallback(async (baseStations: Station[], isRefresh = false) => {
+    if (isRefresh) setDirectoryRefreshing(true);
+    try {
+      // If refreshing, clear the server cache first
+      if (isRefresh) {
+        await fetch("/api/trpc/receiver.clearDirectoryCache", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ json: {} }),
+        });
+      }
+
+      const res = await fetch("/api/trpc/receiver.aggregateDirectories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          json: {
+            existingStations: baseStations.map((s) => ({
+              label: s.label,
+              location: s.location,
+              receivers: s.receivers.map((r) => ({
+                label: r.label,
+                url: r.url,
+                type: r.type,
+                version: r.version,
+              })),
+            })),
+          },
+        }),
+      });
+      if (res.ok) {
+        const body = await res.json();
+        const result = body?.result?.data?.json;
+        if (result?.stations && result.stations.length > baseStations.length) {
+          const staticLabels = new Set(baseStations.map((s) => s.label));
+          const merged: Station[] = result.stations.map((s: any) => ({
+            label: s.label,
+            location: s.location,
+            receivers: s.receivers.map((r: any) => ({
+              label: r.label,
+              url: r.url,
+              type: r.type,
+              version: r.version,
+            })),
+          }));
+          setStations(merged);
+
+          // Track which stations are new (not in static data)
+          const newLabels = new Set<string>();
+          merged.forEach((s) => {
+            if (!staticLabels.has(s.label)) newLabels.add(s.label);
+          });
+          setNewStationLabels(newLabels);
+
+          // Track directory source info
+          if (result.sources) {
+            setDirectorySources(
+              result.sources.map((src: any) => ({
+                name: src.name,
+                fetched: src.fetched,
+                newStations: src.newStations,
+                errors: src.errors || [],
+              }))
+            );
+          }
+
+          console.log(
+            `[RadioContext] Directory aggregation: ${baseStations.length} \u2192 ${merged.length} stations (+${result.totalNew} new)`
+          );
+        } else if (result?.sources) {
+          // Even if no new stations, update source info
+          setDirectorySources(
+            result.sources.map((src: any) => ({
+              name: src.name,
+              fetched: src.fetched,
+              newStations: src.newStations,
+              errors: src.errors || [],
+            }))
+          );
+        }
+      }
+    } catch (err) {
+      console.warn("[RadioContext] Directory aggregation failed:", err);
+    } finally {
+      if (isRefresh) setDirectoryRefreshing(false);
+    }
+  }, []);
+
+  const refreshDirectories = useCallback(() => {
+    if (staticDataRef.current.length > 0) {
+      fetchDirectoryAggregation(staticDataRef.current, true);
+    }
+  }, [fetchDirectoryAggregation]);
+
   useEffect(() => {
     async function fetchStations() {
       const sources = [
@@ -154,6 +267,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             const data = await res.json();
             if (Array.isArray(data) && data.length > 0) {
               staticData = data;
+              staticDataRef.current = data;
               setStations(data);
               setLoading(false);
               break;
@@ -171,54 +285,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       }
 
       // After showing static data, fetch additional receivers from directory aggregator
-      try {
-        const res = await fetch("/api/trpc/receiver.aggregateDirectories", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            json: {
-              existingStations: staticData.map((s) => ({
-                label: s.label,
-                location: s.location,
-                receivers: s.receivers.map((r) => ({
-                  label: r.label,
-                  url: r.url,
-                  type: r.type,
-                  version: r.version,
-                })),
-              })),
-            },
-          }),
-        });
-        if (res.ok) {
-          const body = await res.json();
-          const result = body?.result?.data?.json;
-          if (result?.stations && result.stations.length > staticData.length) {
-            // Convert DirectoryStation[] back to Station[] (same shape)
-            const merged: Station[] = result.stations.map((s: any) => ({
-              label: s.label,
-              location: s.location,
-              receivers: s.receivers.map((r: any) => ({
-                label: r.label,
-                url: r.url,
-                type: r.type,
-                version: r.version,
-              })),
-            }));
-            setStations(merged);
-            console.log(
-              `[RadioContext] Directory aggregation: ${staticData.length} → ${merged.length} stations (+${result.totalNew} new)`
-            );
-          }
-        }
-      } catch (err) {
-        // Non-critical: directory aggregation is a bonus
-        console.warn("[RadioContext] Directory aggregation failed:", err);
-      }
+      fetchDirectoryAggregation(staticData);
     }
     fetchStations();
-  }, []);
+  }, [fetchDirectoryAggregation]);
 
   const selectStation = useCallback((station: Station | null) => {
     setSelectedStation(station);
@@ -397,6 +467,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         highlightedStationLabel,
         setHighlightedStationLabel,
         overlayToggles: overlayTogglesRef,
+        newStationLabels,
+        directorySources,
+        refreshDirectories,
+        directoryRefreshing,
       }}
     >
       {children}
