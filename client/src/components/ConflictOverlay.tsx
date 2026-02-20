@@ -83,12 +83,15 @@ export function getMarkerSize(fatalities: number): number {
 const REGIONS = ["All", "Africa", "Americas", "Asia", "Europe", "Middle East"];
 
 // ── Date range presets ──────────────────────────────────────────────
+// days = -1 means "All time" (full GED dataset back to 1989)
 const DATE_PRESETS = [
   { label: "30 days", days: 30 },
   { label: "90 days", days: 90 },
   { label: "6 months", days: 180 },
   { label: "1 year", days: 365 },
   { label: "2 years", days: 730 },
+  { label: "5 years", days: 1825 },
+  { label: "All time", days: -1 },
 ];
 
 interface ConflictOverlayProps {
@@ -133,6 +136,7 @@ export default function ConflictOverlay({
 
   // ── Computed date range ─────────────────────────────────────────
   const startDate = useMemo(() => {
+    if (daysBack === -1) return "1989-01-01"; // All time: full GED dataset
     const d = new Date();
     d.setDate(d.getDate() - daysBack);
     return d.toISOString().split("T")[0];
@@ -143,6 +147,14 @@ export default function ConflictOverlay({
   }, []);
 
   // ── Data fetching ───────────────────────────────────────────────
+  // Scale maxPages based on date range to handle large datasets efficiently
+  const maxPages = useMemo(() => {
+    if (daysBack === -1) return 50; // All time: up to 50K events
+    if (daysBack >= 1825) return 40; // 5 years
+    if (daysBack >= 730) return 30; // 2 years
+    return 20; // Default
+  }, [daysBack]);
+
   const queryInput = useMemo(
     () => ({
       startDate,
@@ -151,9 +163,9 @@ export default function ConflictOverlay({
         typeFilter.size === 3
           ? undefined
           : Array.from(typeFilter).join(","),
-      maxPages: 20,
+      maxPages,
     }),
-    [startDate, region, typeFilter]
+    [startDate, region, typeFilter, maxPages]
   );
 
   const {
@@ -348,8 +360,17 @@ export default function ConflictOverlay({
             <div className="px-4 py-6 text-center">
               <RefreshCw className="w-5 h-5 text-red-500 dark:text-red-400 animate-spin mx-auto mb-2" />
               <p className="text-xs text-muted-foreground">
-                Loading conflict data...
+                {daysBack === -1
+                  ? "Loading full dataset (1989-present)..."
+                  : daysBack >= 1825
+                    ? "Loading 5 years of conflict data..."
+                    : "Loading conflict data..."}
               </p>
+              {daysBack === -1 && (
+                <p className="text-[9px] text-muted-foreground/60 mt-1">
+                  This may take a moment for 350K+ events
+                </p>
+              )}
             </div>
           )}
 

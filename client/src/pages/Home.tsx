@@ -23,6 +23,7 @@ import SharedListPanel from "@/components/SharedListPanel";
 import WatchlistPanel from "@/components/WatchlistPanel";
 import PropagationOverlay from "@/components/PropagationOverlay";
 import ConflictOverlay, { type SlimConflictEvent } from "@/components/ConflictOverlay";
+import SigintConflictTimeline from "@/components/SigintConflictTimeline";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { AnimatePresence } from "framer-motion";
 import { motion } from "framer-motion";
@@ -125,6 +126,7 @@ function HomeContent() {
   const [anomalyPanelOpen, setAnomalyPanelOpen] = useState(false);
   const [sharingPanelOpen, setSharingPanelOpen] = useState(false);
   const [conflictVisible, setConflictVisible] = useState(false);
+  const [conflictTimelineOpen, setConflictTimelineOpen] = useState(false);
   const conflictEventsRef = useRef<SlimConflictEvent[]>([]);
   const [, setConflictTick] = useState(0); // force re-render when events change
   const [heatmapMode, setHeatmapMode] = useState(false);
@@ -559,6 +561,14 @@ function HomeContent() {
               badgePulse: anomalyCount > 0,
               colorClass: "red",
             },
+            {
+              id: "sigint-conflict",
+              label: "SIGINT × Conflict",
+              icon: <Activity className="w-4 h-4" />,
+              onClick: () => setConflictTimelineOpen(!conflictTimelineOpen),
+              active: conflictTimelineOpen,
+              colorClass: "cyan",
+            },
           ]}
         />
 
@@ -715,6 +725,16 @@ function HomeContent() {
           onIonosondesLoaded={handleIonosondesLoaded}
         />
       </AnimatePresence>
+
+      {/* SIGINT × Conflict Timeline */}
+      <SigintConflictTimeline
+        isOpen={conflictTimelineOpen}
+        onClose={() => setConflictTimelineOpen(false)}
+        conflictEvents={conflictEventsRef.current}
+        onFocusPosition={(_lat, _lon) => {
+          // Globe auto-rotates; focus position is informational
+        }}
+      />
 
       {/* Conflict Data Overlay (UCDP) */}
       <ConflictOverlay

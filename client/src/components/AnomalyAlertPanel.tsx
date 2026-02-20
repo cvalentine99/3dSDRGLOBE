@@ -1,14 +1,17 @@
 /**
  * AnomalyAlertPanel.tsx — Displays anomaly detection alerts
  *
- * Shows flagged targets whose positions deviate from prediction models.
+ * Shows flagged targets whose positions deviate from prediction models
+ * AND targets that have drifted into active conflict zones.
  * Features:
  * - Alert list with severity indicators (low/medium/high)
+ * - Filter tabs: All, Position Anomaly, Conflict Zone
  * - Acknowledge individual or all alerts
  * - Click to focus globe on anomalous target
  * - Real-time unacknowledged count badge
+ * - Conflict zone context (zone name, event count, fatalities)
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -25,6 +28,9 @@ import {
   ChevronUp,
   Bell,
   BellOff,
+  Flame,
+  Crosshair,
+  Shield,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -43,7 +49,7 @@ const SEVERITY_CONFIG = {
     bg: "bg-yellow-400/10",
     border: "border-yellow-400/30",
     label: "Low",
-    description: "Unusual deviation (1.5-2σ)",
+    description: "Unusual deviation (1.5-2\u03c3)",
   },
   medium: {
     icon: AlertTriangle,
@@ -51,7 +57,7 @@ const SEVERITY_CONFIG = {
     bg: "bg-orange-400/10",
     border: "border-orange-400/30",
     label: "Medium",
-    description: "Unexpected movement (2-3σ)",
+    description: "Unexpected movement (2-3\u03c3)",
   },
   high: {
     icon: AlertOctagon,
@@ -59,9 +65,11 @@ const SEVERITY_CONFIG = {
     bg: "bg-red-400/10",
     border: "border-red-400/30",
     label: "High",
-    description: "Significant anomaly (>3σ)",
+    description: "Significant anomaly (>3\u03c3)",
   },
 };
+
+type AlertFilter = "all" | "position" | "conflict";
 
 export default function AnomalyAlertPanel({
   isOpen,
@@ -71,13 +79,22 @@ export default function AnomalyAlertPanel({
 }: AnomalyAlertPanelProps) {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [showAcknowledged, setShowAcknowledged] = useState(false);
+  const [alertFilter, setAlertFilter] = useState<AlertFilter>("all");
 
   const utils = trpc.useUtils();
 
   const alertsQuery = trpc.anomalies.list.useQuery(
-    { limit: 50, acknowledged: showAcknowledged ? undefined : false },
+    {
+      limit: 50,
+      acknowledged: showAcknowledged ? undefined : false,
+      alertType: alertFilter,
+    },
     { refetchInterval: 15000 }
   );
+
+  const countQuery = trpc.anomalies.unacknowledgedCount.useQuery(undefined, {
+    refetchInterval: 15000,
+  });
 
   const acknowledgeMut = trpc.anomalies.acknowledge.useMutation({
     onSuccess: () => {
@@ -94,6 +111,7 @@ export default function AnomalyAlertPanel({
   });
 
   const alerts = alertsQuery.data ?? [];
+  const counts = countQuery.data ?? { count: 0, positionCount: 0, conflictCount: 0 };
 
   const getTargetLabel = useCallback(
     (targetId: number) => {
@@ -103,16 +121,7 @@ export default function AnomalyAlertPanel({
     [targets]
   );
 
-  const getTargetCategory = useCallback(
-    (targetId: number) => {
-      const target = targets.find((t) => t.id === targetId);
-      return target?.category ?? "unknown";
-    },
-    [targets]
-  );
-
   const formatTime = (ts: number) => {
-    const date = new Date(ts);
     const now = Date.now();
     const diffMs = now - ts;
     const diffMin = Math.floor(diffMs / 60000);
@@ -123,7 +132,27 @@ export default function AnomalyAlertPanel({
     if (diffMin < 60) return `${diffMin}m ago`;
     if (diffHr < 24) return `${diffHr}h ago`;
     if (diffDay < 7) return `${diffDay}d ago`;
-    return date.toLocaleDateString();
+    return new Date(ts).toLocaleDateString();
+  };
+
+  /** Parse conflict zone details from alert description */
+  const parseConflictDetails = (description: string | null) => {
+    if (!description || !description.startsWith("[CONFLICT ZONE]")) return null;
+    const lines = description.split("\n");
+    const details: Record<string, string> = {};
+    for (const line of lines) {
+      const match = line.match(/^(.+?):\s*(.+)$/);
+      if (match) {
+        details[match[1].trim()] = match[2].trim();
+      }
+    }
+    return {
+      closestDistance: details["Closest conflict event"] ?? "N/A",
+      nearbyEvents: details[`Nearby events (within 200km)`] ?? "N/A",
+      totalFatalities: details["Total fatalities in area"] ?? "N/A",
+      primaryConflict: details["Primary conflict"] ?? null,
+      country: details["Country"] ?? null,
+    };
   };
 
   if (!isOpen) return null;
@@ -143,9 +172,9 @@ export default function AnomalyAlertPanel({
             <span className="text-sm font-semibold text-foreground tracking-wide uppercase">
               Anomaly Alerts
             </span>
-            {alerts.length > 0 && (
+            {counts.count > 0 && (
               <span className="px-1.5 py-0.5 text-[10px] font-bold bg-red-500/20 text-red-400 rounded-full">
-                {alerts.length}
+                {counts.count}
               </span>
             )}
           </div>
@@ -178,11 +207,57 @@ export default function AnomalyAlertPanel({
             )}
             <button
               onClick={onClose}
-              className="p-1.5 text-muted-foreground/70hover:text-foreground/70ounded-lg transition-colors"
+              className="p-1.5 text-muted-foreground/70 hover:text-foreground/70 rounded-lg transition-colors"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
+        </div>
+
+        {/* Filter Tabs */}
+        <div className="flex items-center gap-1 px-3 py-2 border-b border-border">
+          <button
+            onClick={() => setAlertFilter("all")}
+            className={`text-[10px] px-2.5 py-1 rounded-md transition-colors flex items-center gap-1 ${
+              alertFilter === "all"
+                ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10 border border-transparent"
+            }`}
+          >
+            <Shield className="w-3 h-3" />
+            All
+            {counts.count > 0 && (
+              <span className="text-[8px] font-bold ml-0.5">{counts.count}</span>
+            )}
+          </button>
+          <button
+            onClick={() => setAlertFilter("position")}
+            className={`text-[10px] px-2.5 py-1 rounded-md transition-colors flex items-center gap-1 ${
+              alertFilter === "position"
+                ? "bg-orange-500/20 text-orange-400 border border-orange-500/30"
+                : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10 border border-transparent"
+            }`}
+          >
+            <Crosshair className="w-3 h-3" />
+            Position
+            {counts.positionCount > 0 && (
+              <span className="text-[8px] font-bold ml-0.5">{counts.positionCount}</span>
+            )}
+          </button>
+          <button
+            onClick={() => setAlertFilter("conflict")}
+            className={`text-[10px] px-2.5 py-1 rounded-md transition-colors flex items-center gap-1 ${
+              alertFilter === "conflict"
+                ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10 border border-transparent"
+            }`}
+          >
+            <Flame className="w-3 h-3" />
+            Conflict
+            {counts.conflictCount > 0 && (
+              <span className="text-[8px] font-bold ml-0.5">{counts.conflictCount}</span>
+            )}
+          </button>
         </div>
 
         {/* Alert List */}
@@ -191,18 +266,26 @@ export default function AnomalyAlertPanel({
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground/50">
               <AlertCircle className="w-8 h-8 mb-2" />
               <p className="text-sm">No anomaly alerts</p>
-              <p className="text-xs mt-1">
-                Alerts appear when targets move outside their predicted zones
+              <p className="text-xs mt-1 text-center px-4">
+                {alertFilter === "conflict"
+                  ? "Conflict zone alerts appear when targets drift near active conflict zones"
+                  : alertFilter === "position"
+                    ? "Position alerts appear when targets move outside their predicted zones"
+                    : "Alerts appear when targets move unexpectedly or enter conflict zones"}
               </p>
             </div>
           ) : (
             <div className="p-2 space-y-1">
-              {alerts.map((alert) => {
+              {alerts.map((alert: any) => {
                 const severity =
                   SEVERITY_CONFIG[alert.severity as keyof typeof SEVERITY_CONFIG] ??
                   SEVERITY_CONFIG.medium;
                 const SeverityIcon = severity.icon;
                 const isExpanded = expandedId === alert.id;
+                const isConflictAlert = alert.alertType === "conflict";
+                const conflictDetails = isConflictAlert
+                  ? parseConflictDetails(alert.description)
+                  : null;
 
                 return (
                   <motion.div
@@ -217,22 +300,46 @@ export default function AnomalyAlertPanel({
                       className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-foreground/5 transition-colors"
                       onClick={() => setExpandedId(isExpanded ? null : alert.id)}
                     >
-                      <SeverityIcon className={`w-4 h-4 ${severity.color} shrink-0`} />
+                      <div className="relative shrink-0">
+                        <SeverityIcon className={`w-4 h-4 ${severity.color}`} />
+                        {isConflictAlert && (
+                          <Flame className="w-2.5 h-2.5 text-red-500 absolute -bottom-0.5 -right-0.5" />
+                        )}
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
                           <span className="text-xs font-semibold text-foreground truncate">
-                            {getTargetLabel(alert.targetId)}
+                            {alert.targetLabel ?? getTargetLabel(alert.targetId)}
                           </span>
                           <span
                             className={`px-1 py-0.5 text-[9px] font-bold uppercase rounded ${severity.bg} ${severity.color}`}
                           >
                             {severity.label}
                           </span>
+                          {isConflictAlert && (
+                            <span className="px-1 py-0.5 text-[8px] font-bold uppercase rounded bg-red-500/20 text-red-400">
+                              CONFLICT
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 text-[10px] text-muted-foreground/70 mt-0.5">
-                          <span>{alert.deviationKm.toFixed(1)} km deviation</span>
-                          <span>·</span>
-                          <span>{alert.deviationSigma.toFixed(1)}σ</span>
+                          {isConflictAlert ? (
+                            <>
+                              <span>{conflictDetails?.closestDistance ?? `${alert.deviationKm.toFixed(1)} km`}</span>
+                              {conflictDetails?.country && (
+                                <>
+                                  <span>·</span>
+                                  <span>{conflictDetails.country}</span>
+                                </>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <span>{alert.deviationKm.toFixed(1)} km deviation</span>
+                              <span>·</span>
+                              <span>{alert.deviationSigma.toFixed(1)}\u03c3</span>
+                            </>
+                          )}
                           <span>·</span>
                           <span>{formatTime(alert.createdAt)}</span>
                         </div>
@@ -268,29 +375,77 @@ export default function AnomalyAlertPanel({
                           className="border-t border-border"
                         >
                           <div className="px-3 py-2 space-y-2 text-xs">
-                            {/* Position comparison */}
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="bg-background/40 rounded-lg p-2">
-                                <div className="text-muted-foreground/70 text-[10px] mb-1 flex items-center gap-1">
-                                  <Navigation className="w-3 h-3" />
-                                  Predicted
+                            {/* Conflict zone details */}
+                            {isConflictAlert && conflictDetails && (
+                              <div className="bg-red-500/5 rounded-lg p-2 border border-red-500/10">
+                                <div className="text-[10px] font-semibold text-red-400 mb-1.5 flex items-center gap-1">
+                                  <Flame className="w-3 h-3" />
+                                  Conflict Zone Context
                                 </div>
-                                <div className="text-foreground/70 font-mono text-[11px]">
-                                  {parseFloat(alert.predictedLat).toFixed(4)}°,{" "}
-                                  {parseFloat(alert.predictedLon).toFixed(4)}°
+                                <div className="grid grid-cols-2 gap-1.5">
+                                  <div>
+                                    <div className="text-[9px] text-muted-foreground/50">Nearby Events</div>
+                                    <div className="text-[11px] text-foreground/70 font-mono">
+                                      {conflictDetails.nearbyEvents}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="text-[9px] text-muted-foreground/50">Total Fatalities</div>
+                                    <div className="text-[11px] text-foreground/70 font-mono">
+                                      {conflictDetails.totalFatalities}
+                                    </div>
+                                  </div>
+                                  {conflictDetails.primaryConflict && (
+                                    <div className="col-span-2">
+                                      <div className="text-[9px] text-muted-foreground/50">Primary Conflict</div>
+                                      <div className="text-[11px] text-foreground/70 leading-tight">
+                                        {conflictDetails.primaryConflict}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
+                            )}
+
+                            {/* Position comparison (for position anomalies) */}
+                            {!isConflictAlert && (
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="bg-background/40 rounded-lg p-2">
+                                  <div className="text-muted-foreground/70 text-[10px] mb-1 flex items-center gap-1">
+                                    <Navigation className="w-3 h-3" />
+                                    Predicted
+                                  </div>
+                                  <div className="text-foreground/70 font-mono text-[11px]">
+                                    {parseFloat(alert.predictedLat).toFixed(4)}\u00b0,{" "}
+                                    {parseFloat(alert.predictedLon).toFixed(4)}\u00b0
+                                  </div>
+                                </div>
+                                <div className="bg-background/40 rounded-lg p-2">
+                                  <div className="text-muted-foreground/70 text-[10px] mb-1 flex items-center gap-1">
+                                    <MapPin className="w-3 h-3" />
+                                    Observed
+                                  </div>
+                                  <div className="text-foreground/70 font-mono text-[11px]">
+                                    {parseFloat(alert.actualLat).toFixed(4)}\u00b0,{" "}
+                                    {parseFloat(alert.actualLon).toFixed(4)}\u00b0
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Position for conflict alerts */}
+                            {isConflictAlert && (
                               <div className="bg-background/40 rounded-lg p-2">
                                 <div className="text-muted-foreground/70 text-[10px] mb-1 flex items-center gap-1">
                                   <MapPin className="w-3 h-3" />
-                                  Observed
+                                  Target Position
                                 </div>
                                 <div className="text-foreground/70 font-mono text-[11px]">
-                                  {parseFloat(alert.actualLat).toFixed(4)}°,{" "}
-                                  {parseFloat(alert.actualLon).toFixed(4)}°
+                                  {parseFloat(alert.actualLat).toFixed(4)}\u00b0,{" "}
+                                  {parseFloat(alert.actualLon).toFixed(4)}\u00b0
                                 </div>
                               </div>
-                            </div>
+                            )}
 
                             {/* Description */}
                             {alert.description && (
@@ -337,7 +492,11 @@ export default function AnomalyAlertPanel({
 
         {/* Footer */}
         <div className="px-4 py-2 border-t border-border text-[10px] text-muted-foreground/50 text-center">
-          Anomalies detected when positions deviate &gt;1.5σ from prediction model
+          {alertFilter === "conflict"
+            ? "Conflict alerts triggered when targets enter active conflict zones"
+            : alertFilter === "position"
+              ? "Position anomalies detected when targets deviate >1.5\u03c3 from prediction"
+              : "Position anomalies + conflict zone proximity alerts"}
         </div>
       </motion.div>
     </AnimatePresence>

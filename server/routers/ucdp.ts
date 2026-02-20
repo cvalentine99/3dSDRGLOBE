@@ -1,5 +1,6 @@
 import { router, publicProcedure } from "../_core/trpc";
 import { z } from "zod";
+import { updateConflictEventCache } from "../conflictZoneChecker";
 
 // ── UCDP API Configuration ──────────────────────────────────────────
 const UCDP_BASE = "https://ucdpapi.pcr.uu.se/api";
@@ -110,9 +111,11 @@ async function fetchFromDataset(params: {
       url.searchParams.set("TypeOfViolence", params.typeOfViolence);
     if (params.country) url.searchParams.set("Country", params.country);
 
+    // Use longer timeout for large dataset fetches
+    const timeoutMs = params.maxPages > 20 ? 60_000 : 30_000;
     const res = await fetch(url.toString(), {
       headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
 
     if (!res.ok) {
@@ -156,6 +159,11 @@ async function fetchUcdpEvents(params: {
   const needsGed = requestStart < GED_CUTOFF_DATE;
   const needsCandidate = !requestEnd || requestEnd >= GED_CUTOFF_DATE;
 
+  // For extended date ranges, allocate more pages to GED (which has the bulk of historical data)
+  const isExtended = requestStart <= "2020-01-01";
+  const gedPageShare = isExtended && needsCandidate ? 0.8 : (needsCandidate ? 0.5 : 1);
+  const candidatePageShare = isExtended && needsGed ? 0.2 : (needsGed ? 0.5 : 1);
+
   const fetches: Promise<{ events: UcdpEvent[]; totalCount: number }>[] = [];
 
   if (needsGed) {
@@ -172,7 +180,7 @@ async function fetchUcdpEvents(params: {
         region: params.region,
         typeOfViolence: params.typeOfViolence,
         country: params.country,
-        maxPages: Math.ceil(maxPages / (needsCandidate ? 2 : 1)),
+        maxPages: Math.max(1, Math.ceil(maxPages * gedPageShare)),
       })
     );
   }
@@ -189,7 +197,7 @@ async function fetchUcdpEvents(params: {
         region: params.region,
         typeOfViolence: params.typeOfViolence,
         country: params.country,
-        maxPages: Math.ceil(maxPages / (needsGed ? 2 : 1)),
+        maxPages: Math.max(1, Math.ceil(maxPages * candidatePageShare)),
       })
     );
   }
@@ -215,11 +223,12 @@ async function fetchUcdpEvents(params: {
   // Sort by date descending (most recent first)
   allEvents.sort((a, b) => b.date_end.localeCompare(a.date_end));
 
-  // Cache the merged result
+  // Cache the merged result (longer TTL for extended date ranges since historical data changes slowly)
+  const isHistorical = requestStart <= "2020-01-01";
   cache.set(cacheKey, {
     data: allEvents,
     totalCount,
-    fetchedAt: Date.now(),
+    fetchedAt: isHistorical ? Date.now() + (3 * CACHE_TTL_MS) : Date.now(), // 4hr cache for historical
   });
 
   return { events: allEvents, totalCount };
@@ -273,7 +282,7 @@ export const ucdpRouter = router({
           region: z.string().optional(),
           typeOfViolence: z.string().optional(), // "1", "2", "3", or "1,2" etc.
           country: z.string().optional(),
-          maxPages: z.number().min(1).max(50).optional(),
+          maxPages: z.number().min(1).max(100).optional(),
         })
         .optional()
     )
@@ -289,8 +298,13 @@ export const ucdpRouter = router({
 
       const { events, totalCount } = await fetchUcdpEvents(params);
 
+      const slimEvents = events.map(slimEvent);
+
+      // Update the shared conflict event cache for conflict zone alert checking
+      updateConflictEventCache(slimEvents);
+
       return {
-        events: events.map(slimEvent),
+        events: slimEvents,
         totalCount,
         fetchedCount: events.length,
       };

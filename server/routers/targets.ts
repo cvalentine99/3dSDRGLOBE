@@ -11,6 +11,7 @@ import { eq, desc, asc } from "drizzle-orm";
 import { classifySignal } from "../signalClassifier";
 import { predictPosition } from "../positionPredictor";
 import { checkForAnomaly } from "../anomalyDetector";
+import { checkConflictZoneProximity } from "../conflictZoneChecker";
 
 export const targetsRouter = router({
   /** Auto-classify a target using LLM */
@@ -416,6 +417,11 @@ ${placemarks}
       const historyId = result.insertId;
       checkForAnomaly(input.targetId, input.lat, input.lon, historyId).catch((err) =>
         console.warn("[AnomalyDetector] Check failed:", err)
+      );
+
+      // Check for conflict zone proximity (async, don't block the response)
+      checkConflictZoneProximity(input.targetId, input.lat, input.lon, historyId).catch((err) =>
+        console.warn("[ConflictZoneChecker] Check failed:", err)
       );
 
       return { id: historyId };

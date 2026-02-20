@@ -216,3 +216,17 @@
 - [x] BUG FIX: UCDP conflict data returning empty — fixed by merging GED + Candidate datasets
 - [x] BUG FIX: Ensure UCDP free API is working — confirmed 1,909 events from candidate dataset
 - [x] BUG FIX: Verify conflict markers render on globe with real data — confirmed via tRPC endpoint
+- [x] Conflict Zone Alert Rules: detect when tracked targets are near active conflict zones
+- [x] Conflict Zone Alert Rules: integrate with existing anomaly detection system
+- [x] Conflict Zone Alert Rules: auto-generate alerts with conflict context (zone name, event count, severity)
+- [x] Conflict Zone Alert Rules: add conflict proximity as an anomaly type in the alert system
+- [x] SIGINT Log Cross-Reference: cross-reference conflict events with nearby receiver signal logs
+- [x] SIGINT Log Cross-Reference: unified timeline view showing both conflict events and signal activity
+- [x] SIGINT Log Cross-Reference: highlight correlated entries in the SIGINT log viewer
+- [x] SIGINT Log Cross-Reference: add conflict context badge/indicator to log entries near conflict zones
+- [x] Expanded Date Range: add "Last 2 Years" option to conflict filter panel
+- [x] Expanded Date Range: add "All Time" option to pull full GED dataset (350K+ events back to 1989)
+- [x] Expanded Date Range: handle large dataset pagination for All Time queries
+- [x] Expanded Date Range: update timeline scrubber to handle wider date ranges
+- [x] Vitest tests for conflict zone alerts, expanded date range, and SIGINT timeline correlation (39 tests)
+- [x] All 528 vitest tests passing, zero TypeScript errors
