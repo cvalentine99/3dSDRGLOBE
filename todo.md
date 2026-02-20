@@ -286,3 +286,6 @@
 - [x] OVERLAY Toggle: wire OVERLAY globe action to toggle all overlays via context ref
 - [x] OVERLAY Toggle: vitest tests for overlay toggle wiring (9 new tests in streamingChatGlobe.test.ts)
 - [x] All 724 tests passing across 21 test files, zero TypeScript errors
+- [x] BUG FIX: RAG chat conflict events query returning empty/error when asking about fatalities
+- [x] BUG FIX: RAG chat receiver/radio online count query not working properly
+- [x] Ensure RAG tool-calling data sources return meaningful data for common queries

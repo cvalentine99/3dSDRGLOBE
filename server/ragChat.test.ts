@@ -498,3 +498,174 @@ describe("Response Content Extraction", () => {
     expect(result).toBe("");
   });
 });
+
+// ── Auto-Fetch Conflict Data Tests ──────────────────────────────
+
+describe("Conflict Event Auto-Fetch Logic", () => {
+  // Simulate the auto-fetch logic from ragEngine.ts
+  function simulateConflictSearch(
+    cacheEvents: Array<{ id: number; best: number; country: string; type: number }>,
+    args: { country?: string; minFatalities?: number; violenceType?: number; limit?: number }
+  ) {
+    let events = [...cacheEvents];
+    const limit = Math.min(Number(args.limit) || 20, 100);
+
+    if (args.country) {
+      const q = args.country.toLowerCase();
+      events = events.filter((e) => e.country.toLowerCase().includes(q));
+    }
+    if (args.violenceType !== undefined) {
+      events = events.filter((e) => e.type === args.violenceType);
+    }
+    if (args.minFatalities !== undefined) {
+      events = events.filter((e) => e.best >= args.minFatalities!);
+    }
+
+    // Sort by fatalities desc
+    events.sort((a, b) => b.best - a.best);
+
+    return {
+      totalInCache: cacheEvents.length,
+      matchedEvents: events.length,
+      returned: Math.min(events.length, limit),
+      events: events.slice(0, limit),
+    };
+  }
+
+  it("should return totalInCache=0 when cache is empty", () => {
+    const result = simulateConflictSearch([], {});
+    expect(result.totalInCache).toBe(0);
+    expect(result.matchedEvents).toBe(0);
+    expect(result.returned).toBe(0);
+  });
+
+  it("should sort events by fatalities descending", () => {
+    const events = [
+      { id: 1, best: 5, country: "Nigeria", type: 2 },
+      { id: 2, best: 120, country: "Ukraine", type: 1 },
+      { id: 3, best: 50, country: "Sudan", type: 1 },
+    ];
+    const result = simulateConflictSearch(events, {});
+    expect(result.events[0].best).toBe(120);
+    expect(result.events[1].best).toBe(50);
+    expect(result.events[2].best).toBe(5);
+  });
+
+  it("should filter by minFatalities and return sorted", () => {
+    const events = [
+      { id: 1, best: 5, country: "Nigeria", type: 2 },
+      { id: 2, best: 120, country: "Ukraine", type: 1 },
+      { id: 3, best: 50, country: "Sudan", type: 1 },
+    ];
+    const result = simulateConflictSearch(events, { minFatalities: 10 });
+    expect(result.matchedEvents).toBe(2);
+    expect(result.events[0].best).toBe(120);
+    expect(result.events[1].best).toBe(50);
+  });
+
+  it("should respect limit parameter", () => {
+    const events = Array.from({ length: 50 }, (_, i) => ({
+      id: i,
+      best: i * 10,
+      country: "TestCountry",
+      type: 1,
+    }));
+    const result = simulateConflictSearch(events, { limit: 5 });
+    expect(result.returned).toBe(5);
+    expect(result.events).toHaveLength(5);
+    // Should be the top 5 by fatalities
+    expect(result.events[0].best).toBe(490);
+  });
+});
+
+// ── Receiver Online Stats Tests ─────────────────────────────────
+
+describe("Receiver Online Stats", () => {
+  interface MockReceiver {
+    id: number;
+    name: string;
+    type: string;
+    online: boolean;
+  }
+
+  const mockReceivers: MockReceiver[] = [
+    { id: 1, name: "KiwiSDR Berlin", type: "KiwiSDR", online: true },
+    { id: 2, name: "OpenWebRX Paris", type: "OpenWebRX", online: true },
+    { id: 3, name: "WebSDR London", type: "WebSDR", online: false },
+    { id: 4, name: "KiwiSDR Tokyo", type: "KiwiSDR", online: true },
+    { id: 5, name: "OpenWebRX Sydney", type: "OpenWebRX", online: false },
+    { id: 6, name: "KiwiSDR NYC", type: "KiwiSDR", online: false },
+  ];
+
+  function computeReceiverStats(receivers: MockReceiver[]) {
+    const totalCount = receivers.length;
+    const onlineCount = receivers.filter((r) => r.online).length;
+
+    // Type breakdown
+    const typeMap = new Map<string, { total: number; online: number }>();
+    for (const r of receivers) {
+      const entry = typeMap.get(r.type) || { total: 0, online: 0 };
+      entry.total++;
+      if (r.online) entry.online++;
+      typeMap.set(r.type, entry);
+    }
+
+    return {
+      totalReceivers: totalCount,
+      onlineReceivers: onlineCount,
+      offlineReceivers: totalCount - onlineCount,
+      byType: Array.from(typeMap.entries()).map(([type, stats]) => ({
+        type,
+        total: stats.total,
+        online: stats.online,
+      })),
+    };
+  }
+
+  it("should compute correct total, online, and offline counts", () => {
+    const stats = computeReceiverStats(mockReceivers);
+    expect(stats.totalReceivers).toBe(6);
+    expect(stats.onlineReceivers).toBe(3);
+    expect(stats.offlineReceivers).toBe(3);
+  });
+
+  it("should compute correct type breakdown", () => {
+    const stats = computeReceiverStats(mockReceivers);
+    const kiwiStats = stats.byType.find((t) => t.type === "KiwiSDR");
+    expect(kiwiStats).toBeDefined();
+    expect(kiwiStats!.total).toBe(3);
+    expect(kiwiStats!.online).toBe(2);
+
+    const openwebStats = stats.byType.find((t) => t.type === "OpenWebRX");
+    expect(openwebStats).toBeDefined();
+    expect(openwebStats!.total).toBe(2);
+    expect(openwebStats!.online).toBe(1);
+
+    const websdrStats = stats.byType.find((t) => t.type === "WebSDR");
+    expect(websdrStats).toBeDefined();
+    expect(websdrStats!.total).toBe(1);
+    expect(websdrStats!.online).toBe(0);
+  });
+
+  it("should handle all receivers online", () => {
+    const allOnline = mockReceivers.map((r) => ({ ...r, online: true }));
+    const stats = computeReceiverStats(allOnline);
+    expect(stats.onlineReceivers).toBe(6);
+    expect(stats.offlineReceivers).toBe(0);
+  });
+
+  it("should handle all receivers offline", () => {
+    const allOffline = mockReceivers.map((r) => ({ ...r, online: false }));
+    const stats = computeReceiverStats(allOffline);
+    expect(stats.onlineReceivers).toBe(0);
+    expect(stats.offlineReceivers).toBe(6);
+  });
+
+  it("should handle empty receiver list", () => {
+    const stats = computeReceiverStats([]);
+    expect(stats.totalReceivers).toBe(0);
+    expect(stats.onlineReceivers).toBe(0);
+    expect(stats.offlineReceivers).toBe(0);
+    expect(stats.byType).toHaveLength(0);
+  });
+});

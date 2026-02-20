@@ -29,7 +29,8 @@ import {
   scanCycles,
 } from "../drizzle/schema";
 import { eq, desc, like, sql, and, gte, lte } from "drizzle-orm";
-import { getCachedConflictEvents } from "./conflictZoneChecker";
+import { getCachedConflictEvents, updateConflictEventCache, hasValidConflictCache } from "./conflictZoneChecker";
+import { fetchUcdpEvents, slimEvent } from "./routers/ucdp";
 
 // ── Tool Definitions ───────────────────────────────────────────────
 
@@ -39,7 +40,7 @@ export const RAG_TOOLS: Tool[] = [
     function: {
       name: "search_receivers",
       description:
-        "Search for SDR receivers by name, country, band, type, or location. Returns receiver details including status, coordinates, bands, and user count.",
+        "Search for SDR receivers by name, country, band, type, or location. Returns receiver details including online/offline status, coordinates, bands, and user count. Also returns aggregate stats: total receivers, online count, offline count, and breakdown by receiver type. Use with no arguments to get overall receiver statistics.",
       parameters: {
         type: "object",
         properties: {
@@ -167,7 +168,7 @@ export const RAG_TOOLS: Tool[] = [
     function: {
       name: "search_conflict_events",
       description:
-        "Search UCDP conflict events from the in-memory cache. Can filter by country, region, date range, or violence type.",
+        "Search UCDP conflict events (auto-fetches from UCDP API if cache is empty). Returns events sorted by fatalities descending. Can filter by country, region, date range, or violence type. Use with no arguments to get the deadliest recent conflict events.",
       parameters: {
         type: "object",
         properties: {
@@ -312,14 +313,51 @@ async function executeTool(
 
         const results = await query.limit(limit);
 
-        // Get total count
+        // Get total count and online/offline breakdown
         const [countResult] = await db
           .select({ count: sql<number>`COUNT(*)` })
           .from(receivers);
         const totalCount = countResult?.count ?? 0;
 
+        const [onlineResult] = await db
+          .select({ count: sql<number>`COUNT(*)` })
+          .from(receivers)
+          .where(eq(receivers.lastOnline, true));
+        const onlineCount = onlineResult?.count ?? 0;
+
+        // Get type breakdown
+        const typeBreakdown = await db
+          .select({
+            type: receivers.receiverType,
+            total: sql<number>`COUNT(*)`,
+            online: sql<number>`SUM(CASE WHEN ${receivers.lastOnline} = true THEN 1 ELSE 0 END)`,
+          })
+          .from(receivers)
+          .groupBy(receivers.receiverType);
+
+        // Get latest scan cycle info
+        const [latestScan] = await db
+          .select()
+          .from(scanCycles)
+          .orderBy(desc(scanCycles.createdAt))
+          .limit(1);
+
         return JSON.stringify({
           totalReceivers: totalCount,
+          onlineReceivers: onlineCount,
+          offlineReceivers: totalCount - onlineCount,
+          byType: typeBreakdown.map((t) => ({
+            type: t.type,
+            total: t.total,
+            online: t.online,
+          })),
+          latestScan: latestScan ? {
+            cycleNumber: latestScan.cycleNumber,
+            totalScanned: latestScan.totalReceivers,
+            onlineCount: latestScan.onlineCount,
+            offlineCount: latestScan.offlineCount,
+            completedAt: latestScan.completedAt,
+          } : null,
           returned: results.length,
           receivers: results.map((r) => ({
             id: r.id,
@@ -439,7 +477,25 @@ async function executeTool(
       }
 
       case "search_conflict_events": {
-        const cache = getCachedConflictEvents();
+        // Proactively fetch conflict data if cache is empty/expired
+        let cache = getCachedConflictEvents();
+        if (cache.length === 0) {
+          try {
+            console.log("[RAG] Conflict cache empty, fetching from UCDP API...");
+            const oneYearAgo = new Date();
+            oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+            const { events: rawEvents } = await fetchUcdpEvents({
+              startDate: oneYearAgo.toISOString().split("T")[0],
+              maxPages: 5,
+            });
+            const slimEvents = rawEvents.map(slimEvent);
+            updateConflictEventCache(slimEvents);
+            cache = slimEvents;
+            console.log(`[RAG] Fetched and cached ${slimEvents.length} conflict events`);
+          } catch (fetchErr) {
+            console.error("[RAG] Failed to fetch conflict events:", fetchErr);
+          }
+        }
         let events = [...cache];
         const limit = Math.min(Number(args.limit) || 20, 100);
 
@@ -571,6 +627,10 @@ async function executeTool(
         const [receiverCount] = await db
           .select({ count: sql<number>`COUNT(*)` })
           .from(receivers);
+        const [onlineReceiverCount] = await db
+          .select({ count: sql<number>`COUNT(*)` })
+          .from(receivers)
+          .where(eq(receivers.lastOnline, true));
         const [targetCount] = await db
           .select({ count: sql<number>`COUNT(*)` })
           .from(tdoaTargets);
@@ -591,10 +651,28 @@ async function executeTool(
           .select({ count: sql<number>`COUNT(*)` })
           .from(signalFingerprints);
 
-        const conflictCache = getCachedConflictEvents();
+        // Auto-fetch conflict data if cache is empty
+        let conflictCache = getCachedConflictEvents();
+        if (conflictCache.length === 0) {
+          try {
+            const oneYearAgo = new Date();
+            oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+            const { events: rawEvents } = await fetchUcdpEvents({
+              startDate: oneYearAgo.toISOString().split("T")[0],
+              maxPages: 5,
+            });
+            const slimEvents = rawEvents.map(slimEvent);
+            updateConflictEventCache(slimEvents);
+            conflictCache = slimEvents;
+          } catch {
+            // Silently continue with empty cache
+          }
+        }
 
         return JSON.stringify({
           receivers: receiverCount?.count ?? 0,
+          onlineReceivers: onlineReceiverCount?.count ?? 0,
+          offlineReceivers: (receiverCount?.count ?? 0) - (onlineReceiverCount?.count ?? 0),
           targets: targetCount?.count ?? 0,
           anomalyAlerts: alertCount?.count ?? 0,
           unacknowledgedAlerts: unackAlerts?.count ?? 0,

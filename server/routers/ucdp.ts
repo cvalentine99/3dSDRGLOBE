@@ -135,7 +135,7 @@ async function fetchFromDataset(params: {
 }
 
 // ── Merged fetcher: GED for older data + Candidate for recent ───────
-async function fetchUcdpEvents(params: {
+export async function fetchUcdpEvents(params: {
   startDate?: string;
   endDate?: string;
   region?: string;
@@ -235,7 +235,7 @@ async function fetchUcdpEvents(params: {
 }
 
 // ── Slim event type for the globe overlay (reduce payload) ──────────
-interface SlimConflictEvent {
+export interface SlimConflictEvent {
   id: number;
   lat: number;
   lng: number;
@@ -249,7 +249,7 @@ interface SlimConflictEvent {
   sideB: string;
 }
 
-function slimEvent(e: UcdpEvent): SlimConflictEvent {
+export function slimEvent(e: UcdpEvent): SlimConflictEvent {
   return {
     id: e.id,
     lat: e.latitude,
