@@ -146,23 +146,76 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         "https://files.manuscdn.com/user_upload_by_module/session_file/310519663252172531/hiMtJaBqMSSztryK.json",
       ];
 
+      let staticData: Station[] = [];
       for (const url of sources) {
         try {
           const res = await fetch(url);
           if (res.ok) {
             const data = await res.json();
             if (Array.isArray(data) && data.length > 0) {
+              staticData = data;
               setStations(data);
               setLoading(false);
-              return;
+              break;
             }
           }
         } catch {
           // Try next source
         }
       }
-      console.error("Failed to fetch stations from all sources");
-      setLoading(false);
+
+      if (staticData.length === 0) {
+        console.error("Failed to fetch stations from all sources");
+        setLoading(false);
+        return;
+      }
+
+      // After showing static data, fetch additional receivers from directory aggregator
+      try {
+        const res = await fetch("/api/trpc/receiver.aggregateDirectories", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            json: {
+              existingStations: staticData.map((s) => ({
+                label: s.label,
+                location: s.location,
+                receivers: s.receivers.map((r) => ({
+                  label: r.label,
+                  url: r.url,
+                  type: r.type,
+                  version: r.version,
+                })),
+              })),
+            },
+          }),
+        });
+        if (res.ok) {
+          const body = await res.json();
+          const result = body?.result?.data?.json;
+          if (result?.stations && result.stations.length > staticData.length) {
+            // Convert DirectoryStation[] back to Station[] (same shape)
+            const merged: Station[] = result.stations.map((s: any) => ({
+              label: s.label,
+              location: s.location,
+              receivers: s.receivers.map((r: any) => ({
+                label: r.label,
+                url: r.url,
+                type: r.type,
+                version: r.version,
+              })),
+            }));
+            setStations(merged);
+            console.log(
+              `[RadioContext] Directory aggregation: ${staticData.length} → ${merged.length} stations (+${result.totalNew} new)`
+            );
+          }
+        }
+      } catch (err) {
+        // Non-critical: directory aggregation is a bonus
+        console.warn("[RadioContext] Directory aggregation failed:", err);
+      }
     }
     fetchStations();
   }, []);

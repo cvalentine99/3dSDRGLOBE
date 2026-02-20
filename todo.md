@@ -289,3 +289,10 @@
 - [x] BUG FIX: RAG chat conflict events query returning empty/error when asking about fatalities
 - [x] BUG FIX: RAG chat receiver/radio online count query not working properly
 - [x] Ensure RAG tool-calling data sources return meaningful data for common queries
+- [x] Build server-side directory aggregator (directoryAggregator.ts)
+- [x] KiwiSDR GPS JSON fetcher — fetch from kiwisdr.com/tdoa/files/kiwi.gps.json (498 receivers)
+- [x] WebSDR.org AJAX JSON fetcher — fetch from AJAX endpoint with lat/lon/bands (124 receivers)
+- [x] sdr-list.xyz fetcher — extract NovaSDR/PhantomSDR from RSC payload (22 receivers)
+- [x] Deduplication engine — merge new receivers with existing stations.json by URL matching
+- [x] tRPC endpoint for triggering directory refresh and getting aggregated station data
+- [x] Vitest tests for directory aggregator (17 tests)

@@ -14,6 +14,12 @@ import {
   stopAutoRefresh,
   forceRefresh,
 } from "../autoRefresh";
+import {
+  aggregateDirectories,
+  getCachedAggregation,
+  clearAggregationCache,
+  type DirectoryStation,
+} from "../directoryAggregator";
 
 export const receiverRouter = router({
   checkStatus: publicProcedure
@@ -126,5 +132,59 @@ export const receiverRouter = router({
     return {
       cacheSize: getStatusCacheSize(),
     };
+  }),
+
+  /**
+   * Fetch aggregated stations from all directory sources.
+   * Merges KiwiSDR GPS, WebSDR.org, and sdr-list.xyz with the existing static stations.
+   * Results are cached for 1 hour.
+   */
+  aggregateDirectories: publicProcedure
+    .input(
+      z.object({
+        /** Pass the existing stations from the client so we can merge/dedup */
+        existingStations: z.array(
+          z.object({
+            label: z.string(),
+            location: z.object({
+              coordinates: z.tuple([z.number(), z.number()]),
+              type: z.literal("Point"),
+            }),
+            receivers: z.array(
+              z.object({
+                label: z.string(),
+                url: z.string(),
+                type: z.enum(["KiwiSDR", "OpenWebRX", "WebSDR"]),
+                version: z.string().optional(),
+              })
+            ),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const existing: DirectoryStation[] = input.existingStations.map((s) => ({
+        ...s,
+        source: "static",
+      }));
+      return await aggregateDirectories(existing);
+    }),
+
+  /** Get the cached aggregation result without re-fetching */
+  getDirectoryCache: publicProcedure.query(() => {
+    const cached = getCachedAggregation();
+    return {
+      hasCachedData: !!cached,
+      totalStations: cached?.totalStations ?? 0,
+      totalNew: cached?.totalNew ?? 0,
+      sources: cached?.sources ?? [],
+      fetchedAt: cached?.fetchedAt ?? null,
+    };
+  }),
+
+  /** Clear the directory aggregation cache to force a fresh fetch */
+  clearDirectoryCache: publicProcedure.mutation(() => {
+    clearAggregationCache();
+    return { cleared: true };
   }),
 });
