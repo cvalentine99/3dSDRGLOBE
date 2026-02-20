@@ -88,7 +88,7 @@ const SUGGESTED_QUERIES = [
 
 export default function IntelChat() {
   const { isAuthenticated } = useAuth();
-  const { setGlobeTarget } = useRadio();
+  const { setGlobeTarget, filteredStations, setHighlightedStationLabel } = useRadio();
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [input, setInput] = useState("");
@@ -347,12 +347,24 @@ export default function IntelChat() {
           break;
         }
         case "HIGHLIGHT": {
-          // Fly to the receiver's general area — the highlight is visual
-          // For now, just set a globe target if we have coordinates
-          const receiverId = action.params;
-          console.log(`[IntelChat] Highlight receiver: ${receiverId}`);
-          // The receiver highlight would need to be wired through RadioContext
-          // For now, show a visual indicator
+          // Find the station by label (params may be label or partial match)
+          const receiverLabel = action.params.trim();
+          const station = filteredStations.find(
+            (s) =>
+              s.label === receiverLabel ||
+              s.label.toLowerCase().includes(receiverLabel.toLowerCase())
+          );
+          if (station) {
+            // Set the highlight in context — Globe will render the glow
+            setHighlightedStationLabel(station.label);
+            // Fly to the station
+            const [lng, lat] = station.location.coordinates;
+            setGlobeTarget({ lat, lng, zoom: 3 });
+            // Auto-clear highlight after 10 seconds
+            setTimeout(() => setHighlightedStationLabel(null), 10000);
+          } else {
+            console.warn(`[IntelChat] Station not found: ${receiverLabel}`);
+          }
           break;
         }
         case "OVERLAY": {
@@ -363,7 +375,7 @@ export default function IntelChat() {
         }
       }
     },
-    [setGlobeTarget]
+    [setGlobeTarget, filteredStations, setHighlightedStationLabel]
   );
 
   const toggleOpen = useCallback(() => {

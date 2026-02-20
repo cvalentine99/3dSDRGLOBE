@@ -110,13 +110,15 @@ interface GlobeProps {
   geofenceVertices?: Array<{ lat: number; lon: number }>;
   /** Saved geofence zones to render */
   geofenceZones?: Array<{ id: number; polygon: Array<{ lat: number; lon: number }>; color: string; visible: boolean }>;
+  /** Station label to highlight with pulse/glow effect (from IntelChat HIGHLIGHT action) */
+  highlightedStationLabel?: string | null;
 }
 
 export interface GlobeHandle {
   captureScreenshot: () => string | null;
 }
 
-const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = [], isStationOnline, tdoaOverlay, savedTargets = [], driftTrailData, predictions = [], conflictEvents = [], conflictHeatmapMode = false, conflictZoneStations, geofenceDrawing = false, onGeofenceVertexAdd, geofenceVertices = [], geofenceZones = [] }, ref) {
+const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = [], isStationOnline, tdoaOverlay, savedTargets = [], driftTrailData, predictions = [], conflictEvents = [], conflictHeatmapMode = false, conflictZoneStations, geofenceDrawing = false, onGeofenceVertexAdd, geofenceVertices = [], geofenceZones = [], highlightedStationLabel = null }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ionoGroupRef = useRef<THREE.Group | null>(null);
   const tdoaGroupRef = useRef<THREE.Group | null>(null);
@@ -155,7 +157,11 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
     clock: THREE.Clock;
     selectedMeshIdx: number;
     hoverMeshIdx: number;
+    highlightedMeshIdx: number;
+    highlightGroup: THREE.Group;
   } | null>(null);
+  const highlightedLabelRef = useRef<string | null>(null);
+  highlightedLabelRef.current = highlightedStationLabel;
 
   const { filteredStations, selectStation, selectedStation, setHoveredStation, globeTarget, clearGlobeTarget } = useRadio();
 
@@ -359,6 +365,10 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
     const ringGroup = new THREE.Group();
     scene.add(ringGroup);
 
+    // Highlight group for IntelChat receiver highlight effect
+    const highlightGroup = new THREE.Group();
+    scene.add(highlightGroup);
+
     const spherical = new THREE.Spherical(14, Math.PI / 2.2, 0);
     const targetSpherical = new THREE.Spherical(14, Math.PI / 2.2, 0);
 
@@ -385,6 +395,8 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
       clock: new THREE.Clock(),
       selectedMeshIdx: -1,
       hoverMeshIdx: -1,
+      highlightedMeshIdx: -1,
+      highlightGroup,
     };
 
     // Set raycaster threshold for easier picking
@@ -589,6 +601,75 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
     updateMarkers();
   }, [updateMarkers]);
 
+  // Create/clear highlight ring pulse when highlighted station changes
+  useEffect(() => {
+    if (!sceneRef.current) return;
+    const { highlightGroup, markerMeshes } = sceneRef.current;
+
+    // Clear existing highlight rings
+    while (highlightGroup.children.length > 0) {
+      const child = highlightGroup.children[0];
+      highlightGroup.remove(child);
+      if (child instanceof THREE.Mesh) {
+        child.geometry.dispose();
+        if (child.material instanceof THREE.Material) child.material.dispose();
+      }
+    }
+
+    // Restore original colors on all markers (in case a previous highlight changed them)
+    markerMeshes.forEach(({ mesh, station }) => {
+      const primaryType = station.receivers[0]?.type || "WebSDR";
+      const typeColor = TYPE_COLORS[primaryType] || TYPE_COLORS.WebSDR;
+      let color = typeColor;
+      if (isStationOnline) {
+        const status = isStationOnline(station);
+        if (status === true) color = STATUS_ONLINE;
+        else if (status === false) color = STATUS_OFFLINE;
+      }
+      if (conflictZoneStations?.has(station.label)) color = 0xf59e0b;
+      (mesh.material as THREE.MeshBasicMaterial).color.setHex(color);
+    });
+
+    if (!highlightedStationLabel) return;
+
+    // Find the highlighted station's marker
+    const entry = markerMeshes.find(({ station }) => station.label === highlightedStationLabel);
+    if (!entry) return;
+
+    const pos = entry.mesh.position.clone();
+
+    // Create 3 concentric expanding rings for a dramatic glow effect
+    for (let i = 0; i < 3; i++) {
+      const ringGeo = new THREE.RingGeometry(0.6, 1.0, 24);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: 0x00ffff, // cyan
+        transparent: true,
+        opacity: 0.8,
+        side: THREE.DoubleSide,
+        depthTest: false,
+      });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.position.copy(pos);
+      ring.lookAt(0, 0, 0);
+      ring.scale.setScalar(0.1 + i * 0.8); // stagger initial sizes
+      highlightGroup.add(ring);
+    }
+
+    // Also create a bright glow sphere behind the marker
+    const glowGeo = new THREE.SphereGeometry(1, 16, 16);
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: 0x00ffff,
+      transparent: true,
+      opacity: 0.25,
+      depthTest: false,
+    });
+    const glow = new THREE.Mesh(glowGeo, glowMat);
+    glow.position.copy(pos);
+    glow.scale.setScalar(0.25);
+    glow.userData.isGlowSphere = true;
+    highlightGroup.add(glow);
+  }, [highlightedStationLabel, isStationOnline, conflictZoneStations]);
+
   // Animation loop
   useEffect(() => {
     const cleanup = initScene();
@@ -628,10 +709,26 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
       s.camera.position.setFromSpherical(s.spherical);
       s.camera.lookAt(0, 0, 0);
 
-      // Pulse selected marker
+      // Resolve highlighted mesh index from label
+      if (highlightedLabelRef.current) {
+        const hlIdx = s.markerMeshes.findIndex(({ station }) => station.label === highlightedLabelRef.current);
+        s.highlightedMeshIdx = hlIdx;
+      } else {
+        s.highlightedMeshIdx = -1;
+      }
+
+      // Pulse selected marker + highlight effect
       const pulse = 1 + Math.sin(elapsed * 3) * 0.3;
+      const highlightPulse = 1 + Math.sin(elapsed * 5) * 0.4; // faster pulse for highlight
       s.markerMeshes.forEach(({ mesh, baseScale }, idx) => {
-        if (idx === s.selectedMeshIdx) {
+        if (idx === s.highlightedMeshIdx) {
+          // Bright cyan pulsing glow for highlighted receiver
+          const sc = baseScale * 3.5 * highlightPulse;
+          mesh.scale.set(sc, sc, sc);
+          const mat = mesh.material as THREE.MeshBasicMaterial;
+          mat.color.setHex(0x00ffff); // cyan
+          mat.opacity = 0.7 + 0.3 * Math.sin(elapsed * 5);
+        } else if (idx === s.selectedMeshIdx) {
           const sc = baseScale * 2.5 * pulse;
           mesh.scale.set(sc, sc, sc);
           (mesh.material as THREE.MeshBasicMaterial).opacity = 1;
@@ -642,6 +739,30 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
         } else {
           mesh.scale.set(baseScale, baseScale, baseScale);
           (mesh.material as THREE.MeshBasicMaterial).opacity = 0.85;
+        }
+      });
+
+      // Animate highlight ring group (expanding rings around highlighted receiver)
+      s.highlightGroup.children.forEach((child) => {
+        if (child instanceof THREE.Mesh) {
+          if (child.userData.isGlowSphere) {
+            // Pulsing glow sphere
+            const glowScale = 0.25 + 0.1 * Math.sin(elapsed * 4);
+            child.scale.setScalar(glowScale);
+            const mat = child.material as THREE.MeshBasicMaterial;
+            mat.opacity = 0.15 + 0.15 * Math.sin(elapsed * 4);
+          } else {
+            // Expanding ring
+            const mat = child.material as THREE.MeshBasicMaterial;
+            const scale = child.scale.x + delta * 3;
+            if (scale > 4) {
+              child.scale.set(0.1, 0.1, 0.1);
+              mat.opacity = 0.8;
+            } else {
+              child.scale.set(scale, scale, scale);
+              mat.opacity = Math.max(0, 0.8 - (scale / 4) * 0.8);
+            }
+          }
         }
       });
 

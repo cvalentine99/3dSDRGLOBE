@@ -100,7 +100,7 @@ function formatCountdown(targetMs: number): string {
 }
 
 function HomeContent() {
-  const { loading, stations, selectedStation, filteredStations, selectStation, setShowPanel } = useRadio();
+  const { loading, stations, selectedStation, filteredStations, selectStation, setShowPanel, highlightedStationLabel } = useRadio();
   const { isStationOnline, progress: batchProgress, autoRefresh } = useReceiverStatusMap(stations, loading);
   const { highlightedStation, highlightedIndex, isKeyNavActive } = useKeyboardNav();
   const { theme } = useTheme();
@@ -401,6 +401,7 @@ function HomeContent() {
           }}
           geofenceVertices={geofenceVertices}
           geofenceZones={geofencePanelOpen ? undefined : undefined}
+          highlightedStationLabel={highlightedStationLabel}
         />
       </GlobeErrorBoundary>
 

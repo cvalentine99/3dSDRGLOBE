@@ -275,3 +275,10 @@
 - [x] Globe Actions: GLOBE_ACTION_PROMPT added to RAG system prompt for LLM to suggest actions
 - [x] Vitest tests for streaming, DB persistence, and globe actions (streamingChatGlobe.test.ts)
 - [x] All 692 tests passing across 20 test files, zero TypeScript errors
+- [x] Receiver Highlight: add highlightedStationLabel state to RadioContext
+- [x] Receiver Highlight: implement pulse/glow animation on the highlighted receiver marker in Globe.tsx
+- [x] Receiver Highlight: wire HIGHLIGHT globe action from IntelChat to set highlightedStationLabel
+- [x] Receiver Highlight: auto-fly-to the highlighted receiver location
+- [x] Receiver Highlight: auto-clear highlight after 10s timeout
+- [x] Receiver Highlight: vitest tests for highlight wiring logic (receiverHighlight.test.ts)
+- [x] All 715 tests passing across 21 test files, zero TypeScript errors

@@ -71,6 +71,9 @@ interface RadioContextType {
   isFavorite: (station: Station) => boolean;
   toggleFavorite: (station: Station) => void;
   favoriteCount: number;
+  // Receiver highlight (from IntelChat globe actions)
+  highlightedStationLabel: string | null;
+  setHighlightedStationLabel: (label: string | null) => void;
 }
 
 const RadioContext = createContext<RadioContextType | null>(null);
@@ -90,6 +93,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const [hoveredStation, setHoveredStation] = useState<Station | null>(null);
   const [globeTarget, setGlobeTarget] = useState<GlobeTarget>(null);
   const [favorites, setFavorites] = useState<Set<string>>(() => loadFavorites());
+  const [highlightedStationLabel, setHighlightedStationLabel] = useState<string | null>(null);
 
   const clearGlobeTarget = useCallback(() => setGlobeTarget(null), []);
 
@@ -334,6 +338,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         isFavorite,
         toggleFavorite,
         favoriteCount,
+        highlightedStationLabel,
+        setHighlightedStationLabel,
       }}
     >
       {children}
