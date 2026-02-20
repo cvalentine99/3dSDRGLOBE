@@ -41,11 +41,15 @@ export default function ThemeToggle() {
             exit={{ rotate: -90, opacity: 0 }}
             transition={{ duration: 0.2 }}
           >
-            <Moon className="w-4 h-4 text-yellow-400 group-hover:text-yellow-300 transition-colors" />
+            <Moon className="w-4 h-4 text-yellow-600 group-hover:text-yellow-700 transition-colors" />
           </motion.div>
         )}
       </AnimatePresence>
-      <span className="text-[10px] font-mono text-yellow-300/80 uppercase tracking-wider group-hover:text-yellow-200 transition-colors hidden sm:inline">
+      <span className={`text-[10px] font-mono uppercase tracking-wider transition-colors hidden sm:inline ${
+        isDark
+          ? "text-yellow-300/80 group-hover:text-yellow-200"
+          : "text-yellow-600/80 group-hover:text-yellow-700"
+      }`}>
         {isDark ? "Light" : "Dark"}
       </span>
     </button>

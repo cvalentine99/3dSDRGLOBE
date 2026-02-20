@@ -181,3 +181,7 @@
 - [x] Light theme refinement: update Dashboard page for theme-aware colors
 - [x] Light theme refinement: update glass-panel inner elements for proper contrast in both themes
 - [x] Light theme refinement: verify both themes render correctly in browser
+- [x] Glass-panel light theme: audit current glass-panel CSS and all usage sites
+- [x] Glass-panel light theme: implement theme-aware opacity/tint with separate light and dark variants
+- [x] Glass-panel light theme: tune backdrop-blur, background color, and border for light theme readability
+- [x] Glass-panel light theme: verify both themes render correctly in browser

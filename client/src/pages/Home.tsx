@@ -38,6 +38,7 @@ import type { SavedTargetData, DriftTrailEntry, PredictionData } from "@/compone
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import ShortcutHelpOverlay from "@/components/ShortcutHelpOverlay";
 import ThemeToggle from "@/components/ThemeToggle";
+import { useTheme } from "@/contexts/ThemeContext";
 
 /** Local error boundary specifically for the Globe component to catch WebGL crashes */
 class GlobeErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string | null }> {
@@ -66,7 +67,7 @@ class GlobeErrorBoundary extends Component<{ children: ReactNode }, { hasError: 
             <p className="text-xs text-muted-foreground/50 mb-4">The rest of the app still works. Use the search panel or station list to browse receivers.</p>
             <button
               onClick={() => window.location.reload()}
-              className="px-4 py-2 text-xs font-medium text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 rounded-lg hover:bg-cyan-500/20 transition-colors"
+              className="px-4 py-2 text-xs font-medium text-cyan-600 dark:text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 rounded-lg hover:bg-cyan-500/20 transition-colors"
             >
               Reload Page
             </button>
@@ -97,6 +98,8 @@ function HomeContent() {
   const { loading, stations, selectedStation, filteredStations, selectStation, setShowPanel } = useRadio();
   const { isStationOnline, progress: batchProgress, autoRefresh } = useReceiverStatusMap(stations, loading);
   const { highlightedStation, highlightedIndex, isKeyNavActive } = useKeyboardNav();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const globeRef = useRef<GlobeHandle>(null);
   const [milRfOpen, setMilRfOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
@@ -321,23 +324,39 @@ function HomeContent() {
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-background">
-      {/* Space background */}
+      {/* Space background — reduced opacity in light mode for softer backdrop */}
       <div
-        className="absolute inset-0 bg-cover bg-center opacity-40 pointer-events-none"
+        className={`absolute inset-0 bg-cover bg-center pointer-events-none transition-opacity duration-500 ${
+          isDark ? "opacity-40" : "opacity-15"
+        }`}
         style={{ backgroundImage: `url(${SPACE_BG})` }}
       />
 
-      {/* Subtle vignette overlay */}
+      {/* Light mode: soft warm wash behind the globe for a clean, airy feel */}
+      {!isDark && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: "radial-gradient(ellipse at 50% 50%, oklch(0.92 0.02 195 / 40%) 0%, oklch(0.96 0.005 260 / 60%) 50%, oklch(0.97 0.003 260 / 80%) 100%)",
+          }}
+        />
+      )}
+
+      {/* Subtle vignette overlay — softer in light mode */}
       <div className="absolute inset-0 pointer-events-none"
         style={{
-          background: "radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.7) 100%)",
+          background: isDark
+            ? "radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.7) 100%)"
+            : "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.12) 100%)",
         }}
       />
 
-      {/* Bottom gradient for UI readability */}
+      {/* Bottom gradient for UI readability — lighter in light mode */}
       <div className="absolute bottom-0 left-0 right-0 h-32 pointer-events-none z-10"
         style={{
-          background: "linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 100%)",
+          background: isDark
+            ? "linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 100%)"
+            : "linear-gradient(to top, rgba(0,0,0,0.06) 0%, transparent 100%)",
         }}
       />
 
@@ -443,9 +462,9 @@ function HomeContent() {
           title="HF Propagation Overlay"
           aria-label="HF Propagation Overlay"
         >
-          <Activity className={`w-4 h-4 transition-colors ${propVisible ? 'text-cyan-300' : 'text-cyan-400 group-hover:text-cyan-300'}`} />
+          <Activity className={`w-4 h-4 transition-colors ${propVisible ? 'text-cyan-600 dark:text-cyan-300' : 'text-cyan-600 dark:text-cyan-400 group-hover:text-cyan-700 dark:group-hover:text-cyan-300'}`} />
           <span className={`text-[10px] font-mono uppercase tracking-wider transition-colors hidden sm:inline ${
-            propVisible ? 'text-cyan-200' : 'text-cyan-300/80 group-hover:text-cyan-200'
+            propVisible ? 'text-cyan-700 dark:text-cyan-200' : 'text-cyan-600/80 dark:text-cyan-300/80 group-hover:text-cyan-700 dark:group-hover:text-cyan-200'
           }`}>
             Prop
           </span>
@@ -458,12 +477,12 @@ function HomeContent() {
           title="Watchlist — Background Monitoring"
           aria-label="Watchlist — Background Monitoring"
         >
-          <Eye className="w-4 h-4 text-emerald-400 group-hover:text-emerald-300 transition-colors" />
-          <span className="text-[10px] font-mono text-emerald-300/80 uppercase tracking-wider group-hover:text-emerald-200 transition-colors hidden sm:inline">
+          <Eye className="w-4 h-4 text-emerald-600 dark:text-emerald-400 group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors" />
+          <span className="text-[10px] font-mono text-emerald-600/80 dark:text-emerald-300/80 uppercase tracking-wider group-hover:text-emerald-700 dark:group-hover:text-emerald-200 transition-colors hidden sm:inline">
             Watch
           </span>
           {watchCount > 0 && (
-            <span className="text-[9px] font-mono text-emerald-400/70 hidden sm:inline">
+            <span className="text-[9px] font-mono text-emerald-600/70 dark:text-emerald-400/70 hidden sm:inline">
               {watchOnline}/{watchCount}
             </span>
           )}
@@ -481,8 +500,8 @@ function HomeContent() {
           title="Alert Configuration"
           aria-label="Alert Configuration"
         >
-          <Bell className="w-4 h-4 text-amber-400 group-hover:text-amber-300 transition-colors" />
-          <span className="text-[10px] font-mono text-amber-300/80 uppercase tracking-wider group-hover:text-amber-200 transition-colors hidden sm:inline">
+          <Bell className="w-4 h-4 text-amber-600 dark:text-amber-400 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors" />
+          <span className="text-[10px] font-mono text-amber-600/80 dark:text-amber-300/80 uppercase tracking-wider group-hover:text-amber-700 dark:group-hover:text-amber-200 transition-colors hidden sm:inline">
             Alerts
           </span>
           {unackAlerts > 0 && (
@@ -503,8 +522,8 @@ function HomeContent() {
           title="Anomaly Detection Alerts"
           aria-label="Anomaly Detection Alerts"
         >
-          <AlertTriangle className="w-4 h-4 text-red-400 group-hover:text-red-300 transition-colors" />
-          <span className="text-[10px] font-mono text-red-300/80 uppercase tracking-wider group-hover:text-red-200 transition-colors hidden sm:inline">
+          <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 group-hover:text-red-700 dark:group-hover:text-red-300 transition-colors" />
+          <span className="text-[10px] font-mono text-red-600/80 dark:text-red-300/80 uppercase tracking-wider group-hover:text-red-700 dark:group-hover:text-red-200 transition-colors hidden sm:inline">
             Anomaly
           </span>
           {anomalyCount > 0 && (
@@ -521,8 +540,8 @@ function HomeContent() {
             title="Analytics Dashboard"
             aria-label="Analytics Dashboard"
           >
-            <BarChart3 className="w-4 h-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
-            <span className="text-[10px] font-mono text-indigo-300/80 uppercase tracking-wider group-hover:text-indigo-200 transition-colors hidden sm:inline">
+            <BarChart3 className="w-4 h-4 text-indigo-600 dark:text-indigo-400 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors" />
+            <span className="text-[10px] font-mono text-indigo-600/80 dark:text-indigo-300/80 uppercase tracking-wider group-hover:text-indigo-700 dark:group-hover:text-indigo-200 transition-colors hidden sm:inline">
               Dashboard
             </span>
           </button>
@@ -539,8 +558,8 @@ function HomeContent() {
           title="Shared Target Lists"
           aria-label="Shared Target Lists"
         >
-          <Users className="w-4 h-4 text-blue-400 group-hover:text-blue-300 transition-colors" />
-          <span className="text-[10px] font-mono text-blue-300/80 uppercase tracking-wider group-hover:text-blue-200 transition-colors hidden sm:inline">
+          <Users className="w-4 h-4 text-blue-600 dark:text-blue-400 group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-colors" />
+          <span className="text-[10px] font-mono text-blue-600/80 dark:text-blue-300/80 uppercase tracking-wider group-hover:text-blue-700 dark:group-hover:text-blue-200 transition-colors hidden sm:inline">
             Share
           </span>
         </button>
@@ -556,9 +575,9 @@ function HomeContent() {
           title="TDoA Triangulation — Geolocate signal sources"
           aria-label="TDoA Triangulation"
         >
-          <Crosshair className={`w-4 h-4 transition-colors ${tdoaOpen ? 'text-violet-300' : 'text-violet-400 group-hover:text-violet-300'}`} />
+          <Crosshair className={`w-4 h-4 transition-colors ${tdoaOpen ? 'text-violet-600 dark:text-violet-300' : 'text-violet-600 dark:text-violet-400 group-hover:text-violet-700 dark:group-hover:text-violet-300'}`} />
           <span className={`text-[10px] font-mono uppercase tracking-wider transition-colors hidden sm:inline ${
-            tdoaOpen ? 'text-violet-200' : 'text-violet-300/80 group-hover:text-violet-200'
+            tdoaOpen ? 'text-violet-700 dark:text-violet-200' : 'text-violet-600/80 dark:text-violet-300/80 group-hover:text-violet-700 dark:group-hover:text-violet-200'
           }`}>
             TDoA
           </span>
@@ -580,9 +599,9 @@ function HomeContent() {
           title="Saved Targets — Multi-target tracking overlay"
           aria-label="Saved Targets"
         >
-          <Target className={`w-4 h-4 transition-colors ${targetsOpen ? 'text-rose-300' : 'text-rose-400 group-hover:text-rose-300'}`} />
+          <Target className={`w-4 h-4 transition-colors ${targetsOpen ? 'text-rose-600 dark:text-rose-300' : 'text-rose-600 dark:text-rose-400 group-hover:text-rose-700 dark:group-hover:text-rose-300'}`} />
           <span className={`text-[10px] font-mono uppercase tracking-wider transition-colors hidden sm:inline ${
-            targetsOpen ? 'text-rose-200' : 'text-rose-300/80 group-hover:text-rose-200'
+            targetsOpen ? 'text-rose-700 dark:text-rose-200' : 'text-rose-600/80 dark:text-rose-300/80 group-hover:text-rose-700 dark:group-hover:text-rose-200'
           }`}>
             Targets
           </span>
@@ -600,8 +619,8 @@ function HomeContent() {
           title="Military RF Intelligence Database"
           aria-label="Military RF Intelligence Database"
         >
-          <Radar className="w-4 h-4 text-red-400 group-hover:text-red-300 transition-colors" />
-          <span className="text-[10px] font-mono text-red-300/80 uppercase tracking-wider group-hover:text-red-200 transition-colors hidden sm:inline">
+          <Radar className="w-4 h-4 text-red-600 dark:text-red-400 group-hover:text-red-700 dark:group-hover:text-red-300 transition-colors" />
+          <span className="text-[10px] font-mono text-red-600/80 dark:text-red-300/80 uppercase tracking-wider group-hover:text-red-700 dark:group-hover:text-red-200 transition-colors hidden sm:inline">
             Mil-RF Intel
           </span>
         </button>
