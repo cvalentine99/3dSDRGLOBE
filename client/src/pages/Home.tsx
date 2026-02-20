@@ -55,15 +55,15 @@ class GlobeErrorBoundary extends Component<{ children: ReactNode }, { hasError: 
     if (this.state.hasError) {
       return (
         <div className="absolute inset-0 w-full h-full z-[5] flex items-center justify-center">
-          <div className="max-w-md text-center px-6 py-8 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
+          <div className="max-w-md text-center px-6 py-8 rounded-2xl bg-foreground/5 border border-border backdrop-blur-sm">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/15 border border-red-500/25 flex items-center justify-center">
               <svg className="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-white/90 mb-2">3D Globe Crashed</h2>
-            <p className="text-sm text-white/50 mb-4">{this.state.error || "An unexpected error occurred in the 3D renderer."}</p>
-            <p className="text-xs text-white/30 mb-4">The rest of the app still works. Use the search panel or station list to browse receivers.</p>
+            <h2 className="text-lg font-semibold text-foreground/90 mb-2">3D Globe Crashed</h2>
+            <p className="text-sm text-muted-foreground mb-4">{this.state.error || "An unexpected error occurred in the 3D renderer."}</p>
+            <p className="text-xs text-muted-foreground/50 mb-4">The rest of the app still works. Use the search panel or station list to browse receivers.</p>
             <button
               onClick={() => window.location.reload()}
               className="px-4 py-2 text-xs font-medium text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 rounded-lg hover:bg-cyan-500/20 transition-colors"
@@ -360,15 +360,15 @@ function HomeContent() {
       </GlobeErrorBoundary>
 
       {/* Batch pre-check progress / auto-refresh indicator */}
-      <div className="absolute bottom-2 right-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/50 backdrop-blur-sm border border-white/10">
+      <div className="absolute bottom-2 right-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-background/70 backdrop-blur-sm border border-border">
         {batchProgress.running && batchProgress.total > 0 ? (
           <>
             <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            <span className="text-[10px] font-mono text-white/60">
+            <span className="text-[10px] font-mono text-muted-foreground">
               {autoRefresh.cycleCount > 0 ? `Refresh #${autoRefresh.cycleCount}: ` : "Scanning: "}
               {batchProgress.checked}/{batchProgress.total}
             </span>
-            <div className="w-20 h-1 bg-white/10 rounded-full overflow-hidden">
+            <div className="w-20 h-1 bg-foreground/10 rounded-full overflow-hidden">
               <div
                 className="h-full bg-cyan-400/60 rounded-full transition-all duration-500"
                 style={{ width: `${Math.round((batchProgress.checked / batchProgress.total) * 100)}%` }}
@@ -378,14 +378,14 @@ function HomeContent() {
         ) : autoRefresh.active && autoRefresh.nextRefreshAt ? (
           <>
             <div className="w-2 h-2 rounded-full bg-emerald-400" />
-            <span className="text-[10px] font-mono text-white/60">
+            <span className="text-[10px] font-mono text-muted-foreground">
               Auto-refresh in {formatCountdown(autoRefresh.nextRefreshAt)}
             </span>
           </>
         ) : batchProgress.total > 0 ? (
           <>
             <div className="w-2 h-2 rounded-full bg-emerald-400" />
-            <span className="text-[10px] font-mono text-white/60">
+            <span className="text-[10px] font-mono text-muted-foreground">
               {batchProgress.checked} receivers scanned
             </span>
           </>
@@ -400,12 +400,12 @@ function HomeContent() {
         className="absolute top-5 left-1/2 -translate-x-1/2 z-20 text-center pointer-events-none"
       >
         <div className="relative px-6 py-2">
-          <div className="absolute inset-0 rounded-xl bg-black/40 backdrop-blur-sm" />
+          <div className="absolute inset-0 rounded-xl bg-background/60 backdrop-blur-sm" />
           <div className="relative">
-            <h1 className="text-xl font-semibold text-white tracking-tight drop-shadow-lg">
+            <h1 className="text-xl font-semibold text-foreground tracking-tight drop-shadow-lg">
               Valentine <span className="text-primary text-glow-coral">RF</span>
             </h1>
-            <p className="text-[11px] font-mono text-white/70 uppercase tracking-[0.3em] mt-0.5 drop-shadow-md">
+            <p className="text-[11px] font-mono text-muted-foreground uppercase tracking-[0.3em] mt-0.5 drop-shadow-md">
               SigINT — Global Receiver Intelligence
             </p>
           </div>
@@ -425,11 +425,11 @@ function HomeContent() {
         {/* Keyboard Shortcuts Help */}
         <button
           onClick={() => setHelpOpen(true)}
-          className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/5 border border-white/10 backdrop-blur-md hover:bg-white/10 hover:border-white/20 transition-all group"
+          className="flex items-center justify-center w-9 h-9 rounded-lg bg-foreground/5 border border-border backdrop-blur-md hover:bg-foreground/10 hover:border-border transition-all group"
           title="Keyboard shortcuts (?)"
           aria-label="Keyboard shortcuts"
         >
-          <span className="text-sm font-mono font-bold text-white/50 group-hover:text-white/80 transition-colors">?</span>
+          <span className="text-sm font-mono font-bold text-muted-foreground group-hover:text-foreground/80 transition-colors">?</span>
         </button>
 
         {/* Propagation Overlay Button */}
@@ -764,10 +764,10 @@ function HomeContent() {
           transition={{ delay: 2, duration: 1 }}
           className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
         >
-          <p className="text-xs font-mono text-white/50 text-center drop-shadow-lg"
+          <p className="text-xs font-mono text-muted-foreground text-center drop-shadow-lg"
             style={{ textShadow: '0 1px 8px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5)' }}
           >
-            Select a target or search to begin reconnaissance · <span className="text-white/30">↑↓ to browse · Enter to select · ? for shortcuts</span>
+            Select a target or search to begin reconnaissance · <span className="text-muted-foreground/50">↑↓ to browse · Enter to select · ? for shortcuts</span>
           </p>
         </motion.div>
       )}

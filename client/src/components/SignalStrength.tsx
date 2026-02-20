@@ -188,19 +188,19 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
   /* ── Render ─────────────────────────────────────── */
 
   return (
-    <div className="mt-3 rounded-lg border border-white/8 bg-white/[0.03] overflow-hidden">
+    <div className="mt-3 rounded-lg border border-border/10 bg-foreground/5 overflow-hidden">
       {/* Header */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/5 transition-colors"
+        className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-foreground/5 transition-colors"
       >
         <Activity className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-        <span className="text-[10px] font-mono uppercase tracking-wider text-white/60 flex-1 text-left">
+        <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex-1 text-left">
           Signal Intelligence
         </span>
 
         {loading ? (
-          <RefreshCw className="w-3 h-3 text-white/30 animate-spin" />
+          <RefreshCw className="w-3 h-3 text-muted-foreground/50 animate-spin" />
         ) : error && !statusData ? (
           <span className="flex items-center gap-1">
             <AlertTriangle className="w-3 h-3 text-amber-400/70" />
@@ -236,7 +236,7 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
 
             {/* Cache indicator */}
             {statusData.fromCache && (
-              <span className="text-[8px] font-mono text-white/20" title="Cached result">
+              <span className="text-[8px] font-mono text-muted-foreground/30" title="Cached result">
                 cached
               </span>
             )}
@@ -255,11 +255,11 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="px-3 pb-3 space-y-3 border-t border-white/5 pt-2.5">
+            <div className="px-3 pb-3 space-y-3 border-t border-border pt-2.5">
               {loading && (
                 <div className="flex items-center justify-center py-4">
-                  <RefreshCw className="w-4 h-4 text-white/20 animate-spin" />
-                  <span className="text-[10px] text-white/30 ml-2">Probing receiver via proxy...</span>
+                  <RefreshCw className="w-4 h-4 text-muted-foreground/30 animate-spin" />
+                  <span className="text-[10px] text-muted-foreground/50 ml-2">Probing receiver via proxy...</span>
                 </div>
               )}
 
@@ -269,7 +269,7 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
                   <div className="flex-1">
                     <p className="text-[10px] text-red-400/80 font-medium">Signal Check Failed</p>
                     <p className="text-[9px] text-red-400/50 mt-0.5">{error}</p>
-                    <p className="text-[9px] text-white/30 mt-1">
+                    <p className="text-[9px] text-muted-foreground/50 mt-1">
                       The backend proxy could not reach this receiver. It may be offline,
                       behind a firewall, or the proxy pool may be temporarily exhausted.
                     </p>
@@ -293,7 +293,7 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
                   {isKiwi && statusData.snrOverall != null && statusData.snrOverall > 0 && (
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[9px] font-mono text-white/40 uppercase tracking-wider">
+                        <span className="text-[9px] font-mono text-muted-foreground/70 uppercase tracking-wider">
                           Overall SNR
                         </span>
                         <span
@@ -326,14 +326,14 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
                       </div>
 
                       <div className="flex justify-between mt-1">
-                        <span className="text-[8px] font-mono text-white/20">0 dB</span>
+                        <span className="text-[8px] font-mono text-muted-foreground/30">0 dB</span>
                         <span
                           className="text-[10px] font-mono font-bold"
                           style={{ color: snrToColor(statusData.snrOverall) }}
                         >
                           {statusData.snrOverall} dB SNR
                         </span>
-                        <span className="text-[8px] font-mono text-white/20">30+ dB</span>
+                        <span className="text-[8px] font-mono text-muted-foreground/30">30+ dB</span>
                       </div>
                     </div>
                   )}
@@ -406,7 +406,7 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
                   {/* ── SNR by Band ── */}
                   {snrBands.length > 0 && (
                     <div>
-                      <p className="text-[9px] font-mono text-white/40 uppercase tracking-wider mb-2">
+                      <p className="text-[9px] font-mono text-muted-foreground/70 uppercase tracking-wider mb-2">
                         SNR by Band
                       </p>
                       <div className="space-y-1.5">
@@ -418,10 +418,10 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
                           })
                           .map((band, i) => (
                             <div key={i} className="flex items-center gap-2">
-                              <span className="text-[9px] font-mono text-white/40 w-24 shrink-0 truncate">
+                              <span className="text-[9px] font-mono text-muted-foreground/70 w-24 shrink-0 truncate">
                                 {band.label}
                               </span>
-                              <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+                              <div className="flex-1 h-2 bg-foreground/5 rounded-full overflow-hidden">
                                 <motion.div
                                   className="h-full rounded-full"
                                   initial={{ width: 0 }}
@@ -502,16 +502,16 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
                       {/* SDR Hardware */}
                       {statusData.sdrHardware && statusData.sdrHardware.length > 0 && (
                         <div>
-                          <p className="text-[9px] font-mono text-white/40 uppercase tracking-wider mb-2">
+                          <p className="text-[9px] font-mono text-muted-foreground/70 uppercase tracking-wider mb-2">
                             SDR Hardware ({statusData.sdrHardware.length})
                           </p>
                           <div className="space-y-1.5">
                             {statusData.sdrHardware.map((sdr: any, i: number) => (
-                              <div key={i} className="flex items-center gap-2 p-1.5 rounded bg-white/[0.03] border border-white/5">
+                              <div key={i} className="flex items-center gap-2 p-1.5 rounded bg-foreground/5 border border-border">
                                 <Antenna className="w-3 h-3 text-cyan-400/50 shrink-0" />
                                 <div className="min-w-0 flex-1">
-                                  <p className="text-[9px] font-mono text-white/60 truncate">{sdr.name}</p>
-                                  <p className="text-[8px] font-mono text-white/30">
+                                  <p className="text-[9px] font-mono text-muted-foreground truncate">{sdr.name}</p>
+                                  <p className="text-[8px] font-mono text-muted-foreground/50">
                                     {sdr.type} · {sdr.profiles?.length || 0} profile{(sdr.profiles?.length || 0) !== 1 ? "s" : ""}
                                   </p>
                                 </div>
@@ -528,14 +528,14 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
                     <>
                       {statusData.bands && statusData.bands.length > 0 && (
                         <div>
-                          <p className="text-[9px] font-mono text-white/40 uppercase tracking-wider mb-2">
+                          <p className="text-[9px] font-mono text-muted-foreground/70 uppercase tracking-wider mb-2">
                             Frequency Bands ({statusData.bands.length})
                           </p>
                           <div className="space-y-1">
                             {statusData.bands.map((band: any, i: number) => (
-                              <div key={i} className="flex items-center gap-2 p-1.5 rounded bg-white/[0.03] border border-white/5">
+                              <div key={i} className="flex items-center gap-2 p-1.5 rounded bg-foreground/5 border border-border">
                                 <Radio className="w-3 h-3 text-emerald-400/50 shrink-0" />
-                                <span className="text-[9px] font-mono text-white/60">
+                                <span className="text-[9px] font-mono text-muted-foreground">
                                   {band.min.toFixed(0)} – {band.max.toFixed(0)} kHz
                                 </span>
                               </div>
@@ -548,9 +548,9 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
 
                   {/* Note about SNR availability */}
                   {!isKiwi && statusData.online && (
-                    <div className="flex items-start gap-2 py-2 px-2 rounded bg-white/5 border border-white/5">
+                    <div className="flex items-start gap-2 py-2 px-2 rounded bg-foreground/5 border border-border">
                       <Wifi className="w-3.5 h-3.5 text-cyan-400/50 shrink-0 mt-0.5" />
-                      <p className="text-[9px] text-white/30">
+                      <p className="text-[9px] text-muted-foreground/50">
                         Band-by-band SNR data is available for KiwiSDR receivers only.
                         Open the receiver embed to check live signal conditions.
                       </p>
@@ -561,7 +561,7 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
                   {statusData.proxyUsed && (
                     <div className="flex items-center gap-1.5 pt-1">
                       <span className="w-1 h-1 rounded-full bg-cyan-400/40" />
-                      <span className="text-[8px] font-mono text-white/20">
+                      <span className="text-[8px] font-mono text-muted-foreground/30">
                         Checked via rotating proxy
                       </span>
                     </div>
@@ -570,7 +570,7 @@ export default function SignalStrength({ receiverUrl, receiverType, stationLabel
                   {/* Last updated + View Log */}
                   {statusData.checkedAt && (
                     <div className="flex items-center justify-between pt-1">
-                      <span className="text-[8px] font-mono text-white/20">
+                      <span className="text-[8px] font-mono text-muted-foreground/30">
                         Updated {new Date(statusData.checkedAt).toLocaleTimeString()}
                         {stationLabel && (() => {
                           const logs = getStationLogs(stationLabel, receiverUrl);
@@ -627,11 +627,11 @@ function StatusCard({
   color: string;
 }) {
   return (
-    <div className="flex items-start gap-2 p-2 rounded bg-white/[0.03] border border-white/5">
+    <div className="flex items-start gap-2 p-2 rounded bg-foreground/5 border border-border">
       <Icon className="w-3 h-3 shrink-0 mt-0.5" style={{ color: color + "80" }} />
       <div className="min-w-0">
-        <p className="text-[8px] font-mono text-white/30 uppercase tracking-wider">{label}</p>
-        <p className="text-[10px] font-mono text-white/70 truncate" title={value}>
+        <p className="text-[8px] font-mono text-muted-foreground/50 uppercase tracking-wider">{label}</p>
+        <p className="text-[10px] font-mono text-foreground/70 truncate" title={value}>
           {value}
         </p>
       </div>
@@ -646,7 +646,7 @@ function ChevronIcon({ expanded }: { expanded: boolean }) {
       height="12"
       viewBox="0 0 12 12"
       fill="none"
-      className="text-white/30 shrink-0"
+      className="text-muted-foreground/50 shrink-0"
       animate={{ rotate: expanded ? 180 : 0 }}
       transition={{ duration: 0.2 }}
     >

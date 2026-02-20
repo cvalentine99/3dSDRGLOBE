@@ -158,16 +158,16 @@ export default function FingerprintPanel({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2">
               <Fingerprint className="w-4 h-4 text-purple-400" />
-              <span className="text-sm font-semibold text-white tracking-wide uppercase">
+              <span className="text-sm font-semibold text-foreground tracking-wide uppercase">
                 Signal Fingerprint
               </span>
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 text-white/40 hover:text-white rounded-lg transition-colors"
+              className="p-1.5 text-muted-foreground/70 hover:text-foreground rounded-lg transition-colors"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -183,7 +183,7 @@ export default function FingerprintPanel({
               </h3>
               {recordingUrl ? (
                 <div className="space-y-2">
-                  <div className="text-[10px] text-white/40 font-mono truncate">
+                  <div className="text-[10px] text-muted-foreground/70 font-mono truncate">
                     {recordingUrl.split("/").pop()}
                   </div>
                   <div className="flex items-center gap-2">
@@ -226,7 +226,7 @@ export default function FingerprintPanel({
                   </div>
                 </div>
               ) : (
-                <p className="text-[11px] text-white/30">
+                <p className="text-[11px] text-muted-foreground/50">
                   No recording selected. Record audio from a TDoA job first.
                 </p>
               )}
@@ -237,53 +237,53 @@ export default function FingerprintPanel({
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
-                className="bg-white/[0.03] border border-white/5 rounded-lg p-3"
+                className="bg-foreground/[0.03] border border-border rounded-lg p-3"
               >
-                <h3 className="text-xs font-semibold text-white/70 mb-2 flex items-center gap-1.5">
+                <h3 className="text-xs font-semibold text-foreground/70 mb-2 flex items-center gap-1.5">
                   <BarChart3 className="w-3.5 h-3.5" />
                   Extracted Features
                 </h3>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                   <div className="flex justify-between text-[10px]">
-                    <span className="text-white/40">Dominant Freq</span>
-                    <span className="text-white/70 font-mono">
+                    <span className="text-muted-foreground/70">Dominant Freq</span>
+                    <span className="text-foreground/70 font-mono">
                       {extractedFp.dominantFreqHz.toFixed(1)} Hz
                     </span>
                   </div>
                   <div className="flex justify-between text-[10px]">
-                    <span className="text-white/40">Bandwidth</span>
-                    <span className="text-white/70 font-mono">
+                    <span className="text-muted-foreground/70">Bandwidth</span>
+                    <span className="text-foreground/70 font-mono">
                       {extractedFp.bandwidthHz.toFixed(1)} Hz
                     </span>
                   </div>
                   <div className="flex justify-between text-[10px]">
-                    <span className="text-white/40">Centroid</span>
-                    <span className="text-white/70 font-mono">
+                    <span className="text-muted-foreground/70">Centroid</span>
+                    <span className="text-foreground/70 font-mono">
                       {extractedFp.spectralCentroid.toFixed(1)} Hz
                     </span>
                   </div>
                   <div className="flex justify-between text-[10px]">
-                    <span className="text-white/40">Flatness</span>
-                    <span className="text-white/70 font-mono">
+                    <span className="text-muted-foreground/70">Flatness</span>
+                    <span className="text-foreground/70 font-mono">
                       {extractedFp.spectralFlatness.toFixed(4)}
                     </span>
                   </div>
                   <div className="flex justify-between text-[10px]">
-                    <span className="text-white/40">RMS Level</span>
-                    <span className="text-white/70 font-mono">
+                    <span className="text-muted-foreground/70">RMS Level</span>
+                    <span className="text-foreground/70 font-mono">
                       {extractedFp.rmsLevel.toFixed(1)} dB
                     </span>
                   </div>
                   <div className="flex justify-between text-[10px]">
-                    <span className="text-white/40">Peaks</span>
-                    <span className="text-white/70 font-mono">
+                    <span className="text-muted-foreground/70">Peaks</span>
+                    <span className="text-foreground/70 font-mono">
                       {extractedFp.spectralPeaks.length}
                     </span>
                   </div>
                 </div>
                 {extractedFp.spectralPeaks.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-white/5">
-                    <div className="text-[10px] text-white/40 mb-1">Top Spectral Peaks:</div>
+                  <div className="mt-2 pt-2 border-t border-border">
+                    <div className="text-[10px] text-muted-foreground/70 mb-1">Top Spectral Peaks:</div>
                     <div className="flex flex-wrap gap-1">
                       {extractedFp.spectralPeaks.slice(0, 6).map((freq, i) => (
                         <span
@@ -296,8 +296,8 @@ export default function FingerprintPanel({
                     </div>
                   </div>
                 )}
-                <div className="mt-2 pt-2 border-t border-white/5">
-                  <div className="text-[10px] text-white/40 mb-1">
+                <div className="mt-2 pt-2 border-t border-border">
+                  <div className="text-[10px] text-muted-foreground/70 mb-1">
                     Feature Vector ({extractedFp.featureVector.length}D):
                   </div>
                   <div className="flex gap-px h-6">
@@ -330,12 +330,12 @@ export default function FingerprintPanel({
                   Matching Targets
                 </h3>
                 {findMatchesQuery.isLoading ? (
-                  <div className="flex items-center gap-2 py-3 justify-center text-white/40">
+                  <div className="flex items-center gap-2 py-3 justify-center text-muted-foreground/70">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span className="text-xs">Searching...</span>
                   </div>
                 ) : matches.length === 0 ? (
-                  <div className="flex flex-col items-center py-4 text-white/30">
+                  <div className="flex flex-col items-center py-4 text-muted-foreground/50">
                     <AlertCircle className="w-6 h-6 mb-1" />
                     <p className="text-xs">No matching fingerprints found</p>
                     <p className="text-[10px] mt-0.5">
@@ -347,7 +347,7 @@ export default function FingerprintPanel({
                     {matches.map((match, i) => (
                       <div
                         key={match.fingerprintId}
-                        className="flex items-center gap-2 px-2 py-1.5 bg-white/[0.03] rounded-lg"
+                        className="flex items-center gap-2 px-2 py-1.5 bg-foreground/[0.03] rounded-lg"
                       >
                         <div
                           className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
@@ -362,16 +362,16 @@ export default function FingerprintPanel({
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1">
-                            <Target className="w-3 h-3 text-white/40" />
-                            <span className="text-[11px] text-white/80 font-medium truncate">
+                            <Target className="w-3 h-3 text-muted-foreground/70" />
+                            <span className="text-[11px] text-foreground/80 font-medium truncate">
                               {match.targetLabel}
                             </span>
-                            <span className="text-[9px] text-white/30 px-1 py-0.5 bg-white/5 rounded">
+                            <span className="text-[9px] text-muted-foreground/50 px-1 py-0.5 bg-foreground/5 rounded">
                               {match.targetCategory}
                             </span>
                           </div>
                           {match.frequencyKhz && (
-                            <span className="text-[9px] text-white/30 font-mono">
+                            <span className="text-[9px] text-muted-foreground/50 font-mono">
                               {match.frequencyKhz} kHz {match.mode && `· ${match.mode}`}
                             </span>
                           )}
@@ -388,7 +388,7 @@ export default function FingerprintPanel({
                           >
                             {(match.similarity * 100).toFixed(1)}%
                           </div>
-                          <div className="text-[9px] text-white/30">similarity</div>
+                          <div className="text-[9px] text-muted-foreground/50">similarity</div>
                         </div>
                       </div>
                     ))}
@@ -400,12 +400,12 @@ export default function FingerprintPanel({
             {/* Stored fingerprints for this target */}
             {targetId && (
               <div>
-                <h3 className="text-xs font-semibold text-white/50 mb-2 flex items-center gap-1.5">
+                <h3 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
                   <Fingerprint className="w-3.5 h-3.5" />
                   Stored Fingerprints ({fingerprints.length})
                 </h3>
                 {fingerprints.length === 0 ? (
-                  <p className="text-[11px] text-white/30 text-center py-3">
+                  <p className="text-[11px] text-muted-foreground/50 text-center py-3">
                     No fingerprints stored for this target yet
                   </p>
                 ) : (
@@ -415,23 +415,23 @@ export default function FingerprintPanel({
                       return (
                         <div
                           key={fp.id}
-                          className="bg-white/[0.03] border border-white/5 rounded-lg overflow-hidden"
+                          className="bg-foreground/[0.03] border border-border rounded-lg overflow-hidden"
                         >
                           <div
-                            className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-white/5 transition-colors"
+                            className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-foreground/5 transition-colors"
                             onClick={() => setExpandedFpId(isExpanded ? null : fp.id)}
                           >
                             <Fingerprint className="w-3 h-3 text-purple-400 shrink-0" />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5 text-[10px]">
-                                <span className="text-white/60 font-mono">
+                                <span className="text-muted-foreground font-mono">
                                   {fp.frequencyKhz ? `${fp.frequencyKhz} kHz` : "—"}
                                 </span>
                                 {fp.mode && (
-                                  <span className="text-white/30">{fp.mode}</span>
+                                  <span className="text-muted-foreground/50">{fp.mode}</span>
                                 )}
-                                <span className="text-white/20">·</span>
-                                <span className="text-white/30">
+                                <span className="text-muted-foreground/30">·</span>
+                                <span className="text-muted-foreground/50">
                                   {new Date(Number(fp.createdAt)).toLocaleDateString()}
                                 </span>
                               </div>
@@ -443,14 +443,14 @@ export default function FingerprintPanel({
                                   deleteFpMut.mutate({ id: fp.id });
                                 }
                               }}
-                              className="p-1 text-white/20 hover:text-red-400 transition-colors"
+                              className="p-1 text-muted-foreground/30 hover:text-red-400 transition-colors"
                             >
                               <Trash2 className="w-3 h-3" />
                             </button>
                             {isExpanded ? (
-                              <ChevronUp className="w-3 h-3 text-white/30" />
+                              <ChevronUp className="w-3 h-3 text-muted-foreground/50" />
                             ) : (
-                              <ChevronDown className="w-3 h-3 text-white/30" />
+                              <ChevronDown className="w-3 h-3 text-muted-foreground/50" />
                             )}
                           </div>
                           <AnimatePresence>
@@ -459,37 +459,37 @@ export default function FingerprintPanel({
                                 initial={{ height: 0, opacity: 0 }}
                                 animate={{ height: "auto", opacity: 1 }}
                                 exit={{ height: 0, opacity: 0 }}
-                                className="border-t border-white/5 px-2 py-2"
+                                className="border-t border-border px-2 py-2"
                               >
                                 <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px]">
                                   <div className="flex justify-between">
-                                    <span className="text-white/30">Dominant</span>
-                                    <span className="text-white/60 font-mono">
+                                    <span className="text-muted-foreground/50">Dominant</span>
+                                    <span className="text-muted-foreground font-mono">
                                       {fp.dominantFreqHz?.toFixed(1) ?? "—"} Hz
                                     </span>
                                   </div>
                                   <div className="flex justify-between">
-                                    <span className="text-white/30">Bandwidth</span>
-                                    <span className="text-white/60 font-mono">
+                                    <span className="text-muted-foreground/50">Bandwidth</span>
+                                    <span className="text-muted-foreground font-mono">
                                       {fp.bandwidthHz?.toFixed(1) ?? "—"} Hz
                                     </span>
                                   </div>
                                   <div className="flex justify-between">
-                                    <span className="text-white/30">Centroid</span>
-                                    <span className="text-white/60 font-mono">
+                                    <span className="text-muted-foreground/50">Centroid</span>
+                                    <span className="text-muted-foreground font-mono">
                                       {fp.spectralCentroid?.toFixed(1) ?? "—"} Hz
                                     </span>
                                   </div>
                                   <div className="flex justify-between">
-                                    <span className="text-white/30">Flatness</span>
-                                    <span className="text-white/60 font-mono">
+                                    <span className="text-muted-foreground/50">Flatness</span>
+                                    <span className="text-muted-foreground font-mono">
                                       {fp.spectralFlatness?.toFixed(4) ?? "—"}
                                     </span>
                                   </div>
                                 </div>
                                 {Array.isArray(fp.featureVector) ? (
-                                  <div className="mt-1.5 pt-1.5 border-t border-white/5">
-                                    <div className="text-[9px] text-white/30 mb-0.5">
+                                  <div className="mt-1.5 pt-1.5 border-t border-border">
+                                    <div className="text-[9px] text-muted-foreground/50 mb-0.5">
                                       Feature Vector:
                                     </div>
                                     <div className="flex gap-px h-4">
@@ -520,7 +520,7 @@ export default function FingerprintPanel({
           </div>
 
           {/* Footer */}
-          <div className="px-4 py-2 border-t border-white/5 text-[10px] text-white/30 text-center">
+          <div className="px-4 py-2 border-t border-border text-[10px] text-muted-foreground/50 text-center">
             Signal fingerprints enable automatic target identification across TDoA sessions
           </div>
         </div>

@@ -219,14 +219,14 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
       style={{ maxWidth: "680px", maxHeight: "780px", margin: "auto" }}
     >
       {/* Header */}
-      <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between shrink-0">
+      <div className="px-5 py-4 border-b border-border flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center">
             <Eye className="w-4 h-4 text-emerald-400" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-white/90">Watchlist</h2>
-            <p className="text-[10px] font-mono text-white/40 mt-0.5">
+            <h2 className="text-sm font-semibold text-foreground/90">Watchlist</h2>
+            <p className="text-[10px] font-mono text-muted-foreground/70 mt-0.5">
               {entries.length} station{entries.length !== 1 ? "s" : ""} monitored
               {config.enabled ? ` · polling every ${config.intervalSeconds}s` : " · paused"}
             </p>
@@ -236,7 +236,7 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
           <button
             onClick={() => setShowSettings(!showSettings)}
             className={`p-1.5 rounded-lg transition-colors ${
-              showSettings ? "bg-white/10 text-white/70" : "hover:bg-white/5 text-white/30 hover:text-white/50"
+              showSettings ? "bg-foreground/10 text-foreground/70" : "hover:bg-foreground/5 text-muted-foreground/50 hover:text-muted-foreground"
             }`}
             title="Settings"
           >
@@ -244,7 +244,7 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
           </button>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-white/5 transition-colors text-white/40 hover:text-white/70"
+            className="p-1.5 rounded-lg hover:bg-foreground/5 transition-colors text-muted-foreground/70 hover:text-foreground/70"
           >
             <X className="w-5 h-5" />
           </button>
@@ -258,7 +258,7 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden border-b border-white/5"
+            className="overflow-hidden border-b border-border"
           >
             <div className="px-5 py-3 space-y-3">
               {/* Polling toggle */}
@@ -267,11 +267,11 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
                   {config.enabled ? (
                     <Eye className="w-3.5 h-3.5 text-emerald-400" />
                   ) : (
-                    <EyeOff className="w-3.5 h-3.5 text-white/30" />
+                    <EyeOff className="w-3.5 h-3.5 text-muted-foreground/50" />
                   )}
                   <div>
-                    <p className="text-[10px] text-white/60">Background Polling</p>
-                    <p className="text-[8px] text-white/25">
+                    <p className="text-[10px] text-muted-foreground">Background Polling</p>
+                    <p className="text-[8px] text-foreground/25">
                       {config.enabled ? "Automatically checking station status" : "Polling paused"}
                     </p>
                   </div>
@@ -279,12 +279,12 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
                 <button
                   onClick={() => updateConfig({ enabled: !config.enabled })}
                   className={`relative w-10 h-5 rounded-full transition-colors ${
-                    config.enabled ? "bg-emerald-500/40" : "bg-white/10"
+                    config.enabled ? "bg-emerald-500/40" : "bg-foreground/10"
                   }`}
                 >
                   <motion.div
                     className={`absolute top-0.5 w-4 h-4 rounded-full ${
-                      config.enabled ? "bg-emerald-400" : "bg-white/30"
+                      config.enabled ? "bg-emerald-400" : "bg-foreground/30"
                     }`}
                     animate={{ left: config.enabled ? 22 : 2 }}
                     transition={{ type: "spring", stiffness: 500, damping: 30 }}
@@ -294,11 +294,11 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
 
               {/* Poll interval */}
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-white/50">Poll Interval</span>
+                <span className="text-[10px] text-muted-foreground">Poll Interval</span>
                 <select
                   value={config.intervalSeconds}
                   onChange={(e) => updateConfig({ intervalSeconds: parseInt(e.target.value) })}
-                  className="bg-white/5 border border-white/10 rounded px-2 py-1 text-[10px] font-mono text-white/70 cursor-pointer"
+                  className="bg-foreground/5 border border-border rounded px-2 py-1 text-[10px] font-mono text-foreground/70 cursor-pointer"
                 >
                   <option value={30}>30 seconds</option>
                   <option value={60}>1 minute</option>
@@ -310,11 +310,11 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
 
               {/* Max concurrent */}
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-white/50">Max Concurrent Polls</span>
+                <span className="text-[10px] text-muted-foreground">Max Concurrent Polls</span>
                 <select
                   value={config.maxConcurrent}
                   onChange={(e) => updateConfig({ maxConcurrent: parseInt(e.target.value) })}
-                  className="bg-white/5 border border-white/10 rounded px-2 py-1 text-[10px] font-mono text-white/70 cursor-pointer"
+                  className="bg-foreground/5 border border-border rounded px-2 py-1 text-[10px] font-mono text-foreground/70 cursor-pointer"
                 >
                   <option value={3}>3</option>
                   <option value={5}>5</option>
@@ -329,7 +329,7 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
 
       {/* Note search bar */}
       {entries.length > 0 && (
-        <div className="px-5 py-2 border-b border-white/5 shrink-0">
+        <div className="px-5 py-2 border-b border-border shrink-0">
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
@@ -339,14 +339,14 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
               className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[9px] font-mono transition-colors ${
                 showNoteSearch || noteSearch
                   ? "bg-amber-400/10 text-amber-400/80 border border-amber-400/20"
-                  : "text-white/30 hover:text-white/50 hover:bg-white/5"
+                  : "text-muted-foreground/50 hover:text-muted-foreground hover:bg-foreground/5"
               }`}
               title="Search notes & stations"
             >
               <Search className="w-3 h-3" />
               Search
               {notesCount > 0 && (
-                <span className="text-[8px] text-white/20 ml-1">{notesCount} notes</span>
+                <span className="text-[8px] text-muted-foreground/30 ml-1">{notesCount} notes</span>
               )}
             </button>
             {noteSearch && (
@@ -365,14 +365,14 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
                 className="overflow-hidden"
               >
                 <div className="relative mt-2">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-white/20" />
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground/30" />
                   <input
                     type="text"
                     value={noteSearch}
                     onChange={(e) => setNoteSearch(e.target.value)}
                     placeholder="Search notes, station names, types..."
                     autoFocus
-                    className="w-full bg-white/5 border border-white/10 rounded-lg pl-7 pr-8 py-1.5 text-[10px] text-white/80 placeholder:text-white/20 font-mono focus:outline-none focus:border-amber-400/30 focus:ring-1 focus:ring-amber-400/10 transition-colors"
+                    className="w-full bg-foreground/5 border border-border rounded-lg pl-7 pr-8 py-1.5 text-[10px] text-foreground/80 placeholder:text-muted-foreground/30 font-mono focus:outline-none focus:border-amber-400/30 focus:ring-1 focus:ring-amber-400/10 transition-colors"
                     onKeyDown={(e) => {
                       if (e.key === "Escape") {
                         setNoteSearch("");
@@ -383,7 +383,7 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
                   {noteSearch && (
                     <button
                       onClick={() => setNoteSearch("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-white/10 text-white/30 hover:text-white/60 transition-colors"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-foreground/10 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -397,7 +397,7 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
 
       {/* Stats bar */}
       {entries.length > 0 && (
-        <div className="px-5 py-2.5 border-b border-white/5 flex items-center gap-4 shrink-0">
+        <div className="px-5 py-2.5 border-b border-border flex items-center gap-4 shrink-0">
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-green-400" />
             <span className="text-[10px] font-mono text-green-400/80">{onlineCount} online</span>
@@ -408,14 +408,14 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
           </div>
           {pendingCount > 0 && (
             <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-white/20 animate-pulse" />
-              <span className="text-[10px] font-mono text-white/30">{pendingCount} pending</span>
+              <span className="w-2 h-2 rounded-fulbg-foreground/1520 animate-pulse" />
+              <span className="text-[10px] font-mono text-muted-foreground/50">{pendingCount} pending</span>
             </div>
           )}
           {avgSnr > 0 && (
             <div className="flex items-center gap-1.5 ml-auto">
-              <Activity className="w-3 h-3 text-white/30" />
-              <span className="text-[10px] font-mono text-white/40">avg {avgSnr} dB</span>
+              <Activity className="w-3 h-3 text-muted-foreground/50" />
+              <span className="text-[10px] font-mono text-muted-foreground/70">avg {avgSnr} dB</span>
             </div>
           )}
         </div>
@@ -423,17 +423,17 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
 
       {/* Sort bar + actions */}
       {entries.length > 0 && (
-        <div className="px-5 py-2 border-b border-white/5 flex items-center justify-between shrink-0">
+        <div className="px-5 py-2 border-b border-border flex items-center justify-between shrink-0">
           <div className="flex items-center gap-1.5">
-            <span className="text-[9px] font-mono text-white/25 mr-1">Sort:</span>
+            <span className="text-[9px] font-mono text-foreground/25 mr-1">Sort:</span>
             {(["status", "name", "snr", "added"] as SortMode[]).map((mode) => (
               <button
                 key={mode}
                 onClick={() => handleSort(mode)}
                 className={`px-2 py-0.5 rounded text-[9px] font-mono transition-colors ${
                   sortMode === mode
-                    ? "bg-white/10 text-white/70 border border-white/15"
-                    : "text-white/30 hover:text-white/50"
+                    ? "bg-foreground/10 text-foreground/70 border border-border"
+                    : "text-muted-foreground/50 hover:text-muted-foreground"
                 }`}
               >
                 {mode.charAt(0).toUpperCase() + mode.slice(1)}
@@ -447,7 +447,7 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
             <button
               onClick={handlePollAll}
               disabled={polling}
-              className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-mono text-cyan-400/60 hover:text-cyan-400/90 hover:bg-white/5 transition-colors disabled:opacity-30"
+              className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-mono text-cyan-400/60 hover:text-cyan-400/90 hover:bg-foreground/5 transition-colors disabled:opacity-30"
               title="Poll all now"
             >
               <RefreshCw className={`w-3 h-3 ${polling ? "animate-spin" : ""}`} />
@@ -455,7 +455,7 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
             </button>
             <button
               onClick={handleClearAll}
-              className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-mono text-red-400/40 hover:text-red-400/70 hover:bg-white/5 transition-colors"
+              className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-mono text-red-400/40 hover:text-red-400/70 hover:bg-foreground/5 transition-colors"
               title="Remove all from watchlist"
             >
               <Trash2 className="w-3 h-3" />
@@ -468,9 +468,9 @@ export default function WatchlistPanel({ isOpen, onClose, onSelectStation }: Pro
       <div className="flex-1 overflow-y-auto px-4 py-3">
         {entries.length === 0 ? (
           <div className="text-center py-16">
-            <Eye className="w-10 h-10 text-white/8 mx-auto mb-4" />
-            <p className="text-sm text-white/30">No stations being watched</p>
-            <p className="text-[10px] text-white/15 mt-2 max-w-xs mx-auto leading-relaxed">
+            <Eye className="w-10 h-10 text-foreground/8 mx-auto mb-4" />
+            <p className="text-sm text-muted-foreground/50">No stations being watched</p>
+            <p className="text-[10px] text-foreground/15 mt-2 max-w-xs mx-auto leading-relaxed">
               Add stations to your watchlist by clicking the eye icon in the station detail panel.
               Watched stations are polled in the background for continuous monitoring.
             </p>
@@ -562,10 +562,10 @@ function WatchlistCard({
     <div
       className={`rounded-lg border p-3 transition-all ${
         isOnline
-          ? "bg-white/[0.03] border-white/8 hover:border-white/15"
+          ? "bg-foreground/[0.03] border-border hover:border-border"
           : hasData
           ? "bg-red-500/[0.02] border-red-500/10 hover:border-red-500/20"
-          : "bg-white/[0.02] border-white/5"
+          : "bg-foreground/[0.02] border-border"
       }`}
     >
       {/* Top row: name + status */}
@@ -574,7 +574,7 @@ function WatchlistCard({
           <div className="flex items-center gap-2">
             <button
               onClick={onSelect}
-              className="text-[11px] font-medium text-white/80 hover:text-white truncate transition-colors text-left"
+              className="text-[11px] font-medium text-foreground/80 hover:text-foreground truncate transition-colors text-left"
               title="Fly to station"
             >
               <HighlightText text={entry.label} query={searchQuery} />
@@ -607,8 +607,8 @@ function WatchlistCard({
               )
             ) : (
               <span className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-white/20 animate-pulse" />
-                <span className="text-[9px] font-mono text-white/30">PENDING</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-foreground/20 animate-pulse" />
+                <span className="text-[9px] font-mono text-muted-foreground/50">PENDING</span>
               </span>
             )}
 
@@ -622,7 +622,7 @@ function WatchlistCard({
                 >
                   {snr} dB
                 </span>
-                <span className="text-[8px] font-mono text-white/25">
+                <span className="text-[8px] font-mono text-foreground/25">
                   {snrToLabel(snr)}
                 </span>
               </span>
@@ -631,8 +631,8 @@ function WatchlistCard({
             {/* Users */}
             {status && status.users >= 0 && (
               <span className="flex items-center gap-1">
-                <Users className="w-3 h-3 text-white/20" />
-                <span className="text-[9px] font-mono text-white/35">
+                <Users className="w-3 h-3 text-muted-foreground/30" />
+                <span className="text-[9px] font-mono text-foreground/35">
                   {status.users}/{status.usersMax}
                 </span>
               </span>
@@ -650,7 +650,7 @@ function WatchlistCard({
           {/* SNR bar */}
           {snr > 0 && (
             <div className="mt-2 flex items-center gap-2">
-              <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+              <div className="flex-1 h-1.5 bg-foreground/5 rounded-full overflow-hidden">
                 <motion.div
                   className="h-full rounded-full"
                   style={{ backgroundColor: snrToColor(snr) }}
@@ -659,7 +659,7 @@ function WatchlistCard({
                   transition={{ duration: 0.5, ease: "easeOut" }}
                 />
               </div>
-              <span className="text-[8px] font-mono text-white/20 w-8 text-right">
+              <span className="text-[8px] font-mono text-muted-foreground/30 w-8 text-right">
                 {snr} dB
               </span>
             </div>
@@ -669,22 +669,22 @@ function WatchlistCard({
           <div className="flex items-center gap-3 mt-1.5 flex-wrap">
             {status?.antenna && (
               <span className="flex items-center gap-1">
-                <Antenna className="w-2.5 h-2.5 text-white/15" />
-                <span className="text-[8px] font-mono text-white/20 truncate max-w-[120px]">
+                <Antenna className="w-2.5 h-2.5 text-foreground/15" />
+                <span className="text-[8px] font-mono text-muted-foreground/30 truncate max-w-[120px]">
                   {status.antenna}
                 </span>
               </span>
             )}
             {status && status.uptime > 0 && (
               <span className="flex items-center gap-1">
-                <Clock className="w-2.5 h-2.5 text-white/15" />
-                <span className="text-[8px] font-mono text-white/20">
+                <Clock className="w-2.5 h-2.5 text-foreground/15" />
+                <span className="text-[8px] font-mono text-muted-foreground/30">
                   {formatUptime(status.uptime)}
                 </span>
               </span>
             )}
             {entry.lastPollAt && (
-              <span className="text-[8px] font-mono text-white/15">
+              <span className="text-[8px] font-mono text-foreground/15">
                 polled {timeAgo(entry.lastPollAt)}
               </span>
             )}
@@ -695,15 +695,15 @@ function WatchlistCard({
         <div className="flex flex-col gap-1 shrink-0">
           <button
             onClick={onSelect}
-            className="p-1.5 rounded-md hover:bg-white/5 text-white/25 hover:text-cyan-400/70 transition-colors"
+            className="p-1.5 rounded-md hover:bg-foreground/5 text-foreground/25 hover:text-cyan-400/70 transition-colors"
             title="Fly to station"
           >
             <Crosshair className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={handleStartEdit}
-            className={`p-1.5 rounded-md hover:bg-white/5 transition-colors ${
-              entry.notes ? "text-amber-400/50 hover:text-amber-400/80" : "text-white/25 hover:text-amber-400/70"
+            className={`p-1.5 rounded-md hover:bg-foreground/5 transition-colors ${
+              entry.notes ? "text-amber-400/50 hover:text-amber-400/80" : "text-foreground/25 hover:text-amber-400/70"
             }`}
             title={entry.notes ? "Edit note" : "Add note"}
           >
@@ -712,14 +712,14 @@ function WatchlistCard({
           <button
             onClick={handlePoll}
             disabled={polling}
-            className="p-1.5 rounded-md hover:bg-white/5 text-white/25 hover:text-emerald-400/70 transition-colors disabled:opacity-30"
+            className="p-1.5 rounded-md hover:bg-foreground/5 text-foreground/25 hover:text-emerald-400/70 transition-colors disabled:opacity-30"
             title="Poll now"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${polling ? "animate-spin" : ""}`} />
           </button>
           <button
             onClick={onRemove}
-            className="p-1.5 rounded-md hover:bg-white/5 text-white/25 hover:text-red-400/70 transition-colors"
+            className="p-1.5 rounded-md hover:bg-foreground/5 text-foreground/25 hover:text-red-400/70 transition-colors"
             title="Remove from watchlist"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -737,7 +737,7 @@ function WatchlistCard({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="mt-2 pt-2 border-t border-white/5">
+            <div className="mt-2 pt-2 border-t border-border">
               {editingNote ? (
                 <div className="space-y-2">
                   <div className="flex items-center gap-1.5 mb-1">
@@ -750,7 +750,7 @@ function WatchlistCard({
                     placeholder="Write a note about this station..."
                     maxLength={500}
                     autoFocus
-                    className="w-full bg-white/5 border border-white/10 rounded-md px-2.5 py-2 text-[10px] text-white/80 placeholder:text-white/20 font-mono resize-none focus:outline-none focus:border-amber-400/30 focus:ring-1 focus:ring-amber-400/10 transition-colors"
+                    className="w-full bg-foreground/5 border border-border rounded-md px-2.5 py-2 text-[10px] text-foreground/80 placeholder:text-muted-foreground/30 font-mono resize-none focus:outline-none focus:border-amber-400/30 focus:ring-1 focus:ring-amber-400/10 transition-colors"
                     rows={3}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -762,13 +762,13 @@ function WatchlistCard({
                     }}
                   />
                   <div className="flex items-center justify-between">
-                    <span className="text-[8px] font-mono text-white/15">
+                    <span className="text-[8px] font-mono text-foreground/15">
                       {noteText.length}/500 · Ctrl+Enter to save · Esc to cancel
                     </span>
                     <div className="flex items-center gap-1">
                       <button
                         onClick={handleCancelNote}
-                        className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-mono text-white/30 hover:text-white/50 hover:bg-white/5 transition-colors"
+                        className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-mono text-muted-foreground/50 hover:text-muted-foreground hover:bg-foreground/5 transition-colors"
                       >
                         <X className="w-3 h-3" />
                         Cancel
@@ -792,16 +792,16 @@ function WatchlistCard({
                   <div className="flex items-start gap-1.5">
                     <StickyNote className="w-2.5 h-2.5 text-amber-400/30 mt-0.5 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[10px] text-white/50 font-mono leading-relaxed whitespace-pre-wrap break-words group-hover/note:text-white/60 transition-colors">
+                      <p className="text-[10px] text-muted-foreground font-mono leading-relaxed whitespace-pre-wrap break-words group-hover/note:text-muted-foreground transition-colors">
                         <HighlightText text={entry.notes} query={searchQuery} />
                       </p>
                       {entry.notesUpdatedAt && (
-                        <p className="text-[7px] font-mono text-white/15 mt-1">
+                        <p className="text-[7px] font-mono text-foreground/15 mt-1">
                           updated {timeAgo(entry.notesUpdatedAt)}
                         </p>
                       )}
                     </div>
-                    <Pencil className="w-2.5 h-2.5 text-white/0 group-hover/note:text-white/25 transition-colors shrink-0 mt-0.5" />
+                    <Pencil className="w-2.5 h-2.5 text-foreground/0 group-hover/note:text-foreground/25 transition-colors shrink-0 mt-0.5" />
                   </div>
                 </div>
               ) : null}

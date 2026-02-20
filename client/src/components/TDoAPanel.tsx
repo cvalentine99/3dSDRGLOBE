@@ -538,19 +538,19 @@ export default function TDoAPanel({
           className="fixed top-0 right-0 bottom-0 w-[420px] max-w-[95vw] z-50 flex flex-col"
         >
           {/* Glass background */}
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-xl border-l border-white/10" />
+          <div className="absolute inset-0 bg-background/90 backdrop-blur-xl border-l border-border" />
 
           {/* Content */}
           <div className="relative flex flex-col h-full overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-violet-500/20 border border-violet-500/30 flex items-center justify-center">
                   <Crosshair className="w-5 h-5 text-violet-400" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-semibold text-white">TDoA Triangulation</h2>
-                  <p className="text-[10px] font-mono text-white/40 uppercase tracking-wider">
+                  <h2 className="text-sm font-semibold text-foreground">TDoA Triangulation</h2>
+                  <p className="text-[10px] font-mono text-muted-foreground/70 uppercase tracking-wider">
                     Time Difference of Arrival
                   </p>
                 </div>
@@ -563,7 +563,7 @@ export default function TDoAPanel({
                     className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${
                       waterfallVisible
                         ? "bg-green-500/20 border-green-500/30 text-green-400"
-                        : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60"
+                        : "bg-foreground/5 border-border text-muted-foreground/70 hover:bg-foreground/10 hover:text-muted-foreground"
                     }`}
                   >
                     <Radio className="w-4 h-4" />
@@ -573,7 +573,7 @@ export default function TDoAPanel({
                   <button
                     onClick={onScreenshot}
                     title="Save globe screenshot as PNG"
-                    className="w-8 h-8 rounded-lg border bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60 flex items-center justify-center transition-colors"
+                    className="w-8 h-8 rounded-lg border bg-foreground/5 border-border text-muted-foreground/70 hover:bg-foreground/10 hover:text-muted-foreground flex items-center justify-center transition-colors"
                   >
                     <Camera className="w-4 h-4" />
                   </button>
@@ -584,28 +584,28 @@ export default function TDoAPanel({
                   className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${
                     notifyEnabled
                       ? "bg-violet-500/20 border-violet-500/30 text-violet-400"
-                      : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60"
+                      : "bg-foreground/5 border-border text-muted-foreground/70 hover:bg-foreground/10 hover:text-muted-foreground"
                   }`}
                 >
                   <Bell className="w-4 h-4" />
                 </button>
                 <button
                   onClick={onClose}
-                  className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+                  className="w-8 h-8 rounded-lg bg-foreground/5 border border-border flex items-center justify-center hover:bg-foreground/10 transition-colors"
                 >
-                  <X className="w-4 h-4 text-white/60" />
+                  <X className="w-4 h-4 text-muted-foreground" />
                 </button>
               </div>
             </div>
 
             {/* Tab navigation */}
-            <div className="flex border-b border-white/10 px-5">
+            <div className="flex border-b border-border px-5">
               <button
                 onClick={() => setActiveTab("run")}
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider border-b-2 transition-colors ${
                   activeTab === "run"
                     ? "border-violet-400 text-violet-300"
-                    : "border-transparent text-white/40 hover:text-white/60"
+                    : "border-transparent text-muted-foreground/70 hover:text-muted-foreground"
                 }`}
               >
                 <Crosshair className="w-3 h-3" />
@@ -616,7 +616,7 @@ export default function TDoAPanel({
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider border-b-2 transition-colors ${
                   activeTab === "history"
                     ? "border-violet-400 text-violet-300"
-                    : "border-transparent text-white/40 hover:text-white/60"
+                    : "border-transparent text-muted-foreground/70 hover:text-muted-foreground"
                 }`}
               >
                 <History className="w-3 h-3" />
@@ -627,7 +627,7 @@ export default function TDoAPanel({
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider border-b-2 transition-colors ${
                   activeTab === "batch"
                     ? "border-amber-400 text-amber-300"
-                    : "border-transparent text-white/40 hover:text-white/60"
+                    : "border-transparent text-muted-foreground/70 hover:text-muted-foreground"
                 }`}
               >
                 <Zap className="w-3 h-3" />
@@ -638,7 +638,7 @@ export default function TDoAPanel({
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-[11px] font-medium uppercase tracking-wider border-b-2 transition-colors ${
                   activeTab === "compare"
                     ? "border-cyan-400 text-cyan-300"
-                    : "border-transparent text-white/40 hover:text-white/60"
+                    : "border-transparent text-muted-foreground/70 hover:text-muted-foreground"
                 }`}
               >
                 <Signal className="w-3 h-3" />
@@ -686,7 +686,7 @@ export default function TDoAPanel({
               {/* ── Selected Hosts ───────────────────────── */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-semibold text-white/80 uppercase tracking-wider flex items-center gap-1.5">
+                  <h3 className="text-xs font-semibold text-foreground/80 uppercase tracking-wider flex items-center gap-1.5">
                     <Radio className="w-3.5 h-3.5 text-violet-400" />
                     Selected Receivers ({selectedHosts.length}/6)
                   </h3>
@@ -694,7 +694,7 @@ export default function TDoAPanel({
                     {selectedHosts.length > 0 && (
                       <button
                         onClick={onClearHosts}
-                        className="text-[10px] text-white/40 hover:text-white/70 transition-colors"
+                        className="text-[10px] text-muted-foreground/70 hover:text-foreground/70 transition-colors"
                       >
                         Clear all
                       </button>
@@ -716,9 +716,9 @@ export default function TDoAPanel({
                 </div>
 
                 {selectedHosts.length === 0 ? (
-                  <div className="rounded-lg bg-white/5 border border-dashed border-white/10 p-4 text-center">
-                    <MapPin className="w-5 h-5 text-white/20 mx-auto mb-2" />
-                    <p className="text-[11px] text-white/40">
+                  <div className="rounded-lg bg-foreground/5 border border-dashed border-border p-4 text-center">
+                    <MapPin className="w-5 h-5 text-muted-foreground/30 mx-auto mb-2" />
+                    <p className="text-[11px] text-muted-foreground/70">
                       Select 2–6 GPS-active KiwiSDR receivers from the list below or click on the
                       globe
                     </p>
@@ -733,10 +733,10 @@ export default function TDoAPanel({
                           className="flex items-center gap-2 px-3 py-2 rounded-lg bg-violet-500/10 border border-violet-500/20"
                         >
                           <div className="flex-1 min-w-0">
-                            <p className="text-[11px] font-medium text-white/90 truncate">
+                            <p className="text-[11px] font-medium text-foreground/90 truncate">
                               {host.n || host.h}
                             </p>
-                            <p className="text-[9px] font-mono text-white/40">
+                            <p className="text-[9px] font-mono text-muted-foreground/70">
                               {host.h}:{host.p} · {host.lat.toFixed(2)}°, {host.lon.toFixed(2)}°
                             </p>
                           </div>
@@ -761,10 +761,10 @@ export default function TDoAPanel({
                           )}
                           <button
                             onClick={() => onToggleHost(host)}
-                            className="shrink-0 w-5 h-5 rounded bg-white/5 flex items-center justify-center hover:bg-red-500/20 transition-colors"
+                            className="shrink-0 w-5 h-5 rounded bg-foreground/5 flex items-center justify-center hover:bg-red-500/20 transition-colors"
                             disabled={isRunning}
                           >
-                            <X className="w-3 h-3 text-white/40 hover:text-red-400" />
+                            <X className="w-3 h-3 text-muted-foreground/70 hover:text-red-400" />
                           </button>
                         </div>
                       );
@@ -779,14 +779,14 @@ export default function TDoAPanel({
                   onClick={() => setHostListOpen(!hostListOpen)}
                   className="flex items-center justify-between w-full mb-2"
                 >
-                  <h3 className="text-xs font-semibold text-white/80 uppercase tracking-wider flex items-center gap-1.5">
+                  <h3 className="text-xs font-semibold text-foreground/80 uppercase tracking-wider flex items-center gap-1.5">
                     <Signal className="w-3.5 h-3.5 text-cyan-400" />
                     GPS Hosts ({gpsHostsQuery.data?.length ?? "..."})
                   </h3>
                   {hostListOpen ? (
-                    <ChevronUp className="w-4 h-4 text-white/40" />
+                    <ChevronUp className="w-4 h-4 text-muted-foreground/70" />
                   ) : (
-                    <ChevronDown className="w-4 h-4 text-white/40" />
+                    <ChevronDown className="w-4 h-4 text-muted-foreground/70" />
                   )}
                 </button>
 
@@ -801,24 +801,24 @@ export default function TDoAPanel({
                     >
                       {/* Search */}
                       <div className="relative mb-2">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/50" />
                         <input
                           type="text"
                           value={hostSearch}
                           onChange={(e) => setHostSearch(e.target.value)}
                           placeholder="Search hosts..."
-                          className="w-full pl-8 pr-3 py-1.5 text-[11px] bg-white/5 border border-white/10 rounded-lg text-white/80 placeholder-white/30 focus:outline-none focus:border-violet-500/40"
+                          className="w-full pl-8 pr-3 py-1.5 text-[11px] bg-foreground/5 border border-border rounded-lg text-foreground/80 placeholder-white/30 focus:outline-none focus:border-violet-500/40"
                         />
                       </div>
 
                       {/* Host list */}
-                      <div className="max-h-48 overflow-y-auto rounded-lg border border-white/10 bg-white/[0.02] scrollbar-thin">
+                      <div className="max-h-48 overflow-y-auto rounded-lg border border-border bg-foreground/[0.02] scrollbar-thin">
                         {gpsHostsQuery.isLoading ? (
                           <div className="flex items-center justify-center py-6">
-                            <Loader2 className="w-5 h-5 text-white/30 animate-spin" />
+                            <Loader2 className="w-5 h-5 text-muted-foreground/50 animate-spin" />
                           </div>
                         ) : filteredHosts.length === 0 ? (
-                          <div className="py-4 text-center text-[11px] text-white/30">
+                          <div className="py-4 text-center text-[11px] text-muted-foreground/50">
                             No GPS hosts found
                           </div>
                         ) : (
@@ -830,11 +830,11 @@ export default function TDoAPanel({
                                 key={`${host.h}:${host.p}`}
                                 onClick={() => onToggleHost(host)}
                                 disabled={isRunning || (!selected && selectedHosts.length >= 6)}
-                                className={`w-full flex items-center gap-2 px-3 py-1.5 text-left border-b border-white/5 last:border-0 transition-colors ${
+                                className={`w-full flex items-center gap-2 px-3 py-1.5 text-left border-b border-border last:border-0 transition-colors ${
                                   selected
                                     ? "bg-violet-500/15 hover:bg-violet-500/20"
                                     : available
-                                      ? "hover:bg-white/5"
+                                      ? "hover:bg-foreground/5"
                                       : "opacity-50"
                                 }`}
                               >
@@ -848,10 +848,10 @@ export default function TDoAPanel({
                                   }`}
                                 />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-[10px] font-medium text-white/80 truncate">
+                                  <p className="text-[10px] font-medium text-foreground/80 truncate">
                                     {host.n || host.h}
                                   </p>
-                                  <p className="text-[9px] font-mono text-white/35">
+                                  <p className="text-[9px] font-mono text-muted-foreground/70">
                                     {host.h}:{host.p} · SNR:{host.snr} · {host.u}/{host.um} users ·
                                     TDoA:{host.tc}ch
                                   </p>
@@ -868,7 +868,7 @@ export default function TDoAPanel({
 
               {/* ── Frequency Settings ────────────────────── */}
               <div>
-                <h3 className="text-xs font-semibold text-white/80 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <h3 className="text-xs font-semibold text-foreground/80 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <Zap className="w-3.5 h-3.5 text-amber-400" />
                   Frequency & Sampling
                 </h3>
@@ -887,7 +887,7 @@ export default function TDoAPanel({
                       className={`px-2 py-1 text-[9px] font-mono rounded border transition-colors ${
                         parseFloat(frequencyKhz) === preset.freq
                           ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
-                          : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/70"
+                          : "bg-foreground/5 border-border text-muted-foreground hover:bg-foreground/10 hover:text-foreground/70"
                       } disabled:opacity-30 disabled:cursor-not-allowed`}
                       title={preset.desc}
                     >
@@ -898,22 +898,22 @@ export default function TDoAPanel({
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[10px] text-white/50 mb-1 block">Frequency (kHz)</label>
+                    <label className="text-[10px] text-muted-foreground mb-1 block">Frequency (kHz)</label>
                     <input
                       type="number"
                       value={frequencyKhz}
                       onChange={(e) => setFrequencyKhz(e.target.value)}
-                      className="w-full px-3 py-1.5 text-[11px] bg-white/5 border border-white/10 rounded-lg text-white/80 focus:outline-none focus:border-violet-500/40"
+                      className="w-full px-3 py-1.5 text-[11px] bg-foreground/5 border border-border rounded-lg text-foreground/80 focus:outline-none focus:border-violet-500/40"
                       disabled={isRunning}
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] text-white/50 mb-1 block">Passband (Hz)</label>
+                    <label className="text-[10px] text-muted-foreground mb-1 block">Passband (Hz)</label>
                     <input
                       type="number"
                       value={passbandHz}
                       onChange={(e) => setPassbandHz(e.target.value)}
-                      className="w-full px-3 py-1.5 text-[11px] bg-white/5 border border-white/10 rounded-lg text-white/80 focus:outline-none focus:border-violet-500/40"
+                      className="w-full px-3 py-1.5 text-[11px] bg-foreground/5 border border-border rounded-lg text-foreground/80 focus:outline-none focus:border-violet-500/40"
                       disabled={isRunning}
                     />
                   </div>
@@ -921,7 +921,7 @@ export default function TDoAPanel({
 
                 {/* Sample time */}
                 <div className="mt-2">
-                  <label className="text-[10px] text-white/50 mb-1 block">Sample Time</label>
+                  <label className="text-[10px] text-muted-foreground mb-1 block">Sample Time</label>
                   <div className="flex gap-1.5">
                     {SAMPLE_TIMES.map((t) => (
                       <button
@@ -931,7 +931,7 @@ export default function TDoAPanel({
                         className={`flex-1 py-1.5 text-[11px] rounded-lg border transition-colors ${
                           sampleTime === t
                             ? "bg-violet-500/20 border-violet-500/40 text-violet-300"
-                            : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10"
+                            : "bg-foreground/5 border-border text-muted-foreground hover:bg-foreground/10"
                         }`}
                       >
                         {t}s
@@ -943,7 +943,7 @@ export default function TDoAPanel({
                 {/* Reference transmitter quick-select */}
                 <button
                   onClick={() => setRefsOpen(!refsOpen)}
-                  className="mt-2 w-full flex items-center justify-between px-3 py-1.5 text-[10px] text-white/50 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors"
+                  className="mt-2 w-full flex items-center justify-between px-3 py-1.5 text-[10px] text-muted-foreground bg-foreground/5 border border-border rounded-lg hover:bg-foreground/10 transition-colors"
                 >
                   <span>Load from reference transmitter...</span>
                   {refsOpen ? (
@@ -963,34 +963,34 @@ export default function TDoAPanel({
                       className="overflow-hidden mt-1"
                     >
                       <div className="relative mb-1">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-white/30" />
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground/50" />
                         <input
                           type="text"
                           value={refSearch}
                           onChange={(e) => setRefSearch(e.target.value)}
                           placeholder="Search by callsign or frequency..."
-                          className="w-full pl-7 pr-3 py-1 text-[10px] bg-white/5 border border-white/10 rounded text-white/80 placeholder-white/30 focus:outline-none focus:border-violet-500/40"
+                          className="w-full pl-7 pr-3 py-1 text-[10px] bg-foreground/5 border border-border rounded text-foreground/80 placeholder-white/30 focus:outline-none focus:border-violet-500/40"
                         />
                       </div>
-                      <div className="max-h-32 overflow-y-auto rounded border border-white/10 bg-white/[0.02] scrollbar-thin">
+                      <div className="max-h-32 overflow-y-auto rounded border border-border bg-foreground/[0.02] scrollbar-thin">
                         {refsQuery.isLoading ? (
                           <div className="flex items-center justify-center py-3">
-                            <Loader2 className="w-4 h-4 text-white/30 animate-spin" />
+                            <Loader2 className="w-4 h-4 text-muted-foreground/50 animate-spin" />
                           </div>
                         ) : (
                           filteredRefs.map((ref, i) => (
                             <button
                               key={`${ref.id}-${ref.f}-${i}`}
                               onClick={() => applyRef(ref)}
-                              className="w-full flex items-center gap-2 px-2 py-1 text-left border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors"
+                              className="w-full flex items-center gap-2 px-2 py-1 text-left border-b border-border last:border-0 hover:bg-foreground/5 transition-colors"
                             >
-                              <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-white/5 text-white/40">
+                              <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-foreground/5 text-muted-foreground/70">
                                 {REF_CATEGORIES[ref.r] || ref.r}
                               </span>
-                              <span className="text-[10px] text-white/70 font-medium">
+                              <span className="text-[10px] text-foreground/70 font-medium">
                                 {ref.id}
                               </span>
-                              <span className="text-[10px] font-mono text-white/40 ml-auto">
+                              <span className="text-[10px] font-mono text-muted-foreground/70 ml-auto">
                                 {ref.f} kHz
                               </span>
                             </button>
@@ -1004,42 +1004,42 @@ export default function TDoAPanel({
 
               {/* ── Known Location (optional) ──────────────── */}
               <div>
-                <h3 className="text-xs font-semibold text-white/80 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <h3 className="text-xs font-semibold text-foreground/80 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-green-400" />
                   Known Location{" "}
-                  <span className="text-white/30 font-normal lowercase">(optional)</span>
+                  <span className="text-muted-foreground/50 font-normal lowercase">(optional)</span>
                 </h3>
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <label className="text-[10px] text-white/50 mb-1 block">Lat</label>
+                    <label className="text-[10px] text-muted-foreground mb-1 block">Lat</label>
                     <input
                       type="number"
                       value={knownLat}
                       onChange={(e) => setKnownLat(e.target.value)}
                       placeholder="48.85"
-                      className="w-full px-2 py-1.5 text-[11px] bg-white/5 border border-white/10 rounded-lg text-white/80 placeholder-white/20 focus:outline-none focus:border-green-500/40"
+                      className="w-full px-2 py-1.5 text-[11px] bg-foreground/5 border border-border rounded-lg text-foreground/80 placeholder-white/20 focus:outline-none focus:border-green-500/40"
                       disabled={isRunning}
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] text-white/50 mb-1 block">Lon</label>
+                    <label className="text-[10px] text-muted-foreground mb-1 block">Lon</label>
                     <input
                       type="number"
                       value={knownLon}
                       onChange={(e) => setKnownLon(e.target.value)}
                       placeholder="2.35"
-                      className="w-full px-2 py-1.5 text-[11px] bg-white/5 border border-white/10 rounded-lg text-white/80 placeholder-white/20 focus:outline-none focus:border-green-500/40"
+                      className="w-full px-2 py-1.5 text-[11px] bg-foreground/5 border border-border rounded-lg text-foreground/80 placeholder-white/20 focus:outline-none focus:border-green-500/40"
                       disabled={isRunning}
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] text-white/50 mb-1 block">Name</label>
+                    <label className="text-[10px] text-muted-foreground mb-1 block">Name</label>
                     <input
                       type="text"
                       value={knownName}
                       onChange={(e) => setKnownName(e.target.value)}
                       placeholder="Paris"
-                      className="w-full px-2 py-1.5 text-[11px] bg-white/5 border border-white/10 rounded-lg text-white/80 placeholder-white/20 focus:outline-none focus:border-green-500/40"
+                      className="w-full px-2 py-1.5 text-[11px] bg-foreground/5 border border-border rounded-lg text-foreground/80 placeholder-white/20 focus:outline-none focus:border-green-500/40"
                       disabled={isRunning}
                     />
                   </div>
@@ -1060,7 +1060,7 @@ export default function TDoAPanel({
                       {jobStatus === "sampling" && "Sampling IQ data..."}
                       {jobStatus === "computing" && "Running TDoA algorithm..."}
                     </span>
-                    <span className="text-[10px] font-mono text-white/30 ml-auto">
+                    <span className="text-[10px] font-mono text-muted-foreground/50 ml-auto">
                       {pollCount > 0 && `${pollCount * 2}s`}
                     </span>
                   </div>
@@ -1084,8 +1084,8 @@ export default function TDoAPanel({
                           {hs.status === "no_gps" && (
                             <XCircle className="w-3 h-3 text-red-400" />
                           )}
-                          <span className="text-[10px] font-mono text-white/60">{hs.host}</span>
-                          <span className="text-[9px] text-white/30 ml-auto capitalize">
+                          <span className="text-[10px] font-mono text-muted-foreground">{hs.host}</span>
+                          <span className="text-[9px] text-muted-foreground/50 ml-auto capitalize">
                             {hs.status.replace("_", " ")}
                           </span>
                         </div>
@@ -1108,14 +1108,14 @@ export default function TDoAPanel({
                   </div>
                   <div className="flex items-center gap-4">
                     <div>
-                      <p className="text-[10px] text-white/40">Latitude</p>
-                      <p className="text-sm font-mono text-white/90">
+                      <p className="text-[10px] text-muted-foreground/70">Latitude</p>
+                      <p className="text-sm font-mono text-foreground/90">
                         {result.likelyLat.toFixed(4)}°
                       </p>
                     </div>
                     <div>
-                      <p className="text-[10px] text-white/40">Longitude</p>
-                      <p className="text-sm font-mono text-white/90">
+                      <p className="text-[10px] text-muted-foreground/70">Longitude</p>
+                      <p className="text-sm font-mono text-foreground/90">
                         {result.likelyLon.toFixed(4)}°
                       </p>
                     </div>
@@ -1152,7 +1152,7 @@ export default function TDoAPanel({
                     <XCircle className="w-4 h-4 text-red-400" />
                     <span className="text-xs font-semibold text-red-300">Error</span>
                   </div>
-                  <p className="text-[11px] text-white/60">{errorMessage}</p>
+                  <p className="text-[11px] text-muted-foreground">{errorMessage}</p>
                 </motion.div>
               )}
             </>)}
@@ -1160,7 +1160,7 @@ export default function TDoAPanel({
 
             {/* ── Bottom Actions ──────────────────────── */}
             {activeTab === "run" && (
-            <div className="px-5 py-3 border-t border-white/10 flex gap-2">
+            <div className="px-5 py-3 border-t border-border flex gap-2">
               {isRunning ? (
                 <button
                   onClick={() => jobId && cancelMutation.mutate({ jobId })}
@@ -1181,7 +1181,7 @@ export default function TDoAPanel({
                           setHostStatuses([]);
                           onJobStatusChange?.("idle");
                         }}
-                        className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white/60 text-xs font-medium hover:bg-white/10 transition-colors"
+                        className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-foreground/5 border border-border text-muted-foreground text-xs font-medium hover:bg-foreground/10 transition-colors"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
                         Reset

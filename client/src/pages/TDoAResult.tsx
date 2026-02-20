@@ -38,7 +38,7 @@ class GlobeErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+        <div className="absolute inset-0 flex items-center justify-center bg-background/90">
           <p className="text-red-400 text-sm">Globe failed to load: {this.state.error}</p>
         </div>
       );
@@ -102,7 +102,7 @@ export default function TDoAResult() {
         />
         <div className="relative z-10 flex flex-col items-center gap-4">
           <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
-          <p className="text-sm text-white/60 font-mono">Loading TDoA result...</p>
+          <p className="text-sm text-muted-foreground font-mono">Loading TDoA result...</p>
         </div>
       </div>
     );
@@ -120,8 +120,8 @@ export default function TDoAResult() {
           <div className="w-16 h-16 rounded-full bg-red-500/15 border border-red-500/25 flex items-center justify-center">
             <AlertTriangle className="w-8 h-8 text-red-400" />
           </div>
-          <h2 className="text-lg font-semibold text-white">TDoA Job Not Found</h2>
-          <p className="text-sm text-white/50">
+          <h2 className="text-lg font-semibold text-foreground">TDoA Job Not Found</h2>
+          <p className="text-sm text-muted-foreground">
             {isNaN(jobId)
               ? "Invalid job ID in the URL."
               : "This TDoA job may have been deleted or doesn't exist."}
@@ -174,7 +174,7 @@ export default function TDoAResult() {
       >
         <Link
           href="/"
-          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-black/50 backdrop-blur-md border border-white/10 text-white/70 text-sm hover:bg-black/60 hover:text-white transition-all"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-background/70 backdrop-blur-md border border-border text-foreground/70 text-sm hover:bg-background/80 hover:text-foreground transition-all"
         >
           <ArrowLeft className="w-4 h-4" />
           <span className="hidden sm:inline">Back to Globe</span>
@@ -192,7 +192,7 @@ export default function TDoAResult() {
 
           <button
             onClick={handleCopyLink}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-black/50 backdrop-blur-md border border-white/10 text-white/70 text-sm hover:bg-black/60 hover:text-white transition-all"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-background/70 backdrop-blur-md border border-border text-foreground/70 text-sm hover:bg-background/80 hover:text-foreground transition-all"
             title="Copy shareable link"
           >
             {copied ? (
@@ -217,9 +217,9 @@ export default function TDoAResult() {
         transition={{ delay: 0.3, duration: 0.5 }}
         className="absolute bottom-6 left-4 z-20 w-80 max-w-[calc(100vw-2rem)]"
       >
-        <div className="rounded-xl bg-black/60 backdrop-blur-xl border border-white/10 overflow-hidden">
+        <div className="rounded-xl bg-background/80 backdrop-blur-xl border border-border overflow-hidden">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-white/5 bg-violet-500/5">
+          <div className="px-4 py-3 border-b border-border bg-violet-500/5">
             <div className="flex items-center gap-2 mb-1">
               <div
                 className={`w-2 h-2 rounded-full ${
@@ -230,16 +230,16 @@ export default function TDoAResult() {
                     : "bg-yellow-400"
                 }`}
               />
-              <span className="text-[10px] font-mono text-white/50 uppercase tracking-wider">
+              <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
                 {job.status}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <Radio className="w-3.5 h-3.5 text-violet-400" />
-              <span className="text-sm font-mono text-white/90">
+              <span className="text-sm font-mono text-foreground/90">
                 {parseFloat(job.frequencyKhz).toLocaleString()} kHz
               </span>
-              <span className="text-[10px] text-white/30">
+              <span className="text-[10px] text-muted-foreground/50">
                 / {job.passbandHz} Hz PB
               </span>
             </div>
@@ -247,7 +247,7 @@ export default function TDoAResult() {
 
           {/* Position */}
           {hasResult && (
-            <div className="px-4 py-3 border-b border-white/5">
+            <div className="px-4 py-3 border-b border-border">
               <div className="flex items-center gap-1.5 mb-2">
                 <MapPin className="w-3 h-3 text-green-400" />
                 <span className="text-[9px] text-green-400/70 uppercase tracking-wider font-medium">
@@ -256,14 +256,14 @@ export default function TDoAResult() {
               </div>
               <div className="flex items-center gap-4">
                 <div>
-                  <p className="text-[9px] text-white/35">Latitude</p>
-                  <p className="text-sm font-mono text-white/90">
+                  <p className="text-[9px] text-muted-foreground/70">Latitude</p>
+                  <p className="text-sm font-mono text-foreground/90">
                     {parseFloat(job.likelyLat!).toFixed(4)}°
                   </p>
                 </div>
                 <div>
-                  <p className="text-[9px] text-white/35">Longitude</p>
-                  <p className="text-sm font-mono text-white/90">
+                  <p className="text-[9px] text-muted-foreground/70">Longitude</p>
+                  <p className="text-sm font-mono text-foreground/90">
                     {parseFloat(job.likelyLon!).toFixed(4)}°
                   </p>
                 </div>
@@ -281,19 +281,19 @@ export default function TDoAResult() {
           )}
 
           {/* Hosts */}
-          <div className="px-4 py-3 border-b border-white/5">
-            <p className="text-[9px] text-white/40 uppercase tracking-wider mb-1.5">
+          <div className="px-4 py-3 border-b border-border">
+            <p className="text-[9px] text-muted-foreground/70 uppercase tracking-wider mb-1.5">
               Receivers ({hosts.length})
             </p>
             <div className="space-y-1">
               {hosts.map((h: any, i: number) => (
                 <div
                   key={i}
-                  className="flex items-center gap-2 text-[10px] font-mono text-white/60"
+                  className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground"
                 >
                   <div className="w-1.5 h-1.5 rounded-full bg-violet-400/60" />
                   <span className="truncate">{h.h || h.id}</span>
-                  <span className="text-white/25 ml-auto">
+                  <span className="text-muted-foreground/50 ml-auto">
                     {h.lat?.toFixed(1)}°, {h.lon?.toFixed(1)}°
                   </span>
                 </div>
@@ -303,12 +303,12 @@ export default function TDoAResult() {
 
           {/* Timestamps */}
           <div className="px-4 py-3">
-            <div className="flex items-center gap-1.5 text-[10px] text-white/30">
+            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50">
               <Clock className="w-3 h-3" />
               <span>Started: {createdDate}</span>
             </div>
             {completedDate && (
-              <div className="flex items-center gap-1.5 text-[10px] text-white/30 mt-0.5">
+              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 mt-0.5">
                 <Clock className="w-3 h-3" />
                 <span>Completed: {completedDate}</span>
               </div>

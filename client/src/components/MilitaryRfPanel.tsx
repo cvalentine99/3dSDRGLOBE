@@ -108,7 +108,7 @@ export default function MilitaryRfPanel({ isOpen, onClose }: Props) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-background/70 backdrop-blur-sm z-40"
             onClick={onClose}
           />
 
@@ -121,28 +121,28 @@ export default function MilitaryRfPanel({ isOpen, onClose }: Props) {
             className="fixed top-0 right-0 h-full z-50 flex"
             style={{ width: "min(680px, 90vw)" }}
           >
-            <div className="flex-1 flex flex-col bg-[#0c1020]/95 backdrop-blur-xl border-l border-white/10 overflow-hidden">
+            <div className="flex-1 flex flex-col bg-[#0c1020]/95 backdrop-blur-xl border-l border-border overflow-hidden">
               {/* Header */}
-              <div className="shrink-0 px-5 py-4 border-b border-white/10 bg-[#0c1020]/80">
+              <div className="shrink-0 px-5 py-4 border-b border-border bg-[#0c1020]/80">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
                       <Radar className="w-4 h-4 text-red-400" />
                     </div>
                     <div>
-                      <h2 className="text-sm font-semibold text-white tracking-tight">
+                      <h2 className="text-sm font-semibold text-foreground tracking-tight">
                         Military RF Intelligence
                       </h2>
-                      <p className="text-[10px] font-mono text-white/40 uppercase tracking-wider">
+                      <p className="text-[10px] font-mono text-muted-foreground/70 uppercase tracking-wider">
                         VLF – UHF Spectrum Analysis · {MILITARY_FREQUENCIES.length} Entries
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={onClose}
-                    className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
+                    className="w-7 h-7 rounded-lg bg-foreground/5 hover:bg-foreground/10 flex items-center justify-center transition-colors"
                   >
-                    <X className="w-3.5 h-3.5 text-white/60" />
+                    <X className="w-3.5 h-3.5 text-muted-foreground" />
                   </button>
                 </div>
 
@@ -158,13 +158,13 @@ export default function MilitaryRfPanel({ isOpen, onClose }: Props) {
                       onClick={() => setActiveTab(tab.id)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-mono uppercase tracking-wider transition-all ${
                         activeTab === tab.id
-                          ? "bg-white/10 text-white"
-                          : "text-white/40 hover:text-white/60 hover:bg-white/5"
+                          ? "bg-foreground/10 text-foreground"
+                          : "text-muted-foreground/70 hover:text-muted-foreground hover:bg-foreground/5"
                       }`}
                     >
                       <tab.icon className="w-3 h-3" />
                       {tab.label}
-                      <span className="text-[9px] text-white/30 ml-0.5">{tab.count}</span>
+                      <span className="text-[9px] text-muted-foreground/50 ml-0.5">{tab.count}</span>
                     </button>
                   ))}
                 </div>
@@ -200,8 +200,8 @@ export default function MilitaryRfPanel({ isOpen, onClose }: Props) {
               </div>
 
               {/* Footer */}
-              <div className="shrink-0 px-5 py-2.5 border-t border-white/10 bg-[#0c1020]/80">
-                <p className="text-[9px] font-mono text-white/25 text-center">
+              <div className="shrink-0 px-5 py-2.5 border-t border-border bg-[#0c1020]/80">
+                <p className="text-[9px] font-mono text-muted-foreground/40 text-center">
                   Sources: Global Military Spectrum Dominance PDF · sigidwiki.com · priyom.org · radioreference.com
                 </p>
               </div>
@@ -248,16 +248,16 @@ function FrequenciesTab({
   return (
     <div>
       {/* Search + Filters */}
-      <div className="px-4 py-3 border-b border-white/5 space-y-2.5">
+      <div className="px-4 py-3 border-b border-border space-y-2.5">
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/50" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search frequencies, systems, operators..."
-            className="w-full pl-8 pr-3 py-2 bg-white/5 border border-white/10 rounded-lg text-xs text-white placeholder:text-white/25 focus:outline-none focus:border-white/20 focus:bg-white/8"
+            className="w-full pl-8 pr-3 py-2 bg-foreground/5 border border-border rounded-lg text-xs text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-border focus:bg-foreground/8"
           />
         </div>
 
@@ -267,8 +267,8 @@ function FrequenciesTab({
             onClick={() => setFilterBand("all")}
             className={`px-2 py-1 rounded text-[9px] font-mono transition-all ${
               filterBand === "all"
-                ? "bg-white/15 text-white"
-                : "bg-white/5 text-white/40 hover:text-white/60"
+                ? "bg-foreground/15 text-foreground"
+                : "bg-foreground/5 text-muted-foreground/70 hover:text-muted-foreground"
             }`}
           >
             All {bandCounts.all}
@@ -279,8 +279,8 @@ function FrequenciesTab({
               onClick={() => setFilterBand(b.id)}
               className={`px-2 py-1 rounded text-[9px] font-mono transition-all flex items-center gap-1 ${
                 filterBand === b.id
-                  ? "bg-white/15 text-white"
-                  : "bg-white/5 text-white/40 hover:text-white/60"
+                  ? "bg-foreground/15 text-foreground"
+                  : "bg-foreground/5 text-muted-foreground/70 hover:text-muted-foreground"
               }`}
             >
               <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: b.color }} />
@@ -295,8 +295,8 @@ function FrequenciesTab({
             onClick={() => setFilterOperator("all")}
             className={`px-2 py-1 rounded text-[9px] font-mono transition-all ${
               filterOperator === "all"
-                ? "bg-white/15 text-white"
-                : "bg-white/5 text-white/40 hover:text-white/60"
+                ? "bg-foreground/15 text-foreground"
+                : "bg-foreground/5 text-muted-foreground/70 hover:text-muted-foreground"
             }`}
           >
             All Operators
@@ -307,8 +307,8 @@ function FrequenciesTab({
               onClick={() => setFilterOperator(op)}
               className={`px-2 py-1 rounded text-[9px] font-mono transition-all flex items-center gap-1 ${
                 filterOperator === op
-                  ? "bg-white/15 text-white"
-                  : "bg-white/5 text-white/40 hover:text-white/60"
+                  ? "bg-foreground/15 text-foreground"
+                  : "bg-foreground/5 text-muted-foreground/70 hover:text-muted-foreground"
               }`}
             >
               <span
@@ -326,8 +326,8 @@ function FrequenciesTab({
             onClick={() => setFilterSignalType("all")}
             className={`px-2 py-1 rounded text-[9px] font-mono transition-all ${
               filterSignalType === "all"
-                ? "bg-white/15 text-white"
-                : "bg-white/5 text-white/40 hover:text-white/60"
+                ? "bg-foreground/15 text-foreground"
+                : "bg-foreground/5 text-muted-foreground/70 hover:text-muted-foreground"
             }`}
           >
             All Types
@@ -338,8 +338,8 @@ function FrequenciesTab({
               onClick={() => setFilterSignalType(st)}
               className={`px-2 py-1 rounded text-[9px] font-mono transition-all flex items-center gap-1 ${
                 filterSignalType === st
-                  ? "bg-white/15 text-white"
-                  : "bg-white/5 text-white/40 hover:text-white/60"
+                  ? "bg-foreground/15 text-foreground"
+                  : "bg-foreground/5 text-muted-foreground/70 hover:text-muted-foreground"
               }`}
             >
               <span
@@ -353,8 +353,8 @@ function FrequenciesTab({
       </div>
 
       {/* Results count */}
-      <div className="px-4 py-2 border-b border-white/5">
-        <p className="text-[9px] font-mono text-white/30 uppercase tracking-wider">
+      <div className="px-4 py-2 border-b border-border">
+        <p className="text-[9px] font-mono text-muted-foreground/50 uppercase tracking-wider">
           {frequencies.length} frequencies · sorted by frequency ascending
         </p>
       </div>
@@ -364,20 +364,20 @@ function FrequenciesTab({
         {frequencies.map((freq) => {
           const isExpanded = expandedFreq === freq.id;
           const ClassIcon = CLASSIFICATION_ICONS[freq.classification] || Shield;
-          const classColor = CLASSIFICATION_COLORS[freq.classification] || "text-white/40";
+          const classColor = CLASSIFICATION_COLORS[freq.classification] || "text-muted-foreground/70";
           const bandSection = BAND_SECTIONS.find((b) => b.id === freq.band);
 
           return (
             <button
               key={freq.id}
               onClick={() => setExpandedFreq(isExpanded ? null : freq.id)}
-              className="w-full text-left px-4 py-2.5 hover:bg-white/5 transition-colors group"
+              className="w-full text-left px-4 py-2.5 hover:bg-foreground/5 transition-colors group"
             >
               <div className="flex items-start gap-3">
                 {/* Frequency badge */}
                 <div className="shrink-0 mt-0.5">
                   <div
-                    className="px-2 py-1 rounded text-[10px] font-mono font-semibold text-white border"
+                    className="px-2 py-1 rounded text-[10px] font-mono font-semibold text-foreground border"
                     style={{
                       borderColor: bandSection?.color + "40",
                       backgroundColor: bandSection?.color + "15",
@@ -390,15 +390,15 @@ function FrequenciesTab({
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-white truncate">
+                    <span className="text-xs font-medium text-foreground truncate">
                       {freq.system}
                     </span>
-                    <span className="text-[9px] font-mono text-white/30">
+                    <span className="text-[9px] font-mono text-muted-foreground/50">
                       {freq.designation}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <p className="text-[10px] text-white/50 line-clamp-1 flex-1">
+                    <p className="text-[10px] text-muted-foreground line-clamp-1 flex-1">
                       {freq.description}
                     </p>
                     {freq.status === "active" && (
@@ -426,16 +426,16 @@ function FrequenciesTab({
                   <ClassIcon className={`w-3 h-3 ${classColor}`} />
                   {/* Expand icon */}
                   {isExpanded ? (
-                    <ChevronDown className="w-3 h-3 text-white/30" />
+                    <ChevronDown className="w-3 h-3 text-muted-foreground/50" />
                   ) : (
-                    <ChevronRight className="w-3 h-3 text-white/20 group-hover:text-white/40" />
+                    <ChevronRight className="w-3 h-3 text-muted-foreground/30 group-hover:text-muted-foreground/70" />
                   )}
                 </div>
               </div>
 
               {/* Expanded details */}
               {isExpanded && (
-                <div className="mt-2.5 ml-0 p-3 rounded-lg bg-white/5 border border-white/5 space-y-2">
+                <div className="mt-2.5 ml-0 p-3 rounded-lg bg-foreground/5 border border-border space-y-2">
                   <div className="grid grid-cols-2 gap-2">
                     <DetailRow label="Operator" value={freq.operator} />
                     <DetailRow label="Band" value={`${freq.band} (${bandSection?.range})`} />
@@ -448,7 +448,7 @@ function FrequenciesTab({
                     {freq.source && <DetailRow label="Source" value={freq.source} />}
                     {freq.status && <DetailRow label="Status" value={freq.status} />}
                   </div>
-                  <p className="text-[10px] text-white/60 leading-relaxed">
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">
                     {freq.description}
                   </p>
                   {freq.notes && (
@@ -468,8 +468,8 @@ function FrequenciesTab({
 
       {frequencies.length === 0 && (
         <div className="px-4 py-12 text-center">
-          <Antenna className="w-8 h-8 text-white/10 mx-auto mb-2" />
-          <p className="text-xs text-white/30">No frequencies match your filters</p>
+          <Antenna className="w-8 h-8 text-foreground/10 mx-auto mb-2" />
+          <p className="text-xs text-muted-foreground/50">No frequencies match your filters</p>
         </div>
       )}
     </div>
@@ -486,8 +486,8 @@ function WaveformsTab({
 }) {
   return (
     <div className="divide-y divide-white/5">
-      <div className="px-4 py-3 border-b border-white/5">
-        <p className="text-[10px] text-white/50 leading-relaxed">
+      <div className="px-4 py-3 border-b border-border">
+        <p className="text-[10px] text-muted-foreground leading-relaxed">
           Digital signal processing waveforms used in modern military communications. Identifying the waveform type is critical for SDR signal classification.
         </p>
       </div>
@@ -497,7 +497,7 @@ function WaveformsTab({
           <button
             key={wf.id}
             onClick={() => setExpandedWaveform(isExpanded ? null : wf.id)}
-            className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors group"
+            className="w-full text-left px-4 py-3 hover:bg-foreground/5 transition-colors group"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -505,20 +505,20 @@ function WaveformsTab({
                   <Waves className="w-3.5 h-3.5 text-cyan-400" />
                 </div>
                 <div>
-                  <span className="text-xs font-medium text-white">{wf.name}</span>
-                  <span className="text-[9px] font-mono text-white/30 ml-2">{wf.standard}</span>
+                  <span className="text-xs font-medium text-foreground">{wf.name}</span>
+                  <span className="text-[9px] font-mono text-muted-foreground/50 ml-2">{wf.standard}</span>
                 </div>
               </div>
               {isExpanded ? (
-                <ChevronDown className="w-3 h-3 text-white/30" />
+                <ChevronDown className="w-3 h-3 text-muted-foreground/50" />
               ) : (
-                <ChevronRight className="w-3 h-3 text-white/20 group-hover:text-white/40" />
+                <ChevronRight className="w-3 h-3 text-muted-foreground/30 group-hover:text-muted-foreground/70" />
               )}
             </div>
 
             {isExpanded && (
-              <div className="mt-2.5 p-3 rounded-lg bg-white/5 border border-white/5 space-y-2">
-                <p className="text-[10px] text-white/60 leading-relaxed">{wf.description}</p>
+              <div className="mt-2.5 p-3 rounded-lg bg-foreground/5 border border-border space-y-2">
+                <p className="text-[10px] text-muted-foreground leading-relaxed">{wf.description}</p>
                 <div className="grid grid-cols-2 gap-2">
                   <DetailRow label="Bandwidth" value={wf.bandwidth} />
                   <DetailRow label="Users" value={wf.users} />
@@ -542,7 +542,7 @@ function WaveformsTab({
 function BandsTab() {
   return (
     <div className="p-4 space-y-4">
-      <p className="text-[10px] text-white/50 leading-relaxed">
+      <p className="text-[10px] text-muted-foreground leading-relaxed">
         The VLF–UHF spectrum is segmented by propagation capability and operational domain. Each band has unique physics that dictate military doctrine.
       </p>
 
@@ -553,11 +553,11 @@ function BandsTab() {
         return (
           <div
             key={band.id}
-            className="rounded-xl border border-white/10 overflow-hidden"
+            className="rounded-xl border border-border overflow-hidden"
             style={{ borderLeftColor: band.color, borderLeftWidth: "3px" }}
           >
             {/* Band header */}
-            <div className="px-4 py-3 bg-white/5">
+            <div className="px-4 py-3 bg-foreground/5">
               <div className="flex items-center gap-2 mb-1">
                 <span
                   className="text-xs font-bold"
@@ -565,29 +565,29 @@ function BandsTab() {
                 >
                   {band.label}
                 </span>
-                <span className="text-[10px] font-mono text-white/40">{band.range}</span>
+                <span className="text-[10px] font-mono text-muted-foreground/70">{band.range}</span>
               </div>
-              <p className="text-[11px] font-medium text-white/80">{band.description}</p>
+              <p className="text-[11px] font-medium text-foreground/80">{band.description}</p>
             </div>
 
             {/* Band details */}
             <div className="px-4 py-3 space-y-2">
               <div className="flex items-start gap-2">
-                <Antenna className="w-3 h-3 text-white/30 shrink-0 mt-0.5" />
-                <p className="text-[10px] text-white/50 leading-relaxed">
-                  <span className="text-white/70 font-medium">Propagation:</span> {band.propagation}
+                <Antenna className="w-3 h-3 text-muted-foreground/50 shrink-0 mt-0.5" />
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  <span className="text-foreground/70 font-medium">Propagation:</span> {band.propagation}
                 </p>
               </div>
 
               <div className="flex items-center gap-2">
-                <Radio className="w-3 h-3 text-white/30 shrink-0" />
-                <p className="text-[10px] text-white/50">
-                  <span className="text-white/70 font-medium">{freqsInBand.length}</span> tracked frequencies
+                <Radio className="w-3 h-3 text-muted-foreground/50 shrink-0" />
+                <p className="text-[10px] text-muted-foreground">
+                  <span className="text-foreground/70 font-medium">{freqsInBand.length}</span> tracked frequencies
                 </p>
               </div>
 
               <div className="flex items-center gap-2">
-                <Globe2 className="w-3 h-3 text-white/30 shrink-0" />
+                <Globe2 className="w-3 h-3 text-muted-foreground/50 shrink-0" />
                 <div className="flex flex-wrap gap-1">
                   {operators.map((op: Operator) => (
                     <span
@@ -615,27 +615,27 @@ function BandsTab() {
           <span className="text-xs font-semibold text-amber-300">SDR Scanning Recommendations</span>
         </div>
         <ul className="space-y-1.5">
-          <li className="text-[10px] text-white/60 leading-relaxed flex items-start gap-2">
+          <li className="text-[10px] text-muted-foreground leading-relaxed flex items-start gap-2">
             <span className="text-amber-400/60 shrink-0">1.</span>
             <span>Prioritize the "Big Three": HFGCS (8992/11175 kHz), The Buzzer (4625 kHz), and SINCGARS bands (30–88 MHz). Also monitor TACAMO VLF (26.9 kHz) for nuclear C2.</span>
           </li>
-          <li className="text-[10px] text-white/60 leading-relaxed flex items-start gap-2">
+          <li className="text-[10px] text-muted-foreground leading-relaxed flex items-start gap-2">
             <span className="text-amber-400/60 shrink-0">2.</span>
             <span>Check Russian Single Letter Beacons in their 3.5, 4.5, and 7.5 MHz clusters simultaneously.</span>
           </li>
-          <li className="text-[10px] text-white/60 leading-relaxed flex items-start gap-2">
+          <li className="text-[10px] text-muted-foreground leading-relaxed flex items-start gap-2">
             <span className="text-amber-400/60 shrink-0">3.</span>
             <span>Integrate demodulators for ALE (2G) and STANAG 4285 — the "handshakes" of modern military connectivity.</span>
           </li>
-          <li className="text-[10px] text-white/60 leading-relaxed flex items-start gap-2">
+          <li className="text-[10px] text-muted-foreground leading-relaxed flex items-start gap-2">
             <span className="text-amber-400/60 shrink-0">4.</span>
             <span>Account for massive VLF/LF signal strength (Chayka at 100 kHz) which can desensitize receivers.</span>
           </li>
-          <li className="text-[10px] text-white/60 leading-relaxed flex items-start gap-2">
+          <li className="text-[10px] text-muted-foreground leading-relaxed flex items-start gap-2">
             <span className="text-amber-400/60 shrink-0">5.</span>
             <span>Monitor OTH radars: Russian Kontayner (6–32 MHz), Chinese Foghorn (6–29 MHz), UK PLUTO II (8–38 MHz), and Australian JORN.</span>
           </li>
-          <li className="text-[10px] text-white/60 leading-relaxed flex items-start gap-2">
+          <li className="text-[10px] text-muted-foreground leading-relaxed flex items-start gap-2">
             <span className="text-amber-400/60 shrink-0">6.</span>
             <span>Track French SALAMANDRE wideband HF (up to 150 kHz aggregate) and Israeli Navy hybrid modems for advanced signal analysis.</span>
           </li>
@@ -649,8 +649,8 @@ function BandsTab() {
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <span className="text-[8px] font-mono text-white/25 uppercase tracking-wider">{label}</span>
-      <p className="text-[10px] text-white/70">{value}</p>
+      <span className="text-[8px] font-mono text-muted-foreground/40 uppercase tracking-wider">{label}</span>
+      <p className="text-[10px] text-foreground/70">{value}</p>
     </div>
   );
 }

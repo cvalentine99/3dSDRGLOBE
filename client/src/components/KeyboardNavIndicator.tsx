@@ -44,21 +44,21 @@ export default function KeyboardNavIndicator({
             {/* Key hints */}
             <div className="flex items-center gap-2 shrink-0">
               <div className="flex items-center gap-0.5">
-                <kbd className="inline-flex items-center justify-center w-5 h-5 rounded bg-white/10 border border-white/10 text-[9px] text-muted-foreground">
+                <kbd className="inline-flex items-center justify-center w-5 h-5 rounded bg-foreground/10 border border-border text-[9px] text-muted-foreground">
                   <ChevronUp className="w-3 h-3" />
                 </kbd>
-                <kbd className="inline-flex items-center justify-center w-5 h-5 rounded bg-white/10 border border-white/10 text-[9px] text-muted-foreground">
+                <kbd className="inline-flex items-center justify-center w-5 h-5 rounded bg-foreground/10 border border-border text-[9px] text-muted-foreground">
                   <ChevronDown className="w-3 h-3" />
                 </kbd>
               </div>
               <div className="flex items-center gap-1">
-                <kbd className="inline-flex items-center justify-center h-5 px-1.5 rounded bg-white/10 border border-white/10 text-[8px] font-mono text-muted-foreground">
+                <kbd className="inline-flex items-center justify-center h-5 px-1.5 rounded bg-foreground/10 border border-border text-[8px] font-mono text-muted-foreground">
                   <CornerDownLeft className="w-3 h-3 mr-0.5" />
                   Enter
                 </kbd>
               </div>
               <div className="flex items-center gap-1">
-                <kbd className="inline-flex items-center justify-center h-5 px-1.5 rounded bg-white/10 border border-white/10 text-[8px] font-mono text-muted-foreground">
+                <kbd className="inline-flex items-center justify-center h-5 px-1.5 rounded bg-foreground/10 border border-border text-[8px] font-mono text-muted-foreground">
                   <X className="w-2.5 h-2.5 mr-0.5" />
                   Esc
                 </kbd>

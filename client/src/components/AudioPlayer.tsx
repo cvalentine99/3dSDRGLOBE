@@ -241,10 +241,10 @@ export default function AudioPlayer() {
               }}
             >
               {/* Embed header */}
-              <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/5">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
                 <div className="flex items-center gap-2">
                   <Globe className="w-4 h-4 text-primary" />
-                  <span className="text-xs font-mono text-white/70">Live Signal Feed</span>
+                  <span className="text-xs font-mono text-foreground/70">Live Signal Feed</span>
                   {tuneParams && (
                     <span className="text-[10px] font-mono text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded-full">
                       {formatFrequency(tuneParams.frequencyKhz)} {tuneParams.mode?.toUpperCase()}
@@ -269,7 +269,7 @@ export default function AudioPlayer() {
                   <button
                     onClick={() => { setShowQuickTune(!showQuickTune); setShowRecording(false); }}
                     className={`p-1.5 rounded-lg transition-all text-xs flex items-center gap-1 ${
-                      showQuickTune ? "bg-cyan-400/20 text-cyan-400" : "hover:bg-white/5 text-white/50 hover:text-white/80"
+                      showQuickTune ? "bg-cyan-400/20 text-cyan-400" : "hover:bg-foreground/5 text-muted-foreground hover:text-foreground/80"
                     }`}
                     title="Quick Tune"
                   >
@@ -280,7 +280,7 @@ export default function AudioPlayer() {
                   <button
                     onClick={() => { setShowRecording(!showRecording); setShowQuickTune(false); }}
                     className={`p-1.5 rounded-lg transition-all text-xs flex items-center gap-1 ${
-                      showRecording ? "bg-red-400/20 text-red-400" : "hover:bg-white/5 text-white/50 hover:text-white/80"
+                      showRecording ? "bg-red-400/20 text-red-400" : "hover:bg-foreground/5 text-muted-foreground hover:text-foreground/80"
                     }`}
                     title="Recording Guide"
                   >
@@ -292,14 +292,14 @@ export default function AudioPlayer() {
                     href={embedUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-1.5 rounded-lg hover:bg-white/5 text-white/50 hover:text-white/80 transition-colors"
+                    className="p-1.5 rounded-lg hover:bg-foreground/5 text-muted-foreground hover:text-foreground/80 transition-colors"
                     title="Open in new tab"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
                   <button
                     onClick={() => { setShowEmbed(false); setShowQuickTune(false); setShowRecording(false); }}
-                    className="p-1.5 rounded-lg hover:bg-white/5 transition-colors text-white/50 hover:text-white/80"
+                    className="p-1.5 rounded-lg hover:bg-foreground/5 transition-colors text-muted-foreground hover:text-foreground/80"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -314,12 +314,12 @@ export default function AudioPlayer() {
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="border-b border-white/5 overflow-hidden"
+                    className="border-b border-border overflow-hidden"
                   >
                     <div className="p-3 space-y-3">
                       {/* Custom frequency input */}
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5">
+                        <div className="flex-1 flex items-center gap-1.5 bg-foreground/5 border border-border rounded-lg px-3 py-1.5">
                           <Zap className="w-3.5 h-3.5 text-cyan-400/60 shrink-0" />
                           <input
                             type="text"
@@ -327,13 +327,13 @@ export default function AudioPlayer() {
                             onChange={(e) => setCustomFreq(e.target.value)}
                             onKeyDown={(e) => e.key === "Enter" && handleCustomTune()}
                             placeholder="e.g. 7200 kHz or 14.1 MHz"
-                            className="bg-transparent text-xs font-mono text-white/90 placeholder:text-white/25 outline-none flex-1 w-0"
+                            className="bg-transparent text-xs font-mono text-foreground/90 placeholder:text-foreground/25 outline-none flex-1 w-0"
                           />
                         </div>
                         <select
                           value={customMode}
                           onChange={(e) => setCustomMode(e.target.value as SDRMode)}
-                          className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-[10px] font-mono text-white/80 outline-none"
+                          className="bg-foreground/5 border border-border rounded-lg px-2 py-1.5 text-[10px] font-mono text-foreground/80 outline-none"
                         >
                           <option value="am">AM</option>
                           <option value="usb">USB</option>
@@ -352,13 +352,13 @@ export default function AudioPlayer() {
 
                       {/* Quick presets */}
                       <div>
-                        <p className="text-[9px] font-mono text-white/30 uppercase tracking-wider mb-1.5">Presets</p>
+                        <p className="text-[9px] font-mono text-muted-foreground/50 uppercase tracking-wider mb-1.5">Presets</p>
                         <div className="flex flex-wrap gap-1">
                           {QUICK_TUNE_PRESETS.map((preset) => (
                             <button
                               key={preset.label}
                               onClick={() => tuneTo(preset.freq, preset.mode)}
-                              className="text-[9px] font-mono px-2 py-1 rounded-md bg-white/5 border border-white/8 text-white/60 hover:text-white/90 hover:bg-white/10 hover:border-white/15 transition-all"
+                              className="text-[9px] font-mono px-2 py-1 rounded-md bg-foreground/5 border border-border text-muted-foreground hover:text-foreground/90 hover:bg-foreground/10 hover:border-border transition-all"
                               title={`${preset.desc} — ${formatFrequency(preset.freq)} ${preset.mode.toUpperCase()}`}
                             >
                               {preset.label}
@@ -406,12 +406,12 @@ export default function AudioPlayer() {
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="border-b border-white/5 overflow-hidden"
+                    className="border-b border-border overflow-hidden"
                   >
                     <div className="p-3 space-y-2">
                       <div className="flex items-center gap-2">
-                        <Disc className={`w-4 h-4 ${recordingInfo.supported ? "text-red-400" : "text-white/30"}`} />
-                        <span className="text-xs font-medium text-white/80">{recordingInfo.method}</span>
+                        <Disc className={`w-4 h-4 ${recordingInfo.supported ? "text-red-400" : "text-muted-foreground/50"}`} />
+                        <span className="text-xs font-medium text-foreground/80">{recordingInfo.method}</span>
                         {recordingInfo.supported && (
                           <span className="text-[8px] font-mono text-green-400/80 bg-green-400/10 border border-green-400/20 px-1.5 py-0.5 rounded-full">
                             Available
@@ -421,14 +421,14 @@ export default function AudioPlayer() {
                       <div className="space-y-1">
                         {recordingInfo.instructions.map((step, i) => (
                           <div key={i} className="flex items-start gap-2">
-                            <span className="text-[9px] font-mono text-white/25 shrink-0 w-4 text-right">{i + 1}.</span>
-                            <span className="text-[10px] text-white/60 leading-relaxed">{step}</span>
+                            <span className="text-[9px] font-mono text-foreground/25 shrink-0 w-4 text-right">{i + 1}.</span>
+                            <span className="text-[10px] text-muted-foreground leading-relaxed">{step}</span>
                           </div>
                         ))}
                       </div>
                       {recordingInfo.formats.length > 0 && (
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[8px] font-mono text-white/25 uppercase">Formats:</span>
+                          <span className="text-[8px] font-mono text-foreground/25 uppercase">Formats:</span>
                           {recordingInfo.formats.map((fmt) => (
                             <span key={fmt} className="text-[8px] font-mono text-amber-400/70 bg-amber-400/10 border border-amber-400/15 px-1.5 py-0.5 rounded">
                               {fmt}
@@ -476,8 +476,8 @@ export default function AudioPlayer() {
                         <ExternalLink className="w-9 h-9 text-primary" />
                       </div>
                       <div className="text-center">
-                        <p className="text-sm font-medium text-white/90">Open {effectiveType} Receiver</p>
-                        <p className="text-xs text-white/50 mt-1 max-w-xs">
+                        <p className="text-sm font-medium text-foreground/90">Open {effectiveType} Receiver</p>
+                        <p className="text-xs text-muted-foreground mt-1 max-w-xs">
                           This receiver runs on HTTP and opens in a new tab
                           for full waterfall and signal feed access.
                         </p>
@@ -488,7 +488,7 @@ export default function AudioPlayer() {
                         )}
                         <div className="mt-3 space-y-1">
                           {iframeConfig.tips.slice(0, 2).map((tip, i) => (
-                            <p key={i} className="text-[9px] text-white/30 font-mono">
+                            <p key={i} className="text-[9px] text-muted-foreground/50 font-mono">
                               {tip}
                             </p>
                           ))}
@@ -501,8 +501,8 @@ export default function AudioPlayer() {
                         <Radio className="w-8 h-8 text-green-400" />
                       </div>
                       <div className="text-center">
-                        <p className="text-sm font-medium text-white/90">Receiver Opened</p>
-                        <p className="text-xs text-white/50 mt-1 max-w-xs">
+                        <p className="text-sm font-medium text-foreground/90">Receiver Opened</p>
+                        <p className="text-xs text-muted-foreground mt-1 max-w-xs">
                           The {effectiveType} receiver is running in another tab.
                           Use Quick Tune above to re-open with a new frequency.
                         </p>
@@ -511,7 +511,7 @@ export default function AudioPlayer() {
                         href={embedUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 transition-all text-xs font-mono"
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-foreground/5 border border-border text-muted-foreground hover:bg-foreground/10 transition-all text-xs font-mono"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                         Open Again
@@ -527,7 +527,7 @@ export default function AudioPlayer() {
                   {/* Click-to-start overlay with type-specific messaging */}
                   {!iframeStarted && (
                     <div
-                      className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-10 cursor-pointer"
+                      className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm z-10 cursor-pointer"
                       style={{ top: "41px" }}
                       onClick={() => setIframeStarted(true)}
                     >
@@ -536,8 +536,8 @@ export default function AudioPlayer() {
                           <Play className="w-10 h-10 text-primary ml-1" />
                         </div>
                         <div className="text-center">
-                          <p className="text-sm font-medium text-white/90">{startMessage.title}</p>
-                          <p className="text-xs text-white/50 mt-1 max-w-xs">
+                          <p className="text-sm font-medium text-foreground/90">{startMessage.title}</p>
+                          <p className="text-xs text-muted-foreground mt-1 max-w-xs">
                             {startMessage.subtitle}
                           </p>
                           {tuneParams && (
@@ -548,7 +548,7 @@ export default function AudioPlayer() {
                           {/* Type-specific tips */}
                           <div className="mt-3 space-y-1">
                             {iframeConfig.tips.slice(0, 2).map((tip, i) => (
-                              <p key={i} className="text-[9px] text-white/30 font-mono">
+                              <p key={i} className="text-[9px] text-muted-foreground/50 font-mono">
                                 {tip}
                               </p>
                             ))}
@@ -561,7 +561,7 @@ export default function AudioPlayer() {
                   {/* Iframe load failure fallback */}
                   {iframeStarted && iframeLoadFailed && (
                     <div
-                      className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm z-10"
+                      className="absolute inset-0 flex flex-col items-center justify-center bg-background/90 backdrop-blur-sm z-10"
                       style={{ top: "41px" }}
                     >
                       <div className="flex flex-col items-center gap-4 max-w-sm px-6">
@@ -569,8 +569,8 @@ export default function AudioPlayer() {
                           <AlertTriangle className="w-8 h-8 text-red-400" />
                         </div>
                         <div className="text-center">
-                          <p className="text-sm font-medium text-white/90">Receiver Embed Blocked</p>
-                          <p className="text-xs text-white/50 mt-2 leading-relaxed">
+                          <p className="text-sm font-medium text-foreground/90">Receiver Embed Blocked</p>
+                          <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                             This receiver may block iframe embedding (X-Frame-Options),
                             or may be temporarily offline. Open it directly for full access
                             to the waterfall and signal display.
@@ -588,7 +588,7 @@ export default function AudioPlayer() {
                           </a>
                           <button
                             onClick={() => { setIframeLoadFailed(false); setIframeKey((k) => k + 1); }}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 transition-all text-sm"
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-foreground/5 border border-border text-muted-foreground hover:bg-foreground/10 transition-all text-sm"
                           >
                             <RefreshCw className="w-3.5 h-3.5" />
                             Retry
@@ -623,9 +623,9 @@ export default function AudioPlayer() {
                           transition={{ delay: 8, duration: 1.5 }}
                           className="absolute bottom-2 left-2 right-2 z-10 pointer-events-none"
                         >
-                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-black/70 backdrop-blur-sm border border-white/10">
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-background/90 backdrop-blur-sm border border-border">
                             <Info className="w-3.5 h-3.5 text-cyan-400/70 shrink-0" />
-                            <p className="text-[10px] font-mono text-white/60">
+                            <p className="text-[10px] font-mono text-muted-foreground">
                               {effectiveType === "KiwiSDR"
                                 ? "If you see a black screen, click inside the waterfall area to activate. Call sign was auto-filled."
                                 : effectiveType === "OpenWebRX"
@@ -706,7 +706,7 @@ export default function AudioPlayer() {
               className={`p-2.5 rounded-xl transition-all duration-200 ${
                 showQuickTune
                   ? "bg-cyan-400/20 text-cyan-400 glow-coral"
-                  : "bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                  : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
               }`}
               title="Quick Tune"
             >
@@ -725,7 +725,7 @@ export default function AudioPlayer() {
               className={`p-2.5 rounded-xl transition-all duration-200 ${
                 showEmbed
                   ? "bg-primary/20 text-primary glow-coral"
-                  : "bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                  : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
               }`}
               title="Embed receiver"
             >
@@ -737,7 +737,7 @@ export default function AudioPlayer() {
               href={embedUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-2.5 rounded-xl bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground transition-all duration-200"
+              className="p-2.5 rounded-xl bg-foreground/5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground transition-all duration-200"
               title="Open in new tab"
             >
               <ExternalLink className="w-5 h-5" />
@@ -753,7 +753,7 @@ export default function AudioPlayer() {
                 setShowRecording(false);
                 setTuneParams(null);
               }}
-              className="p-2.5 rounded-xl bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground transition-all duration-200"
+              className="p-2.5 rounded-xl bg-foreground/5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground transition-all duration-200"
               title="Close"
             >
               <X className="w-5 h-5" />

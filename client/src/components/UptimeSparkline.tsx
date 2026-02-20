@@ -79,7 +79,7 @@ export default function UptimeSparkline({
   if (isLoading) {
     return (
       <div className={`${compact ? "h-3" : "h-8"} flex items-center`}>
-        <div className="w-full h-2 bg-white/5 rounded-full animate-pulse" />
+        <div className="w-full h-2 bg-foreground/5 rounded-full animate-pulse" />
       </div>
     );
   }

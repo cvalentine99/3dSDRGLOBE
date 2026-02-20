@@ -39,7 +39,7 @@ export default function ShortcutHelpOverlay({ isOpen, onClose, shortcuts }: Shor
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[100] bg-background/80 backdrop-blur-sm"
             onClick={onClose}
           />
 
@@ -68,7 +68,7 @@ export default function ShortcutHelpOverlay({ isOpen, onClose, shortcuts }: Shor
                 </div>
                 <button
                   onClick={onClose}
-                  className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+                  className="w-8 h-8 rounded-lg bg-foreground/5 border border-border flex items-center justify-center hover:bg-foreground/10 transition-colors"
                   aria-label="Close shortcuts help"
                 >
                   <X className="w-4 h-4 text-muted-foreground" />
@@ -86,10 +86,10 @@ export default function ShortcutHelpOverlay({ isOpen, onClose, shortcuts }: Shor
                       {group.items.map((shortcut) => (
                         <div
                           key={shortcut.key}
-                          className="flex items-center justify-between py-1.5 px-3 rounded-lg hover:bg-white/5 transition-colors"
+                          className="flex items-center justify-between py-1.5 px-3 rounded-lg hover:bg-foreground/5 transition-colors"
                         >
                           <span className="text-sm text-foreground/80">{shortcut.description}</span>
-                          <kbd className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-md bg-white/10 border border-white/15 text-xs font-mono font-medium text-foreground/90 shadow-sm">
+                          <kbd className="inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-md bg-foreground/10 border border-border text-xs font-mono font-medium text-foreground/90 shadow-sm">
                             {shortcut.label}
                           </kbd>
                         </div>
@@ -100,7 +100,7 @@ export default function ShortcutHelpOverlay({ isOpen, onClose, shortcuts }: Shor
               </div>
 
               {/* Footer note */}
-              <div className="mt-5 pt-4 border-t border-white/10">
+              <div className="mt-5 pt-4 border-t border-border">
                 <p className="text-[11px] text-muted-foreground text-center font-mono">
                   Shortcuts are disabled when typing in input fields
                 </p>

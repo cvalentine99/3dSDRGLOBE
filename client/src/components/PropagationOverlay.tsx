@@ -76,27 +76,27 @@ export default function PropagationOverlay({ onIonosondesLoaded, visible }: Prop
       className="fixed left-4 bottom-20 z-30 w-80 max-h-[70vh] overflow-y-auto scrollbar-thin"
       style={{ pointerEvents: 'auto' }}
     >
-      <div className="glass-panel rounded-xl overflow-hidden border border-white/10">
+      <div className="glass-panel rounded-xl overflow-hidden border border-border">
         {/* Header */}
         <div
-          className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-white/5 transition-colors"
+          className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-foreground/5 transition-colors"
           onClick={() => setExpanded(!expanded)}
         >
           <div className="flex items-center gap-2">
             <Activity className="w-4 h-4 text-cyan-400" />
-            <span className="text-sm font-semibold text-white">HF Propagation</span>
+            <span className="text-sm font-semibold text-foreground">HF Propagation</span>
             {loading && <RefreshCw className="w-3 h-3 text-cyan-400 animate-spin" />}
           </div>
           <div className="flex items-center gap-2">
             {data && (
-              <span className="text-[10px] text-white/40">
+              <span className="text-[10px] text-muted-foreground/70">
                 {recentStations.length} ionosondes
               </span>
             )}
             {expanded ? (
-              <ChevronDown className="w-4 h-4 text-white/50" />
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
             ) : (
-              <ChevronUp className="w-4 h-4 text-white/50" />
+              <ChevronUp className="w-4 h-4 text-muted-foreground" />
             )}
           </div>
         </div>
@@ -110,13 +110,13 @@ export default function PropagationOverlay({ onIonosondesLoaded, visible }: Prop
               className="overflow-hidden"
             >
               {/* Mode Toggle */}
-              <div className="px-3 py-1.5 flex items-center gap-1.5 border-t border-white/5">
+              <div className="px-3 py-1.5 flex items-center gap-1.5 border-t border-border">
                 <button
                   onClick={() => setMode('muf')}
                   className={`flex-1 text-xs py-1 rounded-md transition-colors font-medium ${
                     mode === 'muf'
                       ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                      : 'text-white/50 hover:text-white/70 border border-transparent'
+                      : 'text-muted-foreground hover:text-foreground/70 border border-transparent'
                   }`}
                 >
                   MUF (3000km)
@@ -126,14 +126,14 @@ export default function PropagationOverlay({ onIonosondesLoaded, visible }: Prop
                   className={`flex-1 text-xs py-1 rounded-md transition-colors font-medium ${
                     mode === 'fof2'
                       ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                      : 'text-white/50 hover:text-white/70 border border-transparent'
+                      : 'text-muted-foreground hover:text-foreground/70 border border-transparent'
                   }`}
                 >
                   foF2 (Critical)
                 </button>
                 <button
                   onClick={() => loadData(true)}
-                  className="p-1 text-white/40 hover:text-cyan-400 transition-colors"
+                  className="p-1 text-muted-foreground/70 hover:text-cyan-400 transition-colors"
                   title="Refresh data"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -141,7 +141,7 @@ export default function PropagationOverlay({ onIonosondesLoaded, visible }: Prop
               </div>
 
               {/* Color Scale Legend */}
-              <div className="px-3 py-1.5 border-t border-white/5">
+              <div className="px-3 py-1.5 border-t border-border">
                 <div className="flex items-center gap-0.5 h-3 rounded-full overflow-hidden">
                   {colorScale.map((c, i) => (
                     <div
@@ -153,11 +153,11 @@ export default function PropagationOverlay({ onIonosondesLoaded, visible }: Prop
                   ))}
                 </div>
                 <div className="flex justify-between mt-0.5">
-                  <span className="text-[9px] text-white/40">{colorScale[0].label}</span>
-                  <span className="text-[9px] text-white/40">
+                  <span className="text-[9px] text-muted-foreground/70">{colorScale[0].label}</span>
+                  <span className="text-[9px] text-muted-foreground/70">
                     {mode === 'muf' ? 'MUF MHz' : 'foF2 MHz'}
                   </span>
-                  <span className="text-[9px] text-white/40">
+                  <span className="text-[9px] text-muted-foreground/70">
                     {colorScale[colorScale.length - 1].label}
                   </span>
                 </div>
@@ -168,20 +168,20 @@ export default function PropagationOverlay({ onIonosondesLoaded, visible }: Prop
                 <>
                   <button
                     onClick={() => setShowSolar(!showSolar)}
-                    className="w-full px-3 py-1.5 flex items-center justify-between border-t border-white/5 hover:bg-white/5 transition-colors"
+                    className="w-full px-3 py-1.5 flex items-center justify-between border-t border-border hover:bg-foreground/5 transition-colors"
                   >
                     <div className="flex items-center gap-2">
                       <Sun className="w-3.5 h-3.5 text-amber-400" />
-                      <span className="text-xs text-white/80">Solar Conditions</span>
+                      <span className="text-xs text-foreground/80">Solar Conditions</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-white/40">
+                      <span className="text-[10px] text-muted-foreground/70">
                         SFI {solar.solarFlux} | K{solar.kIndex}
                       </span>
                       {showSolar ? (
-                        <ChevronUp className="w-3 h-3 text-white/40" />
+                        <ChevronUp className="w-3 h-3 text-muted-foreground/70" />
                       ) : (
-                        <ChevronDown className="w-3 h-3 text-white/40" />
+                        <ChevronDown className="w-3 h-3 text-muted-foreground/70" />
                       )}
                     </div>
                   </button>
@@ -194,7 +194,7 @@ export default function PropagationOverlay({ onIonosondesLoaded, visible }: Prop
                         exit={{ height: 0 }}
                         className="overflow-hidden"
                       >
-                        <div className="px-3 py-2 space-y-2 border-t border-white/5 bg-white/[0.02]">
+                        <div className="px-3 py-2 space-y-2 border-t border-border bg-foreground/20">
                           {/* Solar indices */}
                           <div className="grid grid-cols-4 gap-1.5">
                             <SolarStat
@@ -225,37 +225,37 @@ export default function PropagationOverlay({ onIonosondesLoaded, visible }: Prop
 
                           {/* Extra info row */}
                           <div className="flex items-center justify-between text-[10px]">
-                            <span className="text-white/40">
-                              Sunspots: <span className="text-white/70">{solar.sunspots}</span>
+                            <span className="text-muted-foreground/70">
+                              Sunspots: <span className="text-foreground/70">{solar.sunspots}</span>
                             </span>
-                            <span className="text-white/40">
-                              X-ray: <span className="text-white/70">{solar.xray}</span>
+                            <span className="text-muted-foreground/70">
+                              X-ray: <span className="text-foreground/70">{solar.xray}</span>
                             </span>
-                            <span className="text-white/40">
-                              Bz: <span className="text-white/70">{solar.magneticField}</span>
+                            <span className="text-muted-foreground/70">
+                              Bz: <span className="text-foreground/70">{solar.magneticField}</span>
                             </span>
                           </div>
 
                           {/* Geomag + Noise */}
                           <div className="flex items-center justify-between text-[10px]">
-                            <span className="text-white/40">
+                            <span className="text-muted-foreground/70">
                               Geomag: <span className="text-emerald-400">{solar.geomagField}</span>
                             </span>
-                            <span className="text-white/40">
-                              Noise: <span className="text-white/70">{solar.signalNoise}</span>
+                            <span className="text-muted-foreground/70">
+                              Noise: <span className="text-foreground/70">{solar.signalNoise}</span>
                             </span>
                           </div>
 
                           {/* Band Conditions */}
                           <div className="space-y-0.5">
-                            <div className="flex items-center gap-1 text-[10px] text-white/50 font-medium">
+                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium">
                               <Radio className="w-3 h-3" />
                               <span>HF Band Conditions</span>
                             </div>
                             <div className="grid grid-cols-3 gap-x-2 text-[10px]">
-                              <span className="text-white/30 font-medium">Band</span>
-                              <span className="text-white/30 font-medium text-center">Day</span>
-                              <span className="text-white/30 font-medium text-center">Night</span>
+                              <span className="text-muted-foreground/50 font-medium">Band</span>
+                              <span className="text-muted-foreground/50 font-medium text-center">Day</span>
+                              <span className="text-muted-foreground/50 font-medium text-center">Night</span>
                               {solar.bandConditions.map((bc, i) => (
                                 <BandRow key={i} band={bc.band} day={bc.day} night={bc.night} />
                               ))}
@@ -265,10 +265,10 @@ export default function PropagationOverlay({ onIonosondesLoaded, visible }: Prop
                           {/* VHF Conditions */}
                           {solar.vhfConditions.length > 0 && (
                             <div className="space-y-0.5">
-                              <span className="text-[10px] text-white/50 font-medium">VHF Conditions</span>
+                              <span className="text-[10px] text-muted-foreground font-medium">VHF Conditions</span>
                               {solar.vhfConditions.map((v, i) => (
                                 <div key={i} className="flex justify-between text-[10px]">
-                                  <span className="text-white/40">
+                                  <span className="text-muted-foreground/70">
                                     {v.name} ({v.location})
                                   </span>
                                   <span
@@ -287,7 +287,7 @@ export default function PropagationOverlay({ onIonosondesLoaded, visible }: Prop
                             </div>
                           )}
 
-                          <div className="text-[9px] text-white/25 text-right">
+                          <div className="text-[9px] text-muted-foreground/50 text-right">
                             Updated: {solar.updated}
                           </div>
                         </div>
@@ -300,20 +300,20 @@ export default function PropagationOverlay({ onIonosondesLoaded, visible }: Prop
               {/* Ionosonde Station List Toggle */}
               <button
                 onClick={() => setShowStations(!showStations)}
-                className="w-full px-3 py-1.5 flex items-center justify-between border-t border-white/5 hover:bg-white/5 transition-colors"
+                className="w-full px-3 py-1.5 flex items-center justify-between border-t border-border hover:bg-foreground/5 transition-colors"
               >
                 <div className="flex items-center gap-2">
                   <Info className="w-3.5 h-3.5 text-cyan-400" />
-                  <span className="text-xs text-white/80">Ionosonde Stations</span>
+                  <span className="text-xs text-foreground/80">Ionosonde Stations</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-white/40">
+                  <span className="text-[10px] text-muted-foreground/70">
                     {recentStations.length} active / {allStations.length} total
                   </span>
                   {showStations ? (
-                    <ChevronUp className="w-3 h-3 text-white/40" />
+                    <ChevronUp className="w-3 h-3 text-muted-foreground/70" />
                   ) : (
-                    <ChevronDown className="w-3 h-3 text-white/40" />
+                    <ChevronDown className="w-3 h-3 text-muted-foreground/70" />
                   )}
                 </div>
               </button>
@@ -326,7 +326,7 @@ export default function PropagationOverlay({ onIonosondesLoaded, visible }: Prop
                     exit={{ height: 0 }}
                     className="overflow-hidden"
                   >
-                    <div className="max-h-48 overflow-y-auto border-t border-white/5">
+                    <div className="max-h-48 overflow-y-auto border-t border-border">
                       {allStations
                         .sort((a, b) => a.ageMinutes - b.ageMinutes)
                         .map((s) => {
@@ -340,7 +340,7 @@ export default function PropagationOverlay({ onIonosondesLoaded, visible }: Prop
                           return (
                             <div
                               key={s.id}
-                              className={`px-3 py-1 flex items-center justify-between border-b border-white/5 ${
+                              className={`px-3 py-1 flex items-center justify-between border-b border-border ${
                                 stale ? 'opacity-40' : ''
                               }`}
                             >
@@ -349,7 +349,7 @@ export default function PropagationOverlay({ onIonosondesLoaded, visible }: Prop
                                   className="w-2 h-2 rounded-full shrink-0"
                                   style={{ backgroundColor: color }}
                                 />
-                                <span className="text-[10px] text-white/70 truncate">
+                                <span className="text-[10px] text-foreground/70 truncate">
                                   {s.name}
                                 </span>
                               </div>
@@ -360,7 +360,7 @@ export default function PropagationOverlay({ onIonosondesLoaded, visible }: Prop
                                 >
                                   {val ? val.toFixed(1) : '—'}
                                 </span>
-                                <span className="text-[9px] text-white/30">
+                                <span className="text-[9px] text-muted-foreground/50">
                                   {s.ageMinutes < 60
                                     ? `${s.ageMinutes}m`
                                     : `${Math.round(s.ageMinutes / 60)}h`}
@@ -375,7 +375,7 @@ export default function PropagationOverlay({ onIonosondesLoaded, visible }: Prop
               </AnimatePresence>
 
               {/* Data source attribution */}
-              <div className="px-3 py-1 border-t border-white/5 text-[9px] text-white/25 flex justify-between">
+              <div className="px-3 py-1 border-t border-border text-[9px] text-muted-foreground/50 flex justify-between">
                 <span>Data: KC2G / GIRO / HamQSL</span>
                 {data && (
                   <span>
@@ -406,14 +406,14 @@ function SolarStat({
   color: string;
 }) {
   return (
-    <div className="flex flex-col items-center gap-0.5 py-1 rounded-md bg-white/[0.03] border border-white/5">
+    <div className="flex flex-col items-center gap-0.5 py-1 rounded-md bg-foreground/[0.03] border border-border">
       <div style={{ color }} className="opacity-80">
         {icon}
       </div>
       <span className="text-[10px] font-mono font-bold" style={{ color }}>
         {value}
       </span>
-      <span className="text-[8px] text-white/30">{label}</span>
+      <span className="text-[8px] text-muted-foreground/50">{label}</span>
     </div>
   );
 }
@@ -421,7 +421,7 @@ function SolarStat({
 function BandRow({ band, day, night }: { band: string; day: string; night: string }) {
   return (
     <>
-      <span className="text-white/60">{band}</span>
+      <span className="text-muted-foreground">{band}</span>
       <span className="text-center font-medium" style={{ color: getBandConditionColor(day) }}>
         {day || '—'}
       </span>

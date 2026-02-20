@@ -1131,15 +1131,15 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
   if (webglError) {
     return (
       <div className="absolute inset-0 w-full h-full z-[5] flex items-center justify-center bg-background">
-        <div className="max-w-md text-center px-6 py-8 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
+        <div className="max-w-md text-center px-6 py-8 rounded-2xl bg-foreground/5 border border-border backdrop-blur-sm">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/15 border border-amber-500/25 flex items-center justify-center">
             <svg className="w-8 h-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
             </svg>
           </div>
-          <h2 className="text-lg font-semibold text-white/90 mb-2">3D Globe Unavailable</h2>
-          <p className="text-sm text-white/50 mb-4">{webglError}</p>
-          <p className="text-xs text-white/30">Use the search panel on the left or the station list to browse receivers.</p>
+          <h2 className="text-lg font-semibold text-foreground/90 mb-2">3D Globe Unavailable</h2>
+          <p className="text-sm text-muted-foreground mb-4">{webglError}</p>
+          <p className="text-xs text-muted-foreground/50">Use the search panel on the left or the station list to browse receivers.</p>
           <button
             onClick={() => { setWebglError(null); }}
             className="mt-4 px-4 py-2 text-xs font-medium text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 rounded-lg hover:bg-cyan-500/20 transition-colors"

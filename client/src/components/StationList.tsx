@@ -196,7 +196,7 @@ export default function StationList() {
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 1.2, duration: 0.4 }}
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed right-0 top-1/2 -translate-y-1/2 z-30 glass-panel rounded-l-xl px-2 py-4 transition-all duration-300 hover:bg-white/10 ${
+        className={`fixed right-0 top-1/2 -translate-y-1/2 z-30 glass-panel rounded-l-xl px-2 py-4 transition-all duration-300 hover:bg-foreground/10 ${
           isOpen ? "opacity-0 pointer-events-none" : "opacity-100"
         }`}
         title="Open station list"
@@ -221,13 +221,13 @@ export default function StationList() {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 360, opacity: 0 }}
             transition={{ type: "spring", damping: 28, stiffness: 220 }}
-            className="fixed right-0 top-0 bottom-0 w-[340px] z-30 glass-panel border-l border-white/5 flex flex-col"
+            className="fixed right-0 top-0 bottom-0 w-[340px] z-30 glass-panel border-l border-border flex flex-col"
           >
             {/* Header */}
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5 shrink-0">
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0">
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                className="p-1.5 rounded-lg hover:bg-foreground/10 transition-colors"
               >
                 <ChevronRight className="w-4 h-4 text-muted-foreground" />
               </button>
@@ -241,7 +241,7 @@ export default function StationList() {
             </div>
 
             {/* Sort & Favorites controls */}
-            <div className="px-4 py-2 border-b border-white/5 shrink-0 space-y-2">
+            <div className="px-4 py-2 border-b border-border shrink-0 space-y-2">
               {/* Sort row */}
               <div className="flex items-center gap-1.5 flex-wrap">
                 <ArrowUpDown className="w-3 h-3 text-muted-foreground/50 shrink-0" />
@@ -257,8 +257,8 @@ export default function StationList() {
                       title={`Sort by ${opt.label}`}
                       className={`text-[10px] font-medium px-2 py-1 rounded-lg border transition-all duration-200 flex items-center gap-1 ${
                         isActive
-                          ? "bg-white/10 border-white/20 text-foreground"
-                          : "bg-transparent border-white/5 text-muted-foreground/70 hover:border-white/10 hover:text-foreground"
+                          ? "bg-foreground/10 border-border text-foreground"
+                          : "bg-transparent border-border text-muted-foreground/70 hover:border-border hover:text-foreground"
                       }`}
                     >
                       <span>{opt.shortLabel}</span>
@@ -283,7 +283,7 @@ export default function StationList() {
                   className={`text-[10px] font-medium px-2.5 py-1 rounded-lg border transition-all duration-200 flex items-center gap-1.5 ${
                     showFavoritesOnly
                       ? "bg-yellow-400/10 border-yellow-400/25 text-yellow-400"
-                      : "bg-transparent border-white/5 text-muted-foreground/60 hover:border-white/10 hover:text-yellow-400/70"
+                      : "bg-transparent border-border text-muted-foreground/60 hover:border-border hover:text-yellow-400/70"
                   }`}
                 >
                   <Star className={`w-3 h-3 ${showFavoritesOnly ? "fill-yellow-400" : ""}`} />
@@ -339,9 +339,9 @@ export default function StationList() {
                     return (
                       <div
                         key={`${station.label}-${station.location.coordinates[0]}-${actualIndex}`}
-                        className={`absolute left-0 right-0 w-full text-left px-4 py-2 transition-all duration-150 border-b border-white/3 hover:bg-white/5 flex items-start gap-2 ${
+                        className={`absolute left-0 right-0 w-full text-left px-4 py-2 transition-all duration-150 border-b border-border/80 hover:bg-foreground/5 flex items-start gap-2 ${
                           isSelected
-                            ? "bg-white/8 border-l-2 border-l-primary"
+                            ? "bg-foreground/10 border-l-2 border-l-primary"
                             : ""
                         }`}
                         style={{
@@ -397,7 +397,7 @@ export default function StationList() {
                                 .map((type) => (
                                   <span
                                     key={type}
-                                    className="text-[8px] font-mono text-muted-foreground/60 bg-white/5 px-1 py-0.5 rounded"
+                                    className="text-[8px] font-mono text-muted-foreground/60 bg-foreground/5 px-1 py-0.5 rounded"
                                   >
                                     {type}
                                   </span>
@@ -427,7 +427,7 @@ export default function StationList() {
             </div>
 
             {/* Footer */}
-            <div className="px-4 py-2 border-t border-white/5 shrink-0">
+            <div className="px-4 py-2 border-t border-border shrink-0">
               <p className="text-[9px] font-mono text-muted-foreground/40 text-center">
                 {favoriteCount > 0
                   ? `${favoriteCount} favorite${favoriteCount !== 1 ? "s" : ""} saved • `

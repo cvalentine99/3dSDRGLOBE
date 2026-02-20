@@ -127,7 +127,7 @@ export default function RecordingPlayback({
     <div className="space-y-2">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h4 className="text-[10px] font-mono text-white/40 uppercase tracking-wider flex items-center gap-1.5">
+        <h4 className="text-[10px] font-mono text-muted-foreground/70 uppercase tracking-wider flex items-center gap-1.5">
           <Mic className="w-3 h-3" />
           Audio Recordings
         </h4>
@@ -155,13 +155,13 @@ export default function RecordingPlayback({
       {/* Recording List */}
       {recordingsQuery.isLoading ? (
         <div className="flex items-center gap-2 py-3">
-          <Loader2 className="w-3.5 h-3.5 text-white/30 animate-spin" />
-          <span className="text-[10px] text-white/30">Loading recordings...</span>
+          <Loader2 className="w-3.5 h-3.5 text-muted-foreground/50 animate-spin" />
+          <span className="text-[10px] text-muted-foreground/50">Loading recordings...</span>
         </div>
       ) : !hasRecordings ? (
-        <div className="rounded-md bg-white/[0.02] border border-dashed border-white/10 p-4 text-center">
-          <Mic className="w-5 h-5 text-white/10 mx-auto mb-1.5" />
-          <p className="text-[10px] text-white/25">
+        <div className="rounded-md bg-background/5 border border-dashed border-border p-4 text-center">
+          <Mic className="w-5 h-5 text-muted-foreground/30 mx-auto mb-1.5" />
+          <p className="text-[10px] text-muted-foreground/40">
             No recordings yet. Click Record to capture audio from each host.
           </p>
         </div>
@@ -184,7 +184,7 @@ export default function RecordingPlayback({
                     ? "bg-rose-500/10 border-rose-500/25"
                     : isError
                     ? "bg-red-500/5 border-red-500/15"
-                    : "bg-white/[0.03] border-white/5 hover:bg-white/[0.05]"
+                    : "bg-background/10 border-border hover:bg-background/15"
                 }`}
               >
                 {/* Play/Status button */}
@@ -195,10 +195,10 @@ export default function RecordingPlayback({
                     isPlaying
                       ? "bg-rose-500/30 text-rose-300"
                       : isReady
-                      ? "bg-white/10 text-white/60 hover:bg-white/15 hover:text-white/80"
+                      ? "bg-foreground/10 text-muted-foreground hover:bg-foreground/15 hover:text-foreground/80"
                       : isError
                       ? "bg-red-500/15 text-red-400"
-                      : "bg-white/5 text-white/20"
+                      : "bg-foreground/5 text-muted-foreground/30"
                   }`}
                 >
                   {isInProgress ? (
@@ -214,10 +214,10 @@ export default function RecordingPlayback({
 
                 {/* Host info */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-mono text-white/70 truncate">
+                  <p className="text-[11px] font-mono text-foreground/70 truncate">
                     {rec.hostId}
                   </p>
-                  <p className="text-[9px] font-mono text-white/30">
+                  <p className="text-[9px] font-mono text-muted-foreground/50">
                     {parseFloat(rec.frequencyKhz)} kHz · {rec.mode.toUpperCase()} · {rec.durationSec}s
                     {sizeKb > 0 && ` · ${sizeKb} KB`}
                   </p>
@@ -251,7 +251,7 @@ export default function RecordingPlayback({
                     className={`w-6 h-6 rounded flex items-center justify-center transition-colors flex-shrink-0 ${
                       spectrogramId === rec.id
                         ? "text-cyan-400 bg-cyan-500/15"
-                        : "text-white/20 hover:text-white/50"
+                        : "text-muted-foreground/30 hover:text-muted-foreground"
                     }`}
                     title="Toggle spectrogram"
                   >
@@ -263,7 +263,7 @@ export default function RecordingPlayback({
                 {isReady && (
                   <button
                     onClick={() => setFingerprintRecording(rec)}
-                    className="w-6 h-6 rounded flex items-center justify-center text-white/20 hover:text-purple-400 transition-colors flex-shrink-0"
+                    className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground/30 hover:text-purple-400 transition-colors flex-shrink-0"
                     title="Signal fingerprint"
                   >
                     <Fingerprint className="w-3 h-3" />
@@ -275,7 +275,7 @@ export default function RecordingPlayback({
                   <a
                     href={rec.fileUrl}
                     download
-                    className="w-6 h-6 rounded flex items-center justify-center text-white/20 hover:text-white/50 transition-colors flex-shrink-0"
+                    className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground/30 hover:text-muted-foreground transition-colors flex-shrink-0"
                     title="Download WAV"
                   >
                     <Download className="w-3 h-3" />

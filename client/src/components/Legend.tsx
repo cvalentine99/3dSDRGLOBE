@@ -23,7 +23,7 @@ export default function Legend() {
           {LEGEND_ITEMS.map((item) => (
             <div key={item.type} className="flex items-center gap-1.5">
               <div className={`w-2 h-2 rounded-full ${item.color} shadow-sm ${item.glow}`} />
-              <span className="text-[10px] font-mono text-white/80">
+              <span className="text-[10px] font-mono text-foreground/80">
                 {item.type}
               </span>
             </div>

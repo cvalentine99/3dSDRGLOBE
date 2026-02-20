@@ -78,7 +78,7 @@ function ShareButton({ jobId }: { jobId: number }) {
   return (
     <button
       onClick={handleCopy}
-      className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md bg-white/5 border border-white/10 text-white/40 text-[10px] hover:bg-violet-500/15 hover:border-violet-500/20 hover:text-violet-300 transition-colors"
+      className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md bg-foreground/5 border border-border text-muted-foreground/70 text-[10px] hover:bg-violet-500/15 hover:border-violet-500/20 hover:text-violet-300 transition-colors"
       title="Copy shareable link"
     >
       {copied ? <Check className="w-3 h-3 text-green-400" /> : <Link2 className="w-3 h-3" />}
@@ -179,28 +179,28 @@ export default function TDoAHistory({ isOpen, onReplay }: TDoAHistoryProps) {
     <div className="space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-white/80 uppercase tracking-wider flex items-center gap-1.5">
+        <h3 className="text-xs font-semibold text-foreground/80 uppercase tracking-wider flex items-center gap-1.5">
           <History className="w-3.5 h-3.5 text-violet-400" />
           Job History ({jobs.length})
         </h3>
         {historyQuery.isRefetching && (
-          <Loader2 className="w-3 h-3 text-white/30 animate-spin" />
+          <Loader2 className="w-3 h-3 text-muted-foreground/50 animate-spin" />
         )}
       </div>
 
       {/* Loading state */}
       {historyQuery.isLoading && (
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-5 h-5 text-white/30 animate-spin" />
+          <Loader2 className="w-5 h-5 text-muted-foreground/50 animate-spin" />
         </div>
       )}
 
       {/* Empty state */}
       {!historyQuery.isLoading && jobs.length === 0 && (
-        <div className="rounded-lg bg-white/5 border border-dashed border-white/10 p-6 text-center">
-          <History className="w-6 h-6 text-white/15 mx-auto mb-2" />
-          <p className="text-[11px] text-white/40">No TDoA jobs recorded yet</p>
-          <p className="text-[10px] text-white/25 mt-1">
+        <div className="rounded-lg bg-foreground/5 border border-dashed border-border p-6 text-center">
+          <History className="w-6 h-6 text-muted-foreground/20 mx-auto mb-2" />
+          <p className="text-[11px] text-muted-foreground/70">No TDoA jobs recorded yet</p>
+          <p className="text-[10px] text-muted-foreground/40 mt-1">
             Submit a triangulation job to see it here
           </p>
         </div>
@@ -223,12 +223,12 @@ export default function TDoAHistory({ isOpen, onReplay }: TDoAHistoryProps) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
-                className="rounded-lg bg-white/[0.03] border border-white/8 overflow-hidden"
+                className="rounded-lg bg-foreground/[0.03] border border-border/80 overflow-hidden"
               >
                 {/* Job summary row */}
                 <button
                   onClick={() => setExpandedId(isExpanded ? null : job.id)}
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-white/5 transition-colors"
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-foreground/5 transition-colors"
                 >
                   <StatusIcon
                     className={`w-3.5 h-3.5 shrink-0 ${statusCfg.color} ${
@@ -239,21 +239,21 @@ export default function TDoAHistory({ isOpen, onReplay }: TDoAHistoryProps) {
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-mono font-medium text-white/85">
+                      <span className="text-[11px] font-mono font-medium text-foreground/85">
                         {formatFrequency(job.frequencyKhz)}
                       </span>
-                      <span className="text-[9px] text-white/30">·</span>
-                      <span className="text-[9px] text-white/40">
+                      <span className="text-[9px] text-muted-foreground/50">·</span>
+                      <span className="text-[9px] text-muted-foreground/70">
                         {hosts.length} hosts
                       </span>
-                      <span className="text-[9px] text-white/30">·</span>
-                      <span className="text-[9px] text-white/40">
+                      <span className="text-[9px] text-muted-foreground/50">·</span>
+                      <span className="text-[9px] text-muted-foreground/70">
                         {job.sampleTime}s
                       </span>
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <Clock className="w-2.5 h-2.5 text-white/25" />
-                      <span className="text-[9px] text-white/35">
+                      <Clock className="w-2.5 h-2.5 text-muted-foreground/40" />
+                      <span className="text-[9px] text-muted-foreground/55">
                         {formatTimestamp(job.createdAt)}
                       </span>
                       {hasResult && (
@@ -268,9 +268,9 @@ export default function TDoAHistory({ isOpen, onReplay }: TDoAHistoryProps) {
                     </div>
                   </div>
                   {isExpanded ? (
-                    <ChevronUp className="w-3.5 h-3.5 text-white/30 shrink-0" />
+                    <ChevronUp className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
                   ) : (
-                    <ChevronDown className="w-3.5 h-3.5 text-white/30 shrink-0" />
+                    <ChevronDown className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
                   )}
                 </button>
 
@@ -284,10 +284,10 @@ export default function TDoAHistory({ isOpen, onReplay }: TDoAHistoryProps) {
                       transition={{ duration: 0.2 }}
                       className="overflow-hidden"
                     >
-                      <div className="px-3 pb-3 pt-1 border-t border-white/5 space-y-2.5">
+                      <div className="px-3 pb-3 pt-1 border-t border-border/50 space-y-2.5">
                         {/* Hosts list */}
                         <div>
-                          <p className="text-[9px] text-white/40 uppercase tracking-wider mb-1">
+                          <p className="text-[9px] text-muted-foreground/70 uppercase tracking-wider mb-1">
                             Receivers
                           </p>
                           <div className="space-y-0.5">
@@ -297,10 +297,10 @@ export default function TDoAHistory({ isOpen, onReplay }: TDoAHistoryProps) {
                                 className="flex items-center gap-1.5 text-[9px]"
                               >
                                 <Radio className="w-2.5 h-2.5 text-violet-400/50" />
-                                <span className="font-mono text-white/50 truncate">
+                                <span className="font-mono text-muted-foreground truncate">
                                   {h.h || h.id}
                                 </span>
-                                <span className="text-white/25 ml-auto">
+                                <span className="text-muted-foreground/40 ml-auto">
                                   {h.lat?.toFixed(1)}°, {h.lon?.toFixed(1)}°
                                 </span>
                               </div>
@@ -311,10 +311,10 @@ export default function TDoAHistory({ isOpen, onReplay }: TDoAHistoryProps) {
                         {/* Known location */}
                         {job.knownLocation && (
                           <div>
-                            <p className="text-[9px] text-white/40 uppercase tracking-wider mb-1">
+                            <p className="text-[9px] text-muted-foreground/70 uppercase tracking-wider mb-1">
                               Known Location
                             </p>
-                            <p className="text-[10px] font-mono text-white/50">
+                            <p className="text-[10px] font-mono text-muted-foreground">
                               {(job.knownLocation as any).name} ({(job.knownLocation as any).lat?.toFixed(2)}°,{" "}
                               {(job.knownLocation as any).lon?.toFixed(2)}°)
                             </p>
@@ -329,14 +329,14 @@ export default function TDoAHistory({ isOpen, onReplay }: TDoAHistoryProps) {
                             </p>
                             <div className="flex items-center gap-3">
                               <div>
-                                <p className="text-[9px] text-white/35">Lat</p>
-                                <p className="text-[11px] font-mono text-white/80">
+                                <p className="text-[9px] text-muted-foreground/55">Lat</p>
+                                <p className="text-[11px] font-mono text-foreground/80">
                                   {parseFloat(job.likelyLat!).toFixed(4)}°
                                 </p>
                               </div>
                               <div>
-                                <p className="text-[9px] text-white/35">Lon</p>
-                                <p className="text-[11px] font-mono text-white/80">
+                                <p className="text-[9px] text-muted-foreground/55">Lon</p>
+                                <p className="text-[11px] font-mono text-foreground/80">
                                   {parseFloat(job.likelyLon!).toFixed(4)}°
                                 </p>
                               </div>
@@ -364,7 +364,7 @@ export default function TDoAHistory({ isOpen, onReplay }: TDoAHistoryProps) {
                             <p className="text-[9px] text-red-400/70 uppercase tracking-wider mb-0.5">
                               Error
                             </p>
-                            <p className="text-[10px] text-white/50 break-words">
+                            <p className="text-[10px] text-muted-foreground break-words">
                               {job.errorMessage}
                             </p>
                           </div>
@@ -385,7 +385,7 @@ export default function TDoAHistory({ isOpen, onReplay }: TDoAHistoryProps) {
                           <button
                             onClick={() => handleDelete(job.id)}
                             disabled={deleteMutation.isPending}
-                            className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md bg-white/5 border border-white/10 text-white/40 text-[10px] hover:bg-red-500/15 hover:border-red-500/20 hover:text-red-300 transition-colors"
+                            className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md bg-foreground/5 border border-border text-muted-foreground/70 text-[10px] hover:bg-red-500/15 hover:border-red-500/20 hover:text-red-300 transition-colors"
                           >
                             <Trash2 className="w-3 h-3" />
                             Delete

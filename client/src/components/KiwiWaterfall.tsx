@@ -119,13 +119,13 @@ export default function KiwiWaterfall({
           expanded
             ? "inset-4"
             : "bottom-4 right-4 w-[520px] h-[380px]"
-        } flex flex-col rounded-xl overflow-hidden border border-white/10 bg-black/90 backdrop-blur-xl shadow-2xl`}
+        } flex flex-col rounded-xl overflow-hidden border border-border bg-background/80 backdrop-blur-xl shadow-2xl`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2 bg-white/5 border-b border-white/10">
+        <div className="flex items-center justify-between px-3 py-2 bg-foreground/5 border-b border-border">
           <div className="flex items-center gap-2">
             <Radio className="w-3.5 h-3.5 text-green-400" />
-            <span className="text-[11px] font-medium text-white/80">
+            <span className="text-[11px] font-medium text-foreground/80">
               Live Waterfall
             </span>
             <span className="text-[9px] font-mono text-green-400/70 bg-green-500/10 px-1.5 py-0.5 rounded">
@@ -137,7 +137,7 @@ export default function KiwiWaterfall({
             {hosts.length > 1 && (
               <button
                 onClick={() => setShowHostPicker(!showHostPicker)}
-                className="flex items-center gap-1 px-2 py-0.5 rounded text-[9px] text-white/40 hover:text-white/60 hover:bg-white/5 transition-colors"
+                className="flex items-center gap-1 px-2 py-0.5 rounded text-[9px] text-muted-foreground/70 hover:text-muted-foreground hover:bg-foreground/5 transition-colors"
                 title="Switch receiver"
               >
                 <span className="font-mono truncate max-w-[100px]">
@@ -153,7 +153,7 @@ export default function KiwiWaterfall({
             {/* Mute toggle */}
             <button
               onClick={() => setMuted(!muted)}
-              className="p-1 rounded text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors"
+              className="p-1 rounded text-muted-foreground/50 hover:text-muted-foreground hover:bg-foreground/5 transition-colors"
               title={muted ? "Unmute audio" : "Mute audio"}
             >
               {muted ? (
@@ -165,7 +165,7 @@ export default function KiwiWaterfall({
             {/* Refresh */}
             <button
               onClick={handleRefresh}
-              className="p-1 rounded text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors"
+              className="p-1 rounded text-muted-foreground/50 hover:text-muted-foreground hover:bg-foreground/5 transition-colors"
               title="Reload receiver"
             >
               <RefreshCw className="w-3.5 h-3.5" />
@@ -176,7 +176,7 @@ export default function KiwiWaterfall({
                 href={directUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-1 rounded text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors"
+                className="p-1 rounded text-muted-foreground/50 hover:text-muted-foreground hover:bg-foreground/5 transition-colors"
                 title="Open receiver in new tab"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -185,7 +185,7 @@ export default function KiwiWaterfall({
             {/* Expand/collapse */}
             <button
               onClick={() => setExpanded(!expanded)}
-              className="p-1 rounded text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors"
+              className="p-1 rounded text-muted-foreground/50 hover:text-muted-foreground hover:bg-foreground/5 transition-colors"
               title={expanded ? "Collapse" : "Expand"}
             >
               {expanded ? (
@@ -197,7 +197,7 @@ export default function KiwiWaterfall({
             {/* Close */}
             <button
               onClick={onClose}
-              className="p-1 rounded text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors"
+              className="p-1 rounded text-muted-foreground/50 hover:text-muted-foreground hover:bg-foreground/5 transition-colors"
               title="Close waterfall"
             >
               <X className="w-3.5 h-3.5" />
@@ -212,10 +212,10 @@ export default function KiwiWaterfall({
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="border-b border-white/5 bg-white/3 overflow-hidden"
+              className="border-b border-border bg-background/50 overflow-hidden"
             >
               <div className="px-3 py-2 space-y-1 max-h-32 overflow-y-auto scrollbar-thin">
-                <p className="text-[8px] text-white/30 uppercase tracking-wider">
+                <p className="text-[8px] text-muted-foreground/50 uppercase tracking-wider">
                   Select Receiver
                 </p>
                 {hosts.map((host, idx) => (
@@ -229,7 +229,7 @@ export default function KiwiWaterfall({
                     className={`w-full text-left px-2.5 py-1.5 rounded text-[10px] transition-colors ${
                       idx === selectedHostIdx
                         ? "bg-green-500/15 border border-green-500/20 text-green-300"
-                        : "bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white/70"
+                        : "bg-foreground/5 border border-border text-muted-foreground hover:bg-foreground/10 hover:text-foreground/70"
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -237,7 +237,7 @@ export default function KiwiWaterfall({
                         {host.h}:{host.p}
                       </span>
                       {host.n && (
-                        <span className="text-[8px] text-white/30 ml-2 truncate">
+                        <span className="text-[8px] text-muted-foreground/50 ml-2 truncate">
                           {host.n}
                         </span>
                       )}
@@ -269,7 +269,7 @@ export default function KiwiWaterfall({
                   title="Click to unmute and interact"
                   style={{ pointerEvents: "auto" }}
                 >
-                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/70 border border-white/10 text-white/50 text-[10px]">
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background/80 border border-border text-muted-foreground text-[10px]">
                     <VolumeX className="w-3 h-3" />
                     Click to interact with receiver
                   </div>
@@ -279,8 +279,8 @@ export default function KiwiWaterfall({
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
-                <Radio className="w-8 h-8 text-white/15 mx-auto mb-2" />
-                <p className="text-[11px] text-white/30">
+                <Radio className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-[11px] text-muted-foreground/50">
                   No receiver selected
                 </p>
               </div>
@@ -289,7 +289,7 @@ export default function KiwiWaterfall({
         </div>
 
         {/* Status bar */}
-        <div className="flex items-center justify-between px-3 py-1.5 bg-white/3 border-t border-white/5 text-[9px] text-white/30">
+        <div className="flex items-center justify-between px-3 py-1.5 bg-background/50 border-t border-border text-[9px] text-muted-foreground/50">
           <span className="font-mono">
             {selectedHost?.h}:{selectedHost?.p}
           </span>

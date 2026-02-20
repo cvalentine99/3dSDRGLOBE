@@ -627,7 +627,7 @@ export default function FallbackMap({
             maxWidth: 300,
           }}
         >
-          <div className="px-3 py-2 rounded-lg bg-black/90 border border-white/15 backdrop-blur-sm">
+          <div className="px-3 py-2 rounded-lg bg-background/95 border border-border backdrop-blur-sm">
             {tooltip.cluster.stations.length === 1 ? (
               <SingleStationTooltip
                 station={tooltip.cluster.stations[0]}
@@ -652,9 +652,9 @@ export default function FallbackMap({
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="rounded-lg bg-black/95 border border-white/15 backdrop-blur-md overflow-hidden shadow-xl">
-            <div className="px-3 py-2 border-b border-white/10">
-              <span className="text-[10px] font-mono text-white/50 uppercase tracking-wider">
+          <div className="rounded-lg bg-background/95 border border-border backdrop-blur-md overflow-hidden shadow-xl">
+            <div className="px-3 py-2 border-b border-border">
+              <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
                 {clusterPicker.stations.length} stations in this area
               </span>
             </div>
@@ -672,24 +672,24 @@ export default function FallbackMap({
                   <button
                     key={idx}
                     onClick={() => handlePickerSelect(station)}
-                    className="w-full text-left px-3 py-2 hover:bg-white/5 transition-colors flex items-center gap-2 group border-b border-white/5 last:border-0"
+                    className="w-full text-left px-3 py-2 hover:bg-foreground/5 transition-colors flex items-center gap-2 group border-b border-border last:border-0"
                   >
                     <span
                       className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                       style={{ backgroundColor: statusDot || typeColor }}
                     />
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs text-white/90 truncate group-hover:text-white">
+                      <div className="text-xs text-foreground/90 truncate group-hover:text-foreground">
                         {station.label}
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[9px] font-mono text-white/40">{primaryType}</span>
-                        <span className="text-[9px] font-mono text-white/30">
+                        <span className="text-[9px] font-mono text-muted-foreground/70">{primaryType}</span>
+                        <span className="text-[9px] font-mono text-muted-foreground/50">
                           {station.receivers.length} rx
                         </span>
                       </div>
                     </div>
-                    <svg className="w-3 h-3 text-white/20 group-hover:text-cyan-400 flex-shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="w-3 h-3 text-muted-foreground/30 group-hover:text-cyan-400 flex-shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                     </svg>
                   </button>
@@ -701,21 +701,21 @@ export default function FallbackMap({
       )}
 
       {/* Legend */}
-      <div className="absolute bottom-4 right-4 z-10 flex items-center gap-4 px-3 py-2 rounded-lg bg-black/50 border border-white/10">
+      <div className="absolute bottom-4 right-4 z-10 flex items-center gap-4 px-3 py-2 rounded-lg bg-background/70 border border-border">
         {Object.entries(TYPE_COLORS).map(([type, color]) => (
           <div key={type} className="flex items-center gap-1.5">
             <span
               className="w-2.5 h-2.5 rounded-full"
               style={{ backgroundColor: color }}
             />
-            <span className="text-[10px] font-mono text-white/50">{type}</span>
+            <span className="text-[10px] font-mono text-muted-foreground">{type}</span>
           </div>
         ))}
       </div>
 
       {/* Station count + zoom level */}
-      <div className="absolute bottom-4 left-4 z-10 flex items-center gap-3 px-3 py-1.5 rounded-lg bg-black/50 border border-white/10">
-        <span className="text-[10px] font-mono text-white/50">
+      <div className="absolute bottom-4 left-4 z-10 flex items-center gap-3 px-3 py-1.5 rounded-lg bg-background/70 border border-border">
+        <span className="text-[10px] font-mono text-muted-foreground">
           {stations.length} stations
         </span>
         {zoom > 1.1 && (
@@ -756,7 +756,7 @@ function SingleStationTooltip({
 
   return (
     <>
-      <div className="text-xs font-semibold text-white/90 truncate">
+      <div className="text-xs font-semibold text-foreground/90 truncate">
         {station.label}
       </div>
       <div className="flex items-center gap-2 mt-1">
@@ -769,10 +769,10 @@ function SingleStationTooltip({
                 className="inline-block w-2 h-2 rounded-full"
                 style={{ backgroundColor: TYPE_COLORS[type] || "#888" }}
               />
-              <span className="text-[10px] text-white/60">{type}</span>
+              <span className="text-[10px] text-muted-foreground">{type}</span>
             </div>
           ))}
-        <span className="text-[10px] text-white/40">
+        <span className="text-[10px] text-muted-foreground/70">
           {station.receivers.length} receiver
           {station.receivers.length !== 1 ? "s" : ""}
         </span>
@@ -794,7 +794,7 @@ function SingleStationTooltip({
           ))}
         </div>
       )}
-      <div className="text-[9px] text-white/30 mt-1 font-mono">
+      <div className="text-[9px] text-muted-foreground/50 mt-1 font-mono">
         {station.location.coordinates[1].toFixed(2)},{" "}
         {station.location.coordinates[0].toFixed(2)}
       </div>
@@ -813,7 +813,7 @@ function ClusterTooltip({ cluster }: { cluster: ClusteredStation }) {
 
   return (
     <>
-      <div className="text-xs font-semibold text-white/90">
+      <div className="text-xs font-semibold text-foreground/90">
         {cluster.stations.length} stations
       </div>
       <div className="flex items-center gap-2 mt-1">
@@ -823,7 +823,7 @@ function ClusterTooltip({ cluster }: { cluster: ClusteredStation }) {
               className="inline-block w-2 h-2 rounded-full"
               style={{ backgroundColor: TYPE_COLORS[type] || "#888" }}
             />
-            <span className="text-[10px] text-white/60">
+            <span className="text-[10px] text-muted-foreground">
               {count} {type}
             </span>
           </div>

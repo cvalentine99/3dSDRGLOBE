@@ -116,29 +116,29 @@ export default function SharedListPanel({
         className="fixed right-4 top-20 w-[440px] max-h-[calc(100vh-120px)] bg-gray-900/95 backdrop-blur-xl border border-blue-500/20 rounded-xl shadow-2xl shadow-blue-500/5 z-50 flex flex-col overflow-hidden"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border/20">
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-blue-400" />
-            <span className="text-sm font-semibold text-white tracking-wide uppercase">
+            <span className="text-sm font-semibold text-foreground tracking-wide uppercase">
               Shared Lists
             </span>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-white/40 hover:text-white rounded-lg transition-colors"
+            className="p-1.5 text-muted-foreground/70 hover:text-muted-foreground rounded-lg transition-colors"
           >
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-white/5">
+        <div className="flex border-b border-border/20">
           <button
             onClick={() => setTab("lists")}
             className={`flex-1 py-2 text-xs font-medium transition-colors ${
               tab === "lists"
                 ? "text-blue-400 border-b-2 border-blue-400"
-                : "text-white/40 hover:text-white/60"
+                : "text-muted-foreground/70 hover:text-muted-foreground"
             }`}
           >
             My Lists ({lists.length})
@@ -148,7 +148,7 @@ export default function SharedListPanel({
             className={`flex-1 py-2 text-xs font-medium transition-colors ${
               tab === "join"
                 ? "text-blue-400 border-b-2 border-blue-400"
-                : "text-white/40 hover:text-white/60"
+                : "text-muted-foreground/70 hover:text-muted-foreground"
             }`}
           >
             Join List
@@ -156,7 +156,7 @@ export default function SharedListPanel({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10">
+        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border">
           {tab === "lists" && (
             <div className="p-3 space-y-2">
               {/* Create new list button */}
@@ -185,34 +185,34 @@ export default function SharedListPanel({
                         value={newListName}
                         onChange={(e) => setNewListName(e.target.value)}
                         placeholder="List name..."
-                        className="w-full px-3 py-1.5 bg-black/30 border border-white/10 rounded-md text-xs text-white placeholder-white/30 focus:outline-none focus:border-blue-500/40"
+                        className="w-full px-3 py-1.5 bg-background/50 border border-border rounded-md text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-blue-500/40"
                       />
                       <textarea
                         value={newListDesc}
                         onChange={(e) => setNewListDesc(e.target.value)}
                         placeholder="Description (optional)..."
                         rows={2}
-                        className="w-full px-3 py-1.5 bg-black/30 border border-white/10 rounded-md text-xs text-white placeholder-white/30 focus:outline-none focus:border-blue-500/40 resize-none"
+                        className="w-full px-3 py-1.5 bg-background/50 border border-border rounded-md text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-blue-500/40 resize-none"
                       />
 
                       <div className="flex items-center gap-3">
-                        <label className="flex items-center gap-1.5 text-[10px] text-white/50">
+                        <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                           <select
                             value={newListPermission}
                             onChange={(e) => setNewListPermission(e.target.value as "view" | "edit")}
-                            className="bg-black/30 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-white"
+                            className="bg-background/50 border border-border rounded px-1.5 py-0.5 text-[10px] text-foreground"
                           >
                             <option value="view">View only</option>
                             <option value="edit">Can edit</option>
                           </select>
                           Default permission
                         </label>
-                        <label className="flex items-center gap-1.5 text-[10px] text-white/50 cursor-pointer">
+                        <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground cursor-pointer">
                           <input
                             type="checkbox"
                             checked={newListPublic}
                             onChange={(e) => setNewListPublic(e.target.checked)}
-                            className="rounded border-white/20"
+                            className="rounded border-border"
                           />
                           Public
                         </label>
@@ -221,12 +221,12 @@ export default function SharedListPanel({
                       {/* Target selection */}
                       {availableTargets.length > 0 && (
                         <div>
-                          <div className="text-[10px] text-white/40 mb-1">Add targets:</div>
+                          <div className="text-[10px] text-muted-foreground/70 mb-1">Add targets:</div>
                           <div className="max-h-24 overflow-y-auto space-y-0.5">
                             {availableTargets.map((t) => (
                               <label
                                 key={t.id}
-                                className="flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-white/5 cursor-pointer"
+                                className="flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-foreground/5 cursor-pointer"
                               >
                                 <input
                                   type="checkbox"
@@ -238,10 +238,10 @@ export default function SharedListPanel({
                                       setSelectedTargetIds((prev) => prev.filter((id) => id !== t.id));
                                     }
                                   }}
-                                  className="rounded border-white/20"
+                                  className="rounded border-border"
                                 />
-                                <span className="text-[10px] text-white/70 truncate">{t.label}</span>
-                                <span className="text-[9px] text-white/30 ml-auto">{t.category}</span>
+                                <span className="text-[10px] text-foreground/70 truncate">{t.label}</span>
+                                <span className="text-[9px] text-muted-foreground/50 ml-auto">{t.category}</span>
                               </label>
                             ))}
                           </div>
@@ -276,7 +276,7 @@ export default function SharedListPanel({
                             setNewListDesc("");
                             setSelectedTargetIds([]);
                           }}
-                          className="px-3 py-1 text-white/40 hover:text-white/60 text-[11px] transition-colors"
+                          className="px-3 py-1 text-muted-foreground/70 hover:text-muted-foreground text-[11px] transition-colors"
                         >
                           Cancel
                         </button>
@@ -288,7 +288,7 @@ export default function SharedListPanel({
 
               {/* Lists */}
               {lists.length === 0 && !createMode ? (
-                <div className="flex flex-col items-center justify-center py-10 text-white/30">
+                <div className="flex flex-col items-center justify-center py-10 text-muted-foreground/50">
                   <Share2 className="w-8 h-8 mb-2" />
                   <p className="text-sm">No shared lists yet</p>
                   <p className="text-xs mt-1">Create a list to share targets with your team</p>
@@ -300,10 +300,10 @@ export default function SharedListPanel({
                     <motion.div
                       key={list.id}
                       layout
-                      className="bg-white/[0.03] border border-white/5 rounded-lg overflow-hidden"
+                      className="bg-background/5 border border-border/20 rounded-lg overflow-hidden"
                     >
                       <div
-                        className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-white/5 transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-foreground/5 transition-colors"
                         onClick={() => setExpandedListId(isExpanded ? null : list.id)}
                       >
                         {list.isPublic ? (
@@ -313,14 +313,14 @@ export default function SharedListPanel({
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-semibold text-white truncate">
+                            <span className="text-xs font-semibold text-foreground truncate">
                               {list.name}
                             </span>
                             {list.isOwner && (
                               <Crown className="w-3 h-3 text-yellow-400" />
                             )}
                           </div>
-                          <div className="flex items-center gap-2 text-[10px] text-white/40 mt-0.5">
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground/70 mt-0.5">
                             <span className="flex items-center gap-0.5">
                               <Target className="w-2.5 h-2.5" />
                               {list.targetCount} targets
@@ -347,7 +347,7 @@ export default function SharedListPanel({
                               e.stopPropagation();
                               copyInviteLink(list.inviteToken);
                             }}
-                            className="p-1 text-white/30 hover:text-blue-400 transition-colors"
+                            className="p-1 text-muted-foreground/50 hover:text-blue-400 transition-colors"
                             title="Copy invite link"
                           >
                             {copiedToken === list.inviteToken ? (
@@ -357,9 +357,9 @@ export default function SharedListPanel({
                             )}
                           </button>
                           {isExpanded ? (
-                            <ChevronUp className="w-3 h-3 text-white/30" />
+                            <ChevronUp className="w-3 h-3 text-muted-foreground/50" />
                           ) : (
-                            <ChevronDown className="w-3 h-3 text-white/30" />
+                            <ChevronDown className="w-3 h-3 text-muted-foreground/50" />
                           )}
                         </div>
                       </div>
@@ -371,16 +371,16 @@ export default function SharedListPanel({
                             initial={{ height: 0, opacity: 0 }}
                             animate={{ height: "auto", opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
-                            className="border-t border-white/5"
+                            className="border-t border-border/20"
                           >
                             <div className="px-3 py-2 space-y-2 text-xs">
                               {list.description && (
-                                <p className="text-white/40 text-[11px]">{list.description}</p>
+                                <p className="text-muted-foreground/70 text-[11px]">{list.description}</p>
                               )}
 
                               {/* Invite link */}
-                              <div className="bg-black/20 rounded-lg p-2">
-                                <div className="text-[10px] text-white/40 mb-1 flex items-center gap-1">
+                              <div className="bg-foreground/[0.03] rounded-lg p-2">
+                                <div className="text-[10px] text-muted-foreground/70 mb-1 flex items-center gap-1">
                                   <Link2 className="w-3 h-3" />
                                   Invite Link
                                 </div>
@@ -390,7 +390,7 @@ export default function SharedListPanel({
                                   </code>
                                   <button
                                     onClick={() => copyInviteLink(list.inviteToken)}
-                                    className="p-1 text-white/30 hover:text-blue-400 transition-colors shrink-0"
+                                    className="p-1 text-muted-foreground/50 hover:text-blue-400 transition-colors shrink-0"
                                   >
                                     <Copy className="w-3 h-3" />
                                   </button>
@@ -406,7 +406,7 @@ export default function SharedListPanel({
                                         deleteListMut.mutate({ listId: list.id });
                                       }
                                     }}
-                                    className="flex items-center gap-1 px-2 py-1 bg-white/5 hover:bg-red-500/20 text-white/40 hover:text-red-400 rounded-md transition-colors text-[11px]"
+                                    className="flex items-center gap-1 px-2 py-1 bg-foreground/5 hover:bg-red-500/20 text-muted-foreground/70 hover:text-red-400 rounded-md transition-colors text-[11px]"
                                   >
                                     <Trash2 className="w-3 h-3" />
                                     Delete List
@@ -428,10 +428,10 @@ export default function SharedListPanel({
             <div className="p-4 space-y-4">
               <div className="text-center py-4">
                 <UserPlus className="w-10 h-10 text-blue-400/50 mx-auto mb-3" />
-                <h3 className="text-sm font-semibold text-white/80 mb-1">
+                <h3 className="text-sm font-semibold text-foreground/80 mb-1">
                   Join a Shared List
                 </h3>
-                <p className="text-xs text-white/40">
+                <p className="text-xs text-muted-foreground/70">
                   Paste an invite link or token to join a team's target list
                 </p>
               </div>
@@ -447,7 +447,7 @@ export default function SharedListPanel({
                     setJoinToken(match ? match[1] : val);
                   }}
                   placeholder="Paste invite link or token..."
-                  className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-xs text-white placeholder-white/30 focus:outline-none focus:border-blue-500/40"
+                  className="w-full px-3 py-2 bg-background/50 border border-border rounded-lg text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-blue-500/40"
                 />
                 <button
                   onClick={() => {
@@ -475,7 +475,7 @@ export default function SharedListPanel({
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-2 border-t border-white/5 text-[10px] text-white/30 text-center">
+        <div className="px-4 py-2 border-t border-border/20 text-[10px] text-muted-foreground/50 text-center">
           Share target lists with team members via invite links
         </div>
       </motion.div>

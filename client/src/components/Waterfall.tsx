@@ -173,16 +173,16 @@ export default function Waterfall({ receiverUrl, height = 400, fallbackUrl }: Wa
 
       {/* Connection status overlay */}
       {connState === "connecting" && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm">
           <Loader2 className="w-8 h-8 text-cyan-400 animate-spin mb-3" />
-          <p className="text-xs font-mono text-white/70">Connecting to receiver...</p>
+          <p className="text-xs font-mono text-muted-foreground">Connecting to receiver...</p>
         </div>
       )}
 
       {(connState === "failed" || connState === "closed") && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm gap-3">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm gap-3">
           <WifiOff className="w-8 h-8 text-red-400/70" />
-          <p className="text-xs font-mono text-white/60">
+          <p className="text-xs font-mono text-muted-foreground">
             {connState === "failed" ? "Connection failed" : "Connection closed"}
           </p>
           <div className="flex items-center gap-2">
@@ -203,7 +203,7 @@ export default function Waterfall({ receiverUrl, height = 400, fallbackUrl }: Wa
                 });
                 client.connect();
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 border border-white/15 text-white/70 hover:bg-white/15 transition-all text-[10px] font-mono"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-foreground/10 border border-border text-foreground/70 hover:bg-foreground/15 transition-all text-[10px] font-mono"
             >
               <Radio className="w-3 h-3" />
               Retry
@@ -226,8 +226,8 @@ export default function Waterfall({ receiverUrl, height = 400, fallbackUrl }: Wa
       {/* Frequency ruler hint */}
       {connState === "connected" && (
         <div className="absolute bottom-0 left-0 right-0 h-5 bg-gradient-to-t from-black/50 to-transparent pointer-events-none flex items-end justify-between px-2 pb-0.5">
-          <span className="text-[8px] font-mono text-white/30">0 kHz</span>
-          <span className="text-[8px] font-mono text-white/30">30 MHz</span>
+          <span className="text-[8px] font-mono text-muted-foreground/50">0 kHz</span>
+          <span className="text-[8px] font-mono text-muted-foreground/50">30 MHz</span>
         </div>
       )}
     </div>

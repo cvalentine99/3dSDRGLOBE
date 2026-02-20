@@ -10,7 +10,7 @@ import type { ReceiverType, BandType, Station } from "@/lib/types";
 import { BAND_DEFINITIONS, CONTINENT_DEFINITIONS } from "@/lib/types";
 
 const TYPE_OPTIONS: { value: ReceiverType; label: string; color: string; dotColor: string }[] = [
-  { value: "all", label: "All", color: "text-foreground", dotColor: "bg-white" },
+  { value: "all", label: "All", color: "text-foreground", dotColor: "bg-foreground" },
   { value: "KiwiSDR", label: "KiwiSDR", color: "text-green-400", dotColor: "bg-green-400" },
   { value: "OpenWebRX", label: "OpenWebRX", color: "text-cyan-400", dotColor: "bg-cyan-400" },
   { value: "WebSDR", label: "WebSDR", color: "text-red-400", dotColor: "bg-red-400" },
@@ -145,7 +145,7 @@ export default function SearchFilter() {
                 {filteredStations.length}
               </span>
               {!isFocused && (
-                <kbd className="text-[9px] font-mono text-muted-foreground/40 border border-white/10 rounded px-1 py-0.5">/</kbd>
+                <kbd className="text-[9px] font-mono text-muted-foreground/40 border border-border rounded px-1 py-0.5">/</kbd>
               )}
             </div>
           )}
@@ -215,8 +215,8 @@ export default function SearchFilter() {
                         onClick={() => setFilterType(opt.value)}
                         className={`text-[10px] font-medium px-2 py-1 rounded-lg border transition-all duration-200 flex items-center gap-1.5 ${
                           isActive
-                            ? "bg-white/10 border-white/20 text-foreground"
-                            : "bg-transparent border-white/5 text-muted-foreground hover:border-white/10 hover:text-foreground"
+                            ? "bg-foreground/10 border-border text-foreground"
+                            : "bg-transparent border-border text-muted-foreground hover:border-border hover:text-foreground"
                         }`}
                       >
                         {opt.value !== "all" && (
@@ -249,8 +249,8 @@ export default function SearchFilter() {
                         onClick={() => setFilterBand(opt.value)}
                         className={`text-[10px] font-medium px-2 py-1 rounded-lg border transition-all duration-200 flex items-center gap-1.5 ${
                           isActive
-                            ? "bg-white/10 border-white/20 text-foreground"
-                            : "bg-transparent border-white/5 text-muted-foreground hover:border-white/10 hover:text-foreground"
+                            ? "bg-foreground/10 border-border text-foreground"
+                            : "bg-transparent border-border text-muted-foreground hover:border-border hover:text-foreground"
                         }`}
                         title={opt.description}
                       >
@@ -278,8 +278,8 @@ export default function SearchFilter() {
                     onClick={() => setFilterContinent("all")}
                     className={`text-[10px] font-medium px-2 py-1 rounded-lg border transition-all duration-200 flex items-center gap-1.5 ${
                       filterContinent === "all"
-                        ? "bg-white/10 border-white/20 text-foreground"
-                        : "bg-transparent border-white/5 text-muted-foreground hover:border-white/10 hover:text-foreground"
+                        ? "bg-foreground/10 border-border text-foreground"
+                        : "bg-transparent border-border text-muted-foreground hover:border-border hover:text-foreground"
                     }`}
                   >
                     <span>All</span>
@@ -295,8 +295,8 @@ export default function SearchFilter() {
                         onClick={() => setFilterContinent(c.id)}
                         className={`text-[10px] font-medium px-2 py-1 rounded-lg border transition-all duration-200 flex items-center gap-1.5 ${
                           isActive
-                            ? "bg-white/10 border-white/20 text-foreground"
-                            : "bg-transparent border-white/5 text-muted-foreground hover:border-white/10 hover:text-foreground"
+                            ? "bg-foreground/10 border-border text-foreground"
+                            : "bg-transparent border-border text-muted-foreground hover:border-border hover:text-foreground"
                         }`}
                       >
                         <span className="text-[8px] font-mono opacity-50">{c.emoji}</span>
@@ -330,8 +330,8 @@ export default function SearchFilter() {
                           onClick={() => setFilterRegion("all")}
                           className={`text-[10px] font-medium px-2 py-1 rounded-lg border transition-all duration-200 flex items-center gap-1.5 ${
                             filterRegion === "all"
-                              ? "bg-white/10 border-white/20 text-foreground"
-                              : "bg-transparent border-white/5 text-muted-foreground hover:border-white/10 hover:text-foreground"
+                              ? "bg-foreground/10 border-border text-foreground"
+                              : "bg-transparent border-border text-muted-foreground hover:border-border hover:text-foreground"
                           }`}
                         >
                           <span>All Regions</span>
@@ -346,8 +346,8 @@ export default function SearchFilter() {
                               onClick={() => setFilterRegion(r.id)}
                               className={`text-[10px] font-medium px-2 py-1 rounded-lg border transition-all duration-200 flex items-center gap-1.5 ${
                                 isActive
-                                  ? "bg-white/10 border-white/20 text-foreground"
-                                  : "bg-transparent border-white/5 text-muted-foreground hover:border-white/10 hover:text-foreground"
+                                  ? "bg-foreground/10 border-border text-foreground"
+                                  : "bg-transparent border-border text-muted-foreground hover:border-border hover:text-foreground"
                               }`}
                             >
                               <span>{r.label}</span>
@@ -411,7 +411,7 @@ export default function SearchFilter() {
                 <button
                   key={`${station.label}-${idx}`}
                   onClick={() => handleSelectStation(station)}
-                  className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/3 last:border-0"
+                  className="w-full text-left px-4 py-3 hover:bg-foreground/5 transition-colors border-b border-border/80 last:border-0"
                 >
                   <div className="flex items-start gap-3">
                     <Radio className="w-4 h-4 text-primary mt-0.5 shrink-0" />

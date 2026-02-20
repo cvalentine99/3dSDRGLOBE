@@ -171,3 +171,13 @@
 - [x] Rate limiting: apply to TDoA job submission endpoint (10 per hour per IP)
 - [x] Rate limiting: apply to LLM classification endpoint (20 per hour per IP)
 - [x] Rate limiting: return clear error messages when rate limit exceeded + X-RateLimit headers
+- [x] Light theme refinement: audit all components for hardcoded text-white/* classes
+- [x] Light theme refinement: audit all components for hardcoded bg-black/* classes
+- [x] Light theme refinement: audit all components for hardcoded bg-white/* classes
+- [x] Light theme refinement: replace hardcoded colors with semantic CSS variable classes (text-foreground, bg-background, etc.)
+- [x] Light theme refinement: update Home.tsx nav bar and branding for theme-aware colors
+- [x] Light theme refinement: update panel components (TDoA, Targets, Alerts, Watchlist, MilRF, etc.)
+- [x] Light theme refinement: update overlay/utility components (SearchFilter, StatsOverlay, Legend, etc.)
+- [x] Light theme refinement: update Dashboard page for theme-aware colors
+- [x] Light theme refinement: update glass-panel inner elements for proper contrast in both themes
+- [x] Light theme refinement: verify both themes render correctly in browser

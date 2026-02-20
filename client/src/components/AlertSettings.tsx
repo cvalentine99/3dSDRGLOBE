@@ -101,14 +101,14 @@ export default function AlertSettings({ onClose }: Props) {
       style={{ maxWidth: "520px", maxHeight: "700px", margin: "auto" }}
     >
       {/* Header */}
-      <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between shrink-0">
+      <div className="px-5 py-4 border-b border-border/20 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/20 flex items-center justify-center">
             <Bell className="w-4 h-4 text-amber-400" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-white/90">Alert Configuration</h2>
-            <p className="text-[10px] font-mono text-white/40 mt-0.5">
+            <h2 className="text-sm font-semibold text-foreground/90">Alert Configuration</h2>
+            <p className="text-[10px] font-mono text-muted-foreground/70 mt-0.5">
               {config.enabled ? "Monitoring active" : "Alerts disabled"}
               {unackCount > 0 && ` · ${unackCount} unread`}
             </p>
@@ -116,7 +116,7 @@ export default function AlertSettings({ onClose }: Props) {
         </div>
         <button
           onClick={onClose}
-          className="p-1.5 rounded-lg hover:bg-white/5 transition-colors text-white/40 hover:text-white/70"
+          className="p-1.5 rounded-lg hover:bg-foreground/15transition-colors text-muted-foreground/70 hover:text-foreground/70"
         >
           <X className="w-5 h-5" />
         </button>
@@ -128,8 +128,8 @@ export default function AlertSettings({ onClose }: Props) {
           onClick={() => { setShowSettings(true); setShowHistory(false); }}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-mono transition-colors ${
             showSettings
-              ? "bg-white/10 text-white/90 border border-white/15"
-              : "text-white/40 hover:text-white/60 border border-transparent"
+              ? "bg-foreground/10 text-foreground/90 border border-border"
+              : "text-muted-foreground/70 hover:text-muted-foreground border border-transparent"
           }`}
         >
           <Settings className="w-3 h-3" />Settings
@@ -138,8 +138,8 @@ export default function AlertSettings({ onClose }: Props) {
           onClick={() => { setShowSettings(false); setShowHistory(true); }}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-mono transition-colors relative ${
             showHistory
-              ? "bg-white/10 text-white/90 border border-white/15"
-              : "text-white/40 hover:text-white/60 border border-transparent"
+              ? "bg-foreground/10 text-foreground/90 border border-border"
+              : "text-muted-foreground/70 hover:text-muted-foreground border border-transparent"
           }`}
         >
           <Bell className="w-3 h-3" />History
@@ -156,16 +156,16 @@ export default function AlertSettings({ onClose }: Props) {
         {showSettings && (
           <div className="space-y-4">
             {/* Master toggle */}
-            <div className="flex items-center justify-between p-3 rounded-lg bg-white/[0.03] border border-white/8">
+            <div className="flex items-center justify-between p-3 rounded-lg bg-foreground/5 border border-border/30">
               <div className="flex items-center gap-2.5">
                 {config.enabled ? (
                   <Bell className="w-4 h-4 text-amber-400" />
                 ) : (
-                  <BellOff className="w-4 h-4 text-white/30" />
+                  <BellOff className="w-4 h-4 text-muted-foreground/50" />
                 )}
                 <div>
-                  <p className="text-[11px] font-medium text-white/80">Alert System</p>
-                  <p className="text-[9px] text-white/35 mt-0.5">
+                  <p className="text-[11px] font-medium text-foreground/80">Alert System</p>
+                  <p className="text-[9px] text-muted-foreground/50 mt-0.5">
                     {config.enabled ? "Monitoring all selected stations" : "All notifications disabled"}
                   </p>
                 </div>
@@ -173,12 +173,12 @@ export default function AlertSettings({ onClose }: Props) {
               <button
                 onClick={() => updateConfig({ enabled: !config.enabled })}
                 className={`relative w-10 h-5 rounded-full transition-colors ${
-                  config.enabled ? "bg-amber-500/40" : "bg-white/10"
+                  config.enabled ? "bg-amber-500/40" : "bg-foreground/10"
                 }`}
               >
                 <motion.div
                   className={`absolute top-0.5 w-4 h-4 rounded-full ${
-                    config.enabled ? "bg-amber-400" : "bg-white/30"
+                    config.enabled ? "bg-amber-400" : "bg-foreground/30"
                   }`}
                   animate={{ left: config.enabled ? 22 : 2 }}
                   transition={{ type: "spring", stiffness: 500, damping: 30 }}
@@ -189,11 +189,11 @@ export default function AlertSettings({ onClose }: Props) {
             {config.enabled && (
               <>
                 {/* SNR Threshold */}
-                <div className="p-3 rounded-lg bg-white/[0.03] border border-white/8">
+                <div className="p-3 rounded-lg bg-foreground/5 border border-border/30">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <TrendingDown className="w-3.5 h-3.5 text-orange-400/70" />
-                      <span className="text-[10px] font-mono text-white/60 uppercase tracking-wider">
+                      <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
                         SNR Threshold
                       </span>
                     </div>
@@ -208,23 +208,23 @@ export default function AlertSettings({ onClose }: Props) {
                     step={1}
                     value={config.snrThreshold}
                     onChange={(e) => updateConfig({ snrThreshold: parseInt(e.target.value) })}
-                    className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer
+                    className="w-full h-1.5 bg-foreground/10 rounded-full appearance-none cursor-pointer
                       [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4
                       [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-orange-400
                       [&::-webkit-slider-thumb]:shadow-[0_0_8px_rgba(251,146,60,0.4)]"
                   />
                   <div className="flex justify-between mt-1">
-                    <span className="text-[8px] font-mono text-white/20">1 dB</span>
-                    <span className="text-[8px] font-mono text-white/20">25 dB</span>
+                    <span className="text-[8px] font-mono text-muted-foreground/30">1 dB</span>
+                    <span className="text-[8px] font-mono text-muted-foreground/30">25 dB</span>
                   </div>
-                  <p className="text-[9px] text-white/30 mt-1.5">
+                  <p className="text-[9px] text-muted-foreground/50 mt-1.5">
                     Alert when any monitored station's SNR drops below this value.
                   </p>
                 </div>
 
                 {/* Alert Types */}
-                <div className="p-3 rounded-lg bg-white/[0.03] border border-white/8 space-y-2.5">
-                  <span className="text-[10px] font-mono text-white/60 uppercase tracking-wider">
+                <div className="p-3 rounded-lg bg-foreground/5 border border-border/30 space-y-2.5">
+                  <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
                     Alert Types
                   </span>
 
@@ -256,9 +256,9 @@ export default function AlertSettings({ onClose }: Props) {
                   />
 
                   {config.alertOnRapidDrop && (
-                    <div className="ml-7 pl-3 border-l border-white/5">
+                    <div className="ml-7 pl-3 border-l border-border/20">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[9px] font-mono text-white/40">Drop threshold</span>
+                        <span className="text-[9px] font-mono text-muted-foreground/70">Drop threshold</span>
                         <span className="text-[10px] font-mono font-bold text-purple-400">
                           {config.deltaDropThreshold} dB
                         </span>
@@ -270,7 +270,7 @@ export default function AlertSettings({ onClose }: Props) {
                         step={1}
                         value={config.deltaDropThreshold}
                         onChange={(e) => updateConfig({ deltaDropThreshold: parseInt(e.target.value) })}
-                        className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer
+                        className="w-full h-1 bg-foreground/10 rounded-full appearance-none cursor-pointer
                           [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3
                           [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-400"
                       />
@@ -279,22 +279,22 @@ export default function AlertSettings({ onClose }: Props) {
                 </div>
 
                 {/* Cooldown */}
-                <div className="p-3 rounded-lg bg-white/[0.03] border border-white/8 space-y-2.5">
-                  <span className="text-[10px] font-mono text-white/60 uppercase tracking-wider">
+                <div className="p-3 rounded-lg bg-foreground/5 border border-border/30 space-y-2.5">
+                  <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
                     Behavior
                   </span>
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-[10px] text-white/60">Cooldown period</p>
-                      <p className="text-[8px] text-white/25 mt-0.5">
+                      <p className="text-[10px] text-muted-foreground">Cooldown period</p>
+                      <p className="text-[8px] text-muted-foreground/40 mt-0.5">
                         Min time between repeated alerts for the same station
                       </p>
                     </div>
                     <select
                       value={config.cooldownSeconds}
                       onChange={(e) => updateConfig({ cooldownSeconds: parseInt(e.target.value) })}
-                      className="bg-white/5 border border-white/10 rounded px-2 py-1 text-[10px] font-mono text-white/70 cursor-pointer"
+                      className="bg-foreground/5 border border-border rounded px-2 py-1 text-[10px] font-mono text-muted-foreground cursor-pointer"
                     >
                       <option value={30}>30s</option>
                       <option value={60}>1 min</option>
@@ -306,15 +306,15 @@ export default function AlertSettings({ onClose }: Props) {
                 </div>
 
                 {/* Sound Configuration */}
-                <div className="p-3 rounded-lg bg-white/[0.03] border border-white/8 space-y-3">
+                <div className="p-3 rounded-lg bg-foreground/5 border border-border/30 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono text-white/60 uppercase tracking-wider">
+                    <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
                       Alert Sound
                     </span>
                     <button
                       onClick={() => updateConfig({ soundEnabled: !config.soundEnabled })}
                       className={`relative w-8 h-4 rounded-full transition-colors ${
-                        config.soundEnabled ? "bg-cyan-500/40" : "bg-white/8"
+                        config.soundEnabled ? "bg-cyan-500/40" : "bg-border"
                       }`}
                     >
                       <motion.div
@@ -335,9 +335,9 @@ export default function AlertSettings({ onClose }: Props) {
                             {config.soundVolume > 0 ? (
                               <Volume2 className="w-3 h-3 text-cyan-400/60" />
                             ) : (
-                              <VolumeX className="w-3 h-3 text-white/30" />
+                              <VolumeX className="w-3 h-3 text-muted-foreground/50" />
                             )}
-                            <span className="text-[9px] font-mono text-white/40">Volume</span>
+                            <span className="text-[9px] font-mono text-muted-foreground/70">Volume</span>
                           </div>
                           <span className="text-[10px] font-mono font-bold text-cyan-400">
                             {Math.round(config.soundVolume * 100)}%
@@ -350,7 +350,7 @@ export default function AlertSettings({ onClose }: Props) {
                           step={5}
                           value={Math.round(config.soundVolume * 100)}
                           onChange={(e) => updateConfig({ soundVolume: parseInt(e.target.value) / 100 })}
-                          className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer
+                          className="w-full h-1 bg-foreground/10 rounded-full appearance-none cursor-pointer
                             [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5
                             [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-400
                             [&::-webkit-slider-thumb]:shadow-[0_0_6px_rgba(6,182,212,0.4)]"
@@ -359,7 +359,7 @@ export default function AlertSettings({ onClose }: Props) {
 
                       {/* Sound selector grid */}
                       <div className="space-y-1">
-                        <span className="text-[9px] font-mono text-white/35 uppercase tracking-wider">
+                        <span className="text-[9px] font-mono text-muted-foreground/50 uppercase tracking-wider">
                           Select Sound
                         </span>
                         <div className="grid grid-cols-2 gap-1.5">
@@ -373,16 +373,16 @@ export default function AlertSettings({ onClose }: Props) {
                                 className={`relative flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-all ${
                                   isSelected
                                     ? "bg-cyan-500/15 border border-cyan-500/30"
-                                    : "bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/10"
+                                    : "bg-foreground/[0.02] border border-border hover:bg-foreground/[0.05] hover:border-border"
                                 }`}
                               >
                                 <div className="flex-1 min-w-0">
                                   <p className={`text-[10px] font-medium truncate ${
-                                    isSelected ? "text-cyan-300" : "text-white/60"
+                                    isSelected ? "text-cyan-300" : "text-muted-foreground"
                                   }`}>
                                     {sound.label}
                                   </p>
-                                  <p className="text-[8px] text-white/25 truncate mt-0.5">
+                                  <p className="text-[8px] text-muted-foreground/40 truncate mt-0.5">
                                     {sound.description}
                                   </p>
                                 </div>
@@ -394,12 +394,12 @@ export default function AlertSettings({ onClose }: Props) {
                                   className={`shrink-0 w-6 h-6 rounded-md flex items-center justify-center transition-all ${
                                     isPlaying
                                       ? "bg-cyan-500/30 scale-110"
-                                      : "bg-white/5 hover:bg-white/10"
+                                      : "bg-foreground/5 hover:bg-foreground/10"
                                   }`}
                                   title={`Preview ${sound.label}`}
                                 >
                                   <Play className={`w-3 h-3 ${
-                                    isPlaying ? "text-cyan-300" : "text-white/40"
+                                    isPlaying ? "text-cyan-300" : "text-muted-foreground/70"
                                   }`} />
                                 </button>
                                 {isSelected && (
@@ -421,7 +421,7 @@ export default function AlertSettings({ onClose }: Props) {
                 {/* Reset */}
                 <button
                   onClick={handleReset}
-                  className="flex items-center gap-1.5 text-[10px] font-mono text-white/30 hover:text-white/50 transition-colors"
+                  className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground/50 hover:text-muted-foreground transition-colors"
                 >
                   <RotateCcw className="w-3 h-3" />
                   Reset to defaults
@@ -435,16 +435,16 @@ export default function AlertSettings({ onClose }: Props) {
           <div className="space-y-3">
             {history.length === 0 ? (
               <div className="text-center py-12">
-                <Bell className="w-8 h-8 text-white/10 mx-auto mb-3" />
-                <p className="text-sm text-white/30">No alerts yet</p>
-                <p className="text-[10px] text-white/15 mt-1">
+                <Bell className="w-8 h-8 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground/50">No alerts yet</p>
+                <p className="text-[10px] text-muted-foreground/30 mt-1">
                   Alerts will appear here when monitored stations trigger threshold conditions.
                 </p>
               </div>
             ) : (
               <>
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-mono text-white/30 uppercase">
+                  <p className="text-[10px] font-mono text-muted-foreground/50 uppercase">
                     {history.length} alert{history.length !== 1 ? "s" : ""}
                     {unackCount > 0 && ` · ${unackCount} unread`}
                   </p>
@@ -475,8 +475,8 @@ export default function AlertSettings({ onClose }: Props) {
                         key={event.id}
                         className={`flex items-start gap-2.5 p-2.5 rounded-lg border transition-colors ${
                           event.acknowledged
-                            ? "bg-white/[0.02] border-white/5"
-                            : "bg-white/[0.04] border-white/10"
+                            ? "bg-foreground/[0.02] border-border"
+                            : "bg-foreground/[0.04] border-border"
                         }`}
                       >
                         <div
@@ -506,17 +506,17 @@ export default function AlertSettings({ onClose }: Props) {
                               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
                             )}
                           </div>
-                          <p className="text-[10px] text-white/60 mt-1 leading-relaxed">
+                          <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
                             {event.message}
                           </p>
-                          <p className="text-[8px] font-mono text-white/20 mt-1">
+                          <p className="text-[8px] font-mono text-muted-foreground/30 mt-1">
                             {new Date(event.ts).toLocaleString()}
                           </p>
                         </div>
                         {!event.acknowledged && (
                           <button
                             onClick={() => handleAcknowledge(event.id)}
-                            className="p-1 rounded hover:bg-white/5 text-white/20 hover:text-white/50 transition-colors shrink-0"
+                            className="p-1 rounded hover:bg-foreground/5 text-muted-foreground/30 hover:text-muted-foreground transition-colors shrink-0"
                             title="Mark as read"
                           >
                             <Check className="w-3 h-3" />
@@ -557,14 +557,14 @@ function ToggleRow({
       <div className="flex items-center gap-2">
         <Icon className="w-3.5 h-3.5 shrink-0" style={{ color: enabled ? color : "rgba(255,255,255,0.2)" }} />
         <div>
-          <p className="text-[10px] text-white/60">{label}</p>
-          <p className="text-[8px] text-white/25 mt-0.5">{description}</p>
+          <p className="text-[10px] text-muted-foreground">{label}</p>
+          <p className="text-[8px] text-muted-foreground/40 mt-0.5">{description}</p>
         </div>
       </div>
       <button
         onClick={onToggle}
         className={`relative w-8 h-4 rounded-full transition-colors ${
-          enabled ? "bg-white/20" : "bg-white/8"
+          enabled ? "bg-foreground/20" : "bg-border"
         }`}
       >
         <motion.div

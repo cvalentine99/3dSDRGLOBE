@@ -35,16 +35,16 @@ export default function StatsOverlay() {
       className="absolute bottom-6 left-4 z-20 pointer-events-none"
     >
       <div 
-        className="flex items-center gap-4 text-[10px] font-mono text-white/70 uppercase tracking-widest"
+        className="flex items-center gap-4 text-[10px] font-mono text-muted-foreground uppercase tracking-widest"
         style={{ textShadow: '0 1px 6px rgba(0,0,0,0.8), 0 0 16px rgba(0,0,0,0.5)' }}
       >
         <span>{stations.length} targets</span>
-        <span className="w-px h-3 bg-white/20" />
+        <span className="w-px h-3 bg-foreground/20" />
         <span>{stats.totalReceivers} receivers</span>
-        <span className="w-px h-3 bg-white/20" />
+        <span className="w-px h-3 bg-foreground/20" />
         <span>global coverage</span>
-        <span className="w-px h-3 bg-white/20" />
-        <span className="text-white/30" title="Build version for deployment verification">{BUILD_VERSION}</span>
+        <span className="w-px h-3 bg-foreground/20" />
+        <span className="text-muted-foreground/50" title="Build version for deployment verification">{BUILD_VERSION}</span>
       </div>
     </motion.div>
   );

@@ -324,7 +324,7 @@ export default function TDoABatchQueue({
     <div className="space-y-3">
       {/* Queue Header */}
       <div className="flex items-center justify-between">
-        <h4 className="text-[11px] font-semibold text-white/70 uppercase tracking-wider flex items-center gap-1.5">
+        <h4 className="text-[11px] font-semibold text-foreground/70 uppercase tracking-wider flex items-center gap-1.5">
           <Layers className="w-3.5 h-3.5 text-violet-400" />
           Batch Queue ({items.length})
         </h4>
@@ -344,16 +344,16 @@ export default function TDoABatchQueue({
                   initial={{ opacity: 0, y: -5 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -5 }}
-                  className="absolute right-0 top-5 z-50 w-48 rounded-lg bg-black/90 border border-white/15 shadow-xl"
+                  className="absolute right-0 top-5 z-50 w-48 rounded-lg bg-background/95 border border-border shadow-xl"
                 >
                   {BATCH_PRESETS.map((preset) => (
                     <button
                       key={preset.label}
                       onClick={() => loadPreset(preset)}
-                      className="w-full text-left px-3 py-2 text-[10px] text-white/70 hover:bg-white/10 transition-colors border-b border-white/5 last:border-0"
+                      className="w-full text-left px-3 py-2 text-[10px] text-foreground/70 hover:bg-foreground/10 transition-colors border-b border-border last:border-0"
                     >
                       <span className="font-medium">{preset.label}</span>
-                      <span className="text-white/30 ml-1">({preset.items.length})</span>
+                      <span className="text-muted-foreground/50 ml-1">({preset.items.length})</span>
                     </button>
                   ))}
                 </motion.div>
@@ -380,32 +380,32 @@ export default function TDoABatchQueue({
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="rounded-lg bg-white/5 border border-white/10 p-3 space-y-2">
+            <div className="rounded-lg bg-foreground/5 border border-border p-3 space-y-2">
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="text-[9px] text-white/40 block mb-0.5">Freq (kHz)</label>
+                  <label className="text-[9px] text-muted-foreground/70 block mb-0.5">Freq (kHz)</label>
                   <input
                     type="number"
                     value={newFreq}
                     onChange={(e) => setNewFreq(e.target.value)}
-                    className="w-full px-2 py-1 text-[10px] bg-white/5 border border-white/10 rounded text-white/80 focus:outline-none focus:border-violet-500/40"
+                    className="w-full px-2 py-1 text-[10px] bg-foreground/5 border border-border rounded text-foreground/80 focus:outline-none focus:border-violet-500/40"
                   />
                 </div>
                 <div>
-                  <label className="text-[9px] text-white/40 block mb-0.5">PB (Hz)</label>
+                  <label className="text-[9px] text-muted-foreground/70 block mb-0.5">PB (Hz)</label>
                   <input
                     type="number"
                     value={newPb}
                     onChange={(e) => setNewPb(e.target.value)}
-                    className="w-full px-2 py-1 text-[10px] bg-white/5 border border-white/10 rounded text-white/80 focus:outline-none focus:border-violet-500/40"
+                    className="w-full px-2 py-1 text-[10px] bg-foreground/5 border border-border rounded text-foreground/80 focus:outline-none focus:border-violet-500/40"
                   />
                 </div>
                 <div>
-                  <label className="text-[9px] text-white/40 block mb-0.5">Time (s)</label>
+                  <label className="text-[9px] text-muted-foreground/70 block mb-0.5">Time (s)</label>
                   <select
                     value={newSample}
                     onChange={(e) => setNewSample(Number(e.target.value))}
-                    className="w-full px-2 py-1 text-[10px] bg-white/5 border border-white/10 rounded text-white/80 focus:outline-none focus:border-violet-500/40"
+                    className="w-full px-2 py-1 text-[10px] bg-foreground/5 border border-border rounded text-foreground/80 focus:outline-none focus:border-violet-500/40"
                   >
                     <option value={15}>15s</option>
                     <option value={30}>30s</option>
@@ -415,13 +415,13 @@ export default function TDoABatchQueue({
                 </div>
               </div>
               <div>
-                <label className="text-[9px] text-white/40 block mb-0.5">Label (optional)</label>
+                <label className="text-[9px] text-muted-foreground/70 block mb-0.5">Label (optional)</label>
                 <input
                   type="text"
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
                   placeholder={`${newFreq} kHz`}
-                  className="w-full px-2 py-1 text-[10px] bg-white/5 border border-white/10 rounded text-white/80 placeholder-white/20 focus:outline-none focus:border-violet-500/40"
+                  className="w-full px-2 py-1 text-[10px] bg-foreground/5 border border-border rounded text-foreground/80 placeholder-white/20 focus:outline-none focus:border-violet-500/40"
                 />
               </div>
               <button
@@ -448,13 +448,13 @@ export default function TDoABatchQueue({
                     ? "bg-green-500/10 border-green-500/20"
                     : item.status === "error"
                       ? "bg-red-500/10 border-red-500/20"
-                      : "bg-white/5 border-white/10"
+                      : "bg-foreground/5 border-border"
               }`}
             >
               {/* Status icon */}
               <div className="shrink-0">
                 {item.status === "queued" && (
-                  <span className="text-[10px] font-mono text-white/30">#{idx + 1}</span>
+                  <span className="text-[10px] font-mono text-muted-foreground/50">#{idx + 1}</span>
                 )}
                 {item.status === "running" && (
                   <Loader2 className="w-3.5 h-3.5 text-violet-400 animate-spin" />
@@ -469,8 +469,8 @@ export default function TDoABatchQueue({
 
               {/* Item info */}
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-medium text-white/80 truncate">{item.label}</p>
-                <p className="text-[9px] font-mono text-white/35">
+                <p className="text-[10px] font-medium text-foreground/80 truncate">{item.label}</p>
+                <p className="text-[9px] font-mono text-foreground/35">
                   {item.frequencyKhz} kHz · PB {item.passbandHz} Hz · {item.sampleTime}s
                   {item.result && (
                     <span className="text-green-400/70 ml-1">
@@ -487,9 +487,9 @@ export default function TDoABatchQueue({
               {item.status === "queued" && !isRunning && (
                 <button
                   onClick={() => removeItem(item.id)}
-                  className="shrink-0 w-5 h-5 rounded bg-white/5 flex items-center justify-center hover:bg-red-500/20 transition-colors"
+                  className="shrink-0 w-5 h-5 rounded bg-foreground/5 flex items-center justify-center hover:bg-red-500/20 transition-colors"
                 >
-                  <Trash2 className="w-3 h-3 text-white/40 hover:text-red-400" />
+                  <Trash2 className="w-3 h-3 text-muted-foreground/70 hover:text-red-400" />
                 </button>
               )}
               {item.status === "complete" && item.result && onShowResult && (
@@ -548,7 +548,7 @@ export default function TDoABatchQueue({
                   setItems([]);
                   setShowComparison(false);
                 }}
-                className="flex items-center justify-center px-3 py-2 text-[10px] text-white/40 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors"
+                className="flex items-center justify-center px-3 py-2 text-[10px] text-muted-foreground/70 bg-foreground/5 border border-border rounded-lg hover:bg-foreground/10 transition-colors"
               >
                 Clear
               </button>
@@ -575,23 +575,23 @@ export default function TDoABatchQueue({
               </div>
 
               {/* Position table */}
-              <div className="rounded border border-white/10 overflow-hidden mb-2">
+              <div className="rounded border border-border overflow-hidden mb-2">
                 <table className="w-full text-[9px]">
                   <thead>
-                    <tr className="bg-white/5">
-                      <th className="text-left px-2 py-1 text-white/50 font-medium">Frequency</th>
-                      <th className="text-right px-2 py-1 text-white/50 font-medium">Lat</th>
-                      <th className="text-right px-2 py-1 text-white/50 font-medium">Lon</th>
+                    <tr className="bg-foreground/5">
+                      <th className="text-left px-2 py-1 text-muted-foreground font-medium">Frequency</th>
+                      <th className="text-right px-2 py-1 text-muted-foreground font-medium">Lat</th>
+                      <th className="text-right px-2 py-1 text-muted-foreground font-medium">Lon</th>
                     </tr>
                   </thead>
                   <tbody>
                     {completedItems.map((item) => (
-                      <tr key={item.id} className="border-t border-white/5">
-                        <td className="px-2 py-1 text-white/70 font-mono">{item.label}</td>
-                        <td className="px-2 py-1 text-right text-white/60 font-mono">
+                      <tr key={item.id} className="border-t border-border">
+                        <td className="px-2 py-1 text-foreground/70 font-mono">{item.label}</td>
+                        <td className="px-2 py-1 text-right text-muted-foreground font-mono">
                           {item.result!.likelyLat.toFixed(4)}°
                         </td>
-                        <td className="px-2 py-1 text-right text-white/60 font-mono">
+                        <td className="px-2 py-1 text-right text-muted-foreground font-mono">
                           {item.result!.likelyLon.toFixed(4)}°
                         </td>
                       </tr>
@@ -603,23 +603,23 @@ export default function TDoABatchQueue({
               {/* Summary stats */}
               <div className="grid grid-cols-2 gap-2">
                 {avgPosition && (
-                  <div className="rounded bg-white/5 p-2">
-                    <p className="text-[8px] text-white/40 uppercase tracking-wider mb-0.5">
+                  <div className="rounded bg-foreground/5 p-2">
+                    <p className="text-[8px] text-muted-foreground/70 uppercase tracking-wider mb-0.5">
                       Average Position
                     </p>
-                    <p className="text-[10px] font-mono text-white/80">
+                    <p className="text-[10px] font-mono text-foreground/80">
                       {avgPosition.lat.toFixed(4)}°, {avgPosition.lon.toFixed(4)}°
                     </p>
                   </div>
                 )}
                 {positionSpread !== null && (
-                  <div className="rounded bg-white/5 p-2">
-                    <p className="text-[8px] text-white/40 uppercase tracking-wider mb-0.5">
+                  <div className="rounded bg-foreground/5 p-2">
+                    <p className="text-[8px] text-muted-foreground/70 uppercase tracking-wider mb-0.5">
                       Max Spread
                     </p>
-                    <p className="text-[10px] font-mono text-white/80">
+                    <p className="text-[10px] font-mono text-foreground/80">
                       {positionSpread.toFixed(1)} km
-                      <span className="text-white/40 ml-1">
+                      <span className="text-muted-foreground/70 ml-1">
                         {positionSpread < 50
                           ? "(excellent)"
                           : positionSpread < 200
@@ -656,12 +656,12 @@ export default function TDoABatchQueue({
 
       {/* Empty state */}
       {items.length === 0 && (
-        <div className="rounded-lg bg-white/[0.02] border border-dashed border-white/10 p-3 text-center">
-          <Layers className="w-4 h-4 text-white/15 mx-auto mb-1" />
-          <p className="text-[10px] text-white/30">
+        <div className="rounded-lg bg-foreground/[0.02] border border-dashed border-border p-3 text-center">
+          <Layers className="w-4 h-4 text-muted-foreground/20 mx-auto mb-1" />
+          <p className="text-[10px] text-muted-foreground/50">
             Queue multiple frequencies to compare TDoA results across bands
           </p>
-          <p className="text-[9px] text-white/20 mt-0.5">
+          <p className="text-[9px] text-muted-foreground/30 mt-0.5">
             Use presets or add custom frequencies
           </p>
         </div>

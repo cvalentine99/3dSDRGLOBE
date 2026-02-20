@@ -411,19 +411,19 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
           className="fixed top-0 left-0 bottom-0 w-[420px] max-w-[90vw] z-50 flex flex-col"
         >
           {/* Glass background */}
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-xl border-r border-white/10" />
+          <div className="absolute inset-0 bg-background/90 backdrop-blur-xl border-r border-border" />
 
           {/* Content */}
           <div className="relative flex flex-col h-full overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-rose-500/20 border border-rose-500/30 flex items-center justify-center">
                   <Target className="w-5 h-5 text-rose-400" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-semibold text-white">Saved Targets</h2>
-                  <p className="text-[10px] font-mono text-white/40 uppercase tracking-wider">
+                  <h2 className="text-sm font-semibold text-foreground">Saved Targets</h2>
+                  <p className="text-[10px] font-mono text-muted-foreground/70 uppercase tracking-wider">
                     {filteredTargets.length} targets · {visibleCount} visible
                   </p>
                 </div>
@@ -433,21 +433,21 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                 <div className="relative group">
                   <button
                     title="Export targets"
-                    className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/40 hover:bg-white/10 hover:text-white/60 transition-colors"
+                    className="w-8 h-8 rounded-lg bg-foreground/5 border border-border flex items-center justify-center text-muted-foreground/70 hover:bg-foreground/10 hover:text-muted-foreground transition-colors"
                   >
                     <Download className="w-4 h-4" />
                   </button>
-                  <div className="absolute right-0 top-full mt-1 w-36 bg-black/90 border border-white/10 rounded-lg overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 shadow-xl">
+                  <div className="absolute right-0 top-full mt-1 w-36 bg-background/95 border border-border rounded-lg overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 shadow-xl">
                     <button
                       onClick={handleExportCsv}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-[11px] text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-[11px] text-muted-foreground hover:bg-foreground/10 hover:text-foreground transition-colors"
                     >
                       <FileText className="w-3.5 h-3.5" />
                       Export CSV
                     </button>
                     <button
                       onClick={handleExportKml}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-[11px] text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-[11px] text-muted-foreground hover:bg-foreground/10 hover:text-foreground transition-colors"
                     >
                       <Globe2 className="w-3.5 h-3.5" />
                       Export KML
@@ -460,7 +460,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                   className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${
                     showImport
                       ? "bg-cyan-500/20 border-cyan-500/30 text-cyan-400"
-                      : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60"
+                      : "bg-foreground/5 border-border text-muted-foreground/70 hover:bg-foreground/10 hover:text-muted-foreground"
                   }`}
                 >
                   <Upload className="w-4 h-4" />
@@ -471,28 +471,28 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                   className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${
                     showAddForm
                       ? "bg-rose-500/20 border-rose-500/30 text-rose-400"
-                      : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60"
+                      : "bg-foreground/5 border-border text-muted-foreground/70 hover:bg-foreground/10 hover:text-muted-foreground"
                   }`}
                 >
                   <Plus className="w-4 h-4" />
                 </button>
                 <button
                   onClick={onClose}
-                  className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+                  className="w-8 h-8 rounded-lg bg-foreground/5 border border-border flex items-center justify-center hover:bg-foreground/10 transition-colors"
                 >
-                  <X className="w-4 h-4 text-white/60" />
+                  <X className="w-4 h-4 text-muted-foreground" />
                 </button>
               </div>
             </div>
 
             {/* Category Filter Bar */}
-            <div className="px-5 py-2.5 border-b border-white/5 flex items-center gap-1.5 overflow-x-auto scrollbar-thin">
+            <div className="px-5 py-2.5 border-b border-border flex items-center gap-1.5 overflow-x-auto scrollbar-thin">
               <button
                 onClick={() => setFilterCategory(null)}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition-colors ${
                   !filterCategory
-                    ? "bg-white/15 text-white border border-white/20"
-                    : "bg-white/5 text-white/40 border border-transparent hover:bg-white/10 hover:text-white/60"
+                    ? "bg-foreground/15 text-foreground border border-border"
+                    : "bg-foreground/5 text-muted-foreground/70 border border-transparent hover:bg-foreground/10 hover:text-muted-foreground"
                 }`}
               >
                 <Filter className="w-3 h-3" />
@@ -508,8 +508,8 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                     onClick={() => setFilterCategory(filterCategory === cat ? null : cat)}
                     className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition-colors ${
                       filterCategory === cat
-                        ? "bg-white/15 text-white border border-white/20"
-                        : "bg-white/5 text-white/40 border border-transparent hover:bg-white/10 hover:text-white/60"
+                        ? "bg-foreground/15 text-foreground border border-border"
+                        : "bg-foreground/5 text-muted-foreground/70 border border-transparent hover:bg-foreground/10 hover:text-muted-foreground"
                     }`}
                   >
                     <span>{config.icon}</span>
@@ -531,7 +531,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                     className="overflow-hidden"
                   >
                     <div className="rounded-lg bg-cyan-500/5 border border-cyan-500/15 p-4 space-y-3">
-                      <h3 className="text-xs font-semibold text-white/80 uppercase tracking-wider flex items-center gap-1.5">
+                      <h3 className="text-xs font-semibold text-foreground/80 uppercase tracking-wider flex items-center gap-1.5">
                         <Upload className="w-3.5 h-3.5 text-cyan-400" />
                         Import Targets
                       </h3>
@@ -543,7 +543,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                           className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded text-[11px] font-medium transition-colors ${
                             importFormat === "csv"
                               ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
-                              : "bg-white/5 text-white/40 border border-white/10 hover:bg-white/10"
+                              : "bg-foreground/5 text-muted-foreground/70 border border-border hover:bg-foreground/10"
                           }`}
                         >
                           <FileText className="w-3.5 h-3.5" />
@@ -554,7 +554,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                           className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded text-[11px] font-medium transition-colors ${
                             importFormat === "kml"
                               ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
-                              : "bg-white/5 text-white/40 border border-white/10 hover:bg-white/10"
+                              : "bg-foreground/5 text-muted-foreground/70 border border-border hover:bg-foreground/10"
                           }`}
                         >
                           <Globe2 className="w-3.5 h-3.5" />
@@ -572,7 +572,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                       />
                       <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-dashed border-white/15 text-white/40 text-xs hover:bg-white/5 hover:text-white/60 transition-colors"
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-dashed border-border text-muted-foreground/70 text-xs hover:bg-foreground/5 hover:text-muted-foreground transition-colors"
                       >
                         <Upload className="w-3.5 h-3.5" />
                         Choose {importFormat.toUpperCase()} file
@@ -588,11 +588,11 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                             : "Or paste KML data here..."
                         }
                         rows={4}
-                        className="w-full px-3 py-2 rounded-md bg-black/40 border border-white/10 text-white text-[11px] font-mono placeholder:text-white/20 focus:outline-none focus:border-cyan-500/40 resize-none"
+                        className="w-full px-3 py-2 rounded-md bg-background/60 border border-border text-foreground text-[11px] font-mono placeholder:text-muted-foreground/30 focus:outline-none focus:border-cyan-500/40 resize-none"
                       />
 
                       {importData && (
-                        <p className="text-[10px] text-white/30">
+                        <p className="text-[10px] text-muted-foreground/50">
                           {importData.split("\n").length} lines loaded
                         </p>
                       )}
@@ -623,8 +623,8 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                     exit={{ height: 0, opacity: 0 }}
                     className="overflow-hidden"
                   >
-                    <div className="rounded-lg bg-white/5 border border-white/10 p-4 space-y-3">
-                      <h3 className="text-xs font-semibold text-white/80 uppercase tracking-wider flex items-center gap-1.5">
+                    <div className="rounded-lg bg-foreground/5 border border-border p-4 space-y-3">
+                      <h3 className="text-xs font-semibold text-foreground/80 uppercase tracking-wider flex items-center gap-1.5">
                         <MapPin className="w-3.5 h-3.5 text-rose-400" />
                         Add Target Manually
                       </h3>
@@ -634,7 +634,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                         placeholder="Label (e.g. Unknown TX)"
                         value={addLabel}
                         onChange={(e) => setAddLabel(e.target.value)}
-                        className="w-full px-3 py-2 rounded-md bg-black/40 border border-white/10 text-white text-xs font-mono placeholder:text-white/30 focus:outline-none focus:border-rose-500/40"
+                        className="w-full px-3 py-2 rounded-md bg-background/60 border border-border text-foreground text-xs font-mono placeholder:text-muted-foreground/50 focus:outline-none focus:border-rose-500/40"
                       />
 
                       <div className="grid grid-cols-2 gap-2">
@@ -643,14 +643,14 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                           placeholder="Latitude"
                           value={addLat}
                           onChange={(e) => setAddLat(e.target.value)}
-                          className="px-3 py-2 rounded-md bg-black/40 border border-white/10 text-white text-xs font-mono placeholder:text-white/30 focus:outline-none focus:border-rose-500/40"
+                          className="px-3 py-2 rounded-md bg-background/60 border border-border text-foreground text-xs font-mono placeholder:text-muted-foreground/50 focus:outline-none focus:border-rose-500/40"
                         />
                         <input
                           type="number"
                           placeholder="Longitude"
                           value={addLon}
                           onChange={(e) => setAddLon(e.target.value)}
-                          className="px-3 py-2 rounded-md bg-black/40 border border-white/10 text-white text-xs font-mono placeholder:text-white/30 focus:outline-none focus:border-rose-500/40"
+                          className="px-3 py-2 rounded-md bg-background/60 border border-border text-foreground text-xs font-mono placeholder:text-muted-foreground/50 focus:outline-none focus:border-rose-500/40"
                         />
                       </div>
 
@@ -659,12 +659,12 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                         placeholder="Frequency (kHz) — optional"
                         value={addFreq}
                         onChange={(e) => setAddFreq(e.target.value)}
-                        className="w-full px-3 py-2 rounded-md bg-black/40 border border-white/10 text-white text-xs font-mono placeholder:text-white/30 focus:outline-none focus:border-rose-500/40"
+                        className="w-full px-3 py-2 rounded-md bg-background/60 border border-border text-foreground text-xs font-mono placeholder:text-muted-foreground/50 focus:outline-none focus:border-rose-500/40"
                       />
 
                       {/* Category selector */}
                       <div>
-                        <span className="text-[10px] text-white/40 uppercase tracking-wider block mb-1.5">Category:</span>
+                        <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider block mb-1.5">Category:</span>
                         <div className="flex flex-wrap gap-1.5">
                           {CATEGORIES.map((cat) => {
                             const config = CATEGORY_CONFIG[cat];
@@ -674,8 +674,8 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                 onClick={() => setAddCategory(cat)}
                                 className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors ${
                                   addCategory === cat
-                                    ? "bg-white/15 text-white border border-white/25"
-                                    : "bg-white/5 text-white/40 border border-white/5 hover:bg-white/10"
+                                    ? "bg-foreground/15 text-foreground border border-border"
+                                    : "bg-foreground/5 text-muted-foreground/70 border border-border hover:bg-foreground/10"
                                 }`}
                               >
                                 <span>{config.icon}</span>
@@ -691,12 +691,12 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                         value={addNotes}
                         onChange={(e) => setAddNotes(e.target.value)}
                         rows={2}
-                        className="w-full px-3 py-2 rounded-md bg-black/40 border border-white/10 text-white text-xs font-mono placeholder:text-white/30 focus:outline-none focus:border-rose-500/40 resize-none"
+                        className="w-full px-3 py-2 rounded-md bg-background/60 border border-border text-foreground text-xs font-mono placeholder:text-muted-foreground/50 focus:outline-none focus:border-rose-500/40 resize-none"
                       />
 
                       {/* Color picker */}
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-white/40 uppercase tracking-wider">Color:</span>
+                        <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Color:</span>
                         <div className="flex gap-1.5">
                           {TARGET_COLORS.map((c) => (
                             <button
@@ -704,8 +704,8 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                               onClick={() => setAddColor(c)}
                               className={`w-5 h-5 rounded-full border-2 transition-all ${
                                 addColor === c
-                                  ? "border-white scale-110"
-                                  : "border-transparent hover:border-white/40"
+                                  ? "border-border scale-110"
+                                  : "border-transparent hover:border-border"
                               }`}
                               style={{ backgroundColor: c }}
                             />
@@ -733,15 +733,15 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
               {/* Target List */}
               {targetsQuery.isLoading ? (
                 <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-5 h-5 text-white/30 animate-spin" />
+                  <Loader2 className="w-5 h-5 text-muted-foreground/50 animate-spin" />
                 </div>
               ) : filteredTargets.length === 0 ? (
-                <div className="rounded-lg bg-white/5 border border-dashed border-white/10 p-8 text-center">
-                  <Target className="w-8 h-8 text-white/15 mx-auto mb-3" />
-                  <p className="text-xs text-white/40 mb-1">
+                <div className="rounded-lg bg-foreground/5 border border-dashed border-border p-8 text-center">
+                  <Target className="w-8 h-8 text-foreground/15 mx-auto mb-3" />
+                  <p className="text-xs text-muted-foreground/70 mb-1">
                     {filterCategory ? "No targets in this category" : "No saved targets yet"}
                   </p>
-                  <p className="text-[10px] text-white/25">
+                  <p className="text-[10px] text-foreground/25">
                     Complete a TDoA run and save the result, or add/import targets
                   </p>
                 </div>
@@ -763,8 +763,8 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                         layout
                         className={`rounded-lg border transition-colors ${
                           target.visible
-                            ? "bg-white/5 border-white/10"
-                            : "bg-white/[0.02] border-white/5 opacity-60"
+                            ? "bg-foreground/5 border-border"
+                            : "bg-foreground/[0.02] border-border opacity-60"
                         }`}
                       >
                         {/* Main row */}
@@ -790,16 +790,16 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                 type="text"
                                 value={editLabel}
                                 onChange={(e) => setEditLabel(e.target.value)}
-                                className="w-full px-2 py-1 rounded bg-black/40 border border-white/10 text-white text-xs font-mono focus:outline-none focus:border-rose-500/40"
+                                className="w-full px-2 py-1 rounded bg-background/60 border border-border text-foreground text-xs font-mono focus:outline-none focus:border-rose-500/40"
                                 autoFocus
                                 onClick={(e) => e.stopPropagation()}
                               />
                             ) : (
                               <>
-                                <p className="text-xs font-medium text-white truncate">
+                                <p className="text-xs font-medium text-foreground truncate">
                                   {target.label}
                                 </p>
-                                <p className="text-[10px] font-mono text-white/40">
+                                <p className="text-[10px] font-mono text-muted-foreground/70">
                                   {lat.toFixed(3)}°, {lon.toFixed(3)}°
                                   {target.frequencyKhz && (
                                     <span className="ml-2 text-amber-400/60">
@@ -837,7 +837,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                   className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${
                                     isClassifying
                                       ? "text-amber-400 bg-amber-500/15"
-                                      : "text-white/30 hover:text-amber-400 hover:bg-amber-500/10"
+                                      : "text-muted-foreground/50 hover:text-amber-400 hover:bg-amber-500/10"
                                   }`}
                                   title="Auto-classify with AI"
                                 >
@@ -849,7 +849,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                 </button>
                                 <button
                                   onClick={() => onFocusTarget?.(lat, lon)}
-                                  className="w-7 h-7 rounded flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors"
+                                  className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground/50 hover:text-muted-foreground hover:bg-foreground/5 transition-colors"
                                   title="Focus on globe"
                                 >
                                   <MapPin className="w-3.5 h-3.5" />
@@ -858,8 +858,8 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                   onClick={() => handleToggle(target.id, target.visible)}
                                   className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${
                                     target.visible
-                                      ? "text-white/60 hover:text-white/80 hover:bg-white/5"
-                                      : "text-white/20 hover:text-white/40 hover:bg-white/5"
+                                      ? "text-muted-foreground hover:text-foreground/80 hover:bg-foreground/5"
+                                      : "text-muted-foreground/30 hover:text-muted-foreground/70 hover:bg-foreground/5"
                                   }`}
                                   title={target.visible ? "Hide on globe" : "Show on globe"}
                                 >
@@ -874,7 +874,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                   className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${
                                     showingHistory
                                       ? "text-violet-400 bg-violet-500/15"
-                                      : "text-white/30 hover:text-white/60 hover:bg-white/5"
+                                      : "text-muted-foreground/50 hover:text-muted-foreground hover:bg-foreground/5"
                                   }`}
                                   title="Position history & prediction"
                                 >
@@ -882,14 +882,14 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                 </button>
                                 <button
                                   onClick={() => handleStartEdit(target)}
-                                  className="w-7 h-7 rounded flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors"
+                                  className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground/50 hover:text-muted-foreground hover:bg-foreground/5 transition-colors"
                                   title="Edit target"
                                 >
                                   <Edit3 className="w-3.5 h-3.5" />
                                 </button>
                                 <button
                                   onClick={() => handleDelete(target.id)}
-                                  className="w-7 h-7 rounded flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                  className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground/30 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                                   title="Delete target"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -898,7 +898,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                             )}
                             <button
                               onClick={() => setExpandedId(isExpanded ? null : target.id)}
-                              className="w-7 h-7 rounded flex items-center justify-center text-white/20 hover:text-white/40 transition-colors"
+                              className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground/30 hover:text-muted-foreground/70 transition-colors"
                             >
                               {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                             </button>
@@ -914,11 +914,11 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                               exit={{ height: 0, opacity: 0 }}
                               className="overflow-hidden"
                             >
-                              <div className="px-3 pb-3 pt-1 border-t border-white/5 space-y-2">
+                              <div className="px-3 pb-3 pt-1 border-t border-border space-y-2">
                                 {/* Category picker (when editing) */}
                                 {isEditing && (
                                   <div>
-                                    <span className="text-[10px] text-white/40 uppercase tracking-wider block mb-1">
+                                    <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider block mb-1">
                                       Category:
                                     </span>
                                     <div className="flex flex-wrap gap-1">
@@ -930,8 +930,8 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                             onClick={() => setEditCategory(cat)}
                                             className={`flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-medium transition-colors ${
                                               editCategory === cat
-                                                ? "bg-white/15 text-white border border-white/25"
-                                                : "bg-white/5 text-white/40 border border-white/5 hover:bg-white/10"
+                                                ? "bg-foreground/15 text-foreground border border-border"
+                                                : "bg-foreground/5 text-muted-foreground/70 border border-border hover:bg-foreground/10"
                                             }`}
                                           >
                                             <span>{config.icon}</span>
@@ -946,7 +946,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                 {/* Color picker (when editing) */}
                                 {isEditing && (
                                   <div className="flex items-center gap-2">
-                                    <span className="text-[10px] text-white/40 uppercase tracking-wider">Color:</span>
+                                    <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Color:</span>
                                     <div className="flex gap-1.5">
                                       {TARGET_COLORS.map((c) => (
                                         <button
@@ -954,8 +954,8 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                           onClick={() => setEditColor(c)}
                                           className={`w-4 h-4 rounded-full border-2 transition-all ${
                                             editColor === c
-                                              ? "border-white scale-110"
-                                              : "border-transparent hover:border-white/40"
+                                              ? "border-border scale-110"
+                                              : "border-transparent hover:border-border"
                                           }`}
                                           style={{ backgroundColor: c }}
                                         />
@@ -971,14 +971,14 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                     onChange={(e) => setEditNotes(e.target.value)}
                                     placeholder="Notes..."
                                     rows={2}
-                                    className="w-full px-2 py-1.5 rounded bg-black/40 border border-white/10 text-white text-[11px] font-mono placeholder:text-white/20 focus:outline-none focus:border-rose-500/40 resize-none"
+                                    className="w-full px-2 py-1.5 rounded bg-background/60 border border-border text-foreground text-[11px] font-mono placeholder:text-muted-foreground/30 focus:outline-none focus:border-rose-500/40 resize-none"
                                   />
                                 ) : target.notes ? (
-                                  <p className="text-[11px] text-white/40 italic">{target.notes}</p>
+                                  <p className="text-[11px] text-muted-foreground/70 italic">{target.notes}</p>
                                 ) : null}
 
                                 {/* Metadata */}
-                                <div className="flex items-center gap-3 text-[10px] font-mono text-white/30">
+                                <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground/50">
                                   <span>ID: {target.id}</span>
                                   {target.sourceJobId && (
                                     <span className="flex items-center gap-1">
@@ -991,18 +991,18 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
 
                                 {/* Position History Timeline */}
                                 {showingHistory && (
-                                  <div className="mt-2 pt-2 border-t border-white/5">
-                                    <h4 className="text-[10px] font-mono text-white/40 uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                                  <div className="mt-2 pt-2 border-t border-border">
+                                    <h4 className="text-[10px] font-mono text-muted-foreground/70 uppercase tracking-wider flex items-center gap-1.5 mb-2">
                                       <TrendingUp className="w-3 h-3" />
                                       Position History
                                     </h4>
                                     {historyQuery.isLoading ? (
                                       <div className="flex items-center gap-2 py-3">
-                                        <Loader2 className="w-3.5 h-3.5 text-white/30 animate-spin" />
-                                        <span className="text-[10px] text-white/30">Loading history...</span>
+                                        <Loader2 className="w-3.5 h-3.5 text-muted-foreground/50 animate-spin" />
+                                        <span className="text-[10px] text-muted-foreground/50">Loading history...</span>
                                       </div>
                                     ) : historyEntries.length === 0 ? (
-                                      <p className="text-[10px] text-white/25 py-2">
+                                      <p className="text-[10px] text-foreground/25 py-2">
                                         No position history yet. Run more TDoA jobs and link them to this target.
                                       </p>
                                     ) : (
@@ -1022,7 +1022,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                           return (
                                             <div
                                               key={entry.id}
-                                              className="flex items-start gap-2 px-2 py-1.5 rounded bg-white/[0.03] border border-white/5"
+                                              className="flex items-start gap-2 px-2 py-1.5 rounded bg-foreground/[0.03] border border-border"
                                             >
                                               <div className="flex flex-col items-center pt-1">
                                                 <div
@@ -1030,12 +1030,12 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                                   style={{ backgroundColor: target.color }}
                                                 />
                                                 {idx < historyEntries.length - 1 && (
-                                                  <div className="w-px h-4 bg-white/10 mt-0.5" />
+                                                  <div className="w-px h-4 bg-foreground/10 mt-0.5" />
                                                 )}
                                               </div>
                                               <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2">
-                                                  <span className="text-[10px] font-mono text-white/60">
+                                                  <span className="text-[10px] font-mono text-muted-foreground">
                                                     {entryLat.toFixed(4)}°, {entryLon.toFixed(4)}°
                                                   </span>
                                                   {driftKm !== null && (
@@ -1045,7 +1045,7 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                                     </span>
                                                   )}
                                                 </div>
-                                                <div className="flex items-center gap-2 text-[9px] text-white/30">
+                                                <div className="flex items-center gap-2 text-[9px] text-muted-foreground/50">
                                                   <span>Job #{entry.jobId}</span>
                                                   {entry.frequencyKhz && (
                                                     <span>{parseFloat(entry.frequencyKhz)} kHz</span>
@@ -1075,12 +1075,12 @@ export default function TargetManager({ isOpen, onClose, onFocusTarget }: Target
                                     {showingPrediction && predictionQuery.isLoading && (
                                       <div className="flex items-center gap-2 py-2 mt-2">
                                         <Loader2 className="w-3.5 h-3.5 text-emerald-400/50 animate-spin" />
-                                        <span className="text-[10px] text-white/30">Computing prediction...</span>
+                                        <span className="text-[10px] text-muted-foreground/50">Computing prediction...</span>
                                       </div>
                                     )}
                                     {showingPrediction && !predictionQuery.isLoading && !prediction && historyEntries.length >= 2 && (
-                                      <div className="rounded bg-white/5 border border-white/10 px-2.5 py-2 mt-2">
-                                        <p className="text-[10px] text-white/30 flex items-center gap-1.5">
+                                      <div className="rounded bg-foreground/5 border border-border px-2.5 py-2 mt-2">
+                                        <p className="text-[10px] text-muted-foreground/50 flex items-center gap-1.5">
                                           <AlertCircle className="w-3 h-3" />
                                           Need at least 2 position observations for prediction
                                         </p>
@@ -1149,10 +1149,10 @@ function PredictionCard({
       {/* Predicted position */}
       <div className="flex items-center gap-2">
         <div className="flex-1">
-          <p className="text-[11px] font-mono text-white/70">
+          <p className="text-[11px] font-mono text-foreground/70">
             {prediction.predictedLat.toFixed(4)}°, {prediction.predictedLon.toFixed(4)}°
           </p>
-          <p className="text-[9px] text-white/30">
+          <p className="text-[9px] text-muted-foreground/50">
             Predicted for {new Date(prediction.predictedAt).toLocaleString()}
           </p>
         </div>
@@ -1170,38 +1170,38 @@ function PredictionCard({
       {/* Metrics grid */}
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[9px] font-mono">
         <div>
-          <span className="text-white/30">Model: </span>
-          <span className="text-white/60">{prediction.modelType}</span>
+          <span className="text-muted-foreground/50">Model: </span>
+          <span className="text-muted-foreground">{prediction.modelType}</span>
         </div>
         <div>
-          <span className="text-white/30">Velocity: </span>
-          <span className="text-white/60">{prediction.velocityKmh.toFixed(1)} km/h</span>
+          <span className="text-muted-foreground/50">Velocity: </span>
+          <span className="text-muted-foreground">{prediction.velocityKmh.toFixed(1)} km/h</span>
         </div>
         <div>
-          <span className="text-white/30">Bearing: </span>
-          <span className="text-white/60">{prediction.bearingDeg.toFixed(0)}°</span>
+          <span className="text-muted-foreground/50">Bearing: </span>
+          <span className="text-muted-foreground">{prediction.bearingDeg.toFixed(0)}°</span>
         </div>
         <div>
-          <span className="text-white/30">Ellipse: </span>
-          <span className="text-white/60">
+          <span className="text-muted-foreground/50">Ellipse: </span>
+          <span className="text-muted-foreground">
             {prediction.ellipseMajor.toFixed(2)}° × {prediction.ellipseMinor.toFixed(2)}°
           </span>
         </div>
         <div>
-          <span className="text-white/30">R² lat: </span>
-          <span className="text-white/60">{prediction.rSquaredLat.toFixed(3)}</span>
+          <span className="text-muted-foreground/50">R² lat: </span>
+          <span className="text-muted-foreground">{prediction.rSquaredLat.toFixed(3)}</span>
         </div>
         <div>
-          <span className="text-white/30">R² lon: </span>
-          <span className="text-white/60">{prediction.rSquaredLon.toFixed(3)}</span>
+          <span className="text-muted-foreground/50">R² lon: </span>
+          <span className="text-muted-foreground">{prediction.rSquaredLon.toFixed(3)}</span>
         </div>
         <div>
-          <span className="text-white/30">Observations: </span>
-          <span className="text-white/60">{prediction.historyCount}</span>
+          <span className="text-muted-foreground/50">Observations: </span>
+          <span className="text-muted-foreground">{prediction.historyCount}</span>
         </div>
         <div>
-          <span className="text-white/30">Avg interval: </span>
-          <span className="text-white/60">
+          <span className="text-muted-foreground/50">Avg interval: </span>
+          <span className="text-muted-foreground">
             {prediction.avgIntervalHours < 1
               ? `${Math.round(prediction.avgIntervalHours * 60)} min`
               : `${prediction.avgIntervalHours.toFixed(1)} hrs`}
@@ -1237,22 +1237,22 @@ function DriftSummary({ entries }: { entries: Array<{ lat: string; lon: string; 
   return (
     <div className="flex items-center gap-4 text-[10px] font-mono">
       <div>
-        <span className="text-white/30">Total: </span>
-        <span className="text-white/60">{totalDrift.toFixed(1)} km</span>
+        <span className="text-muted-foreground/50">Total: </span>
+        <span className="text-muted-foreground">{totalDrift.toFixed(1)} km</span>
       </div>
       <div>
-        <span className="text-white/30">Max step: </span>
-        <span className="text-white/60">{maxDrift.toFixed(1)} km</span>
+        <span className="text-muted-foreground/50">Max step: </span>
+        <span className="text-muted-foreground">{maxDrift.toFixed(1)} km</span>
       </div>
       <div>
-        <span className="text-white/30">Over: </span>
-        <span className="text-white/60">
+        <span className="text-muted-foreground/50">Over: </span>
+        <span className="text-muted-foreground">
           {timeSpanHrs < 1 ? `${Math.round(timeSpanHrs * 60)} min` : `${timeSpanHrs.toFixed(1)} hrs`}
         </span>
       </div>
       <div>
-        <span className="text-white/30">Obs: </span>
-        <span className="text-white/60">{entries.length}</span>
+        <span className="text-muted-foreground/50">Obs: </span>
+        <span className="text-muted-foreground">{entries.length}</span>
       </div>
     </div>
   );

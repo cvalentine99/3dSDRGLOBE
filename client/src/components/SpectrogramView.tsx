@@ -291,11 +291,11 @@ export default function SpectrogramView({
   if (loading) {
     return (
       <div
-        className="flex items-center justify-center rounded-md bg-black/30 border border-white/5"
+        className="flex items-center justify-center rounded-md bg-background/50 border border-border"
         style={{ height }}
       >
-        <Loader2 className="w-4 h-4 text-white/30 animate-spin mr-2" />
-        <span className="text-[10px] text-white/30">Generating spectrogram...</span>
+        <Loader2 className="w-4 h-4 text-muted-foreground/50 animate-spin mr-2" />
+        <span className="text-[10px] text-muted-foreground/50">Generating spectrogram...</span>
       </div>
     );
   }
@@ -317,7 +317,7 @@ export default function SpectrogramView({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {label && (
-            <span className="text-[9px] font-mono text-white/40 uppercase tracking-wider">
+            <span className="text-[9px] font-mono text-muted-foreground/70 uppercase tracking-wider">
               {label}
             </span>
           )}
@@ -330,22 +330,22 @@ export default function SpectrogramView({
         <div className="flex items-center gap-1">
           <button
             onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}
-            className="w-5 h-5 rounded flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors"
+            className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground/50 hover:text-muted-foreground hover:bg-foreground/5 transition-colors"
             title="Zoom out"
           >
             <ZoomOut className="w-3 h-3" />
           </button>
-          <span className="text-[8px] font-mono text-white/30 w-6 text-center">{zoom}x</span>
+          <span className="text-[8px] font-mono text-muted-foreground/50 w-6 text-center">{zoom}x</span>
           <button
             onClick={() => setZoom(Math.min(4, zoom + 0.25))}
-            className="w-5 h-5 rounded flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors"
+            className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground/50 hover:text-muted-foreground hover:bg-foreground/5 transition-colors"
             title="Zoom in"
           >
             <ZoomIn className="w-3 h-3" />
           </button>
           <button
             onClick={cycleColorMap}
-            className="w-5 h-5 rounded flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors ml-1"
+            className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground/50 hover:text-muted-foreground hover:bg-foreground/5 transition-colors ml-1"
             title={`Color map: ${colorMap}`}
           >
             <Palette className="w-3 h-3" />
@@ -355,7 +355,7 @@ export default function SpectrogramView({
 
       {/* Spectrogram canvas */}
       <div
-        className="rounded-md overflow-hidden border border-white/5 relative"
+        className="rounded-md overflow-hidden border border-border relative"
         style={{ height, overflowX: "auto" }}
       >
         <canvas

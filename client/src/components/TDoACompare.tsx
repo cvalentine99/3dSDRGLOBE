@@ -134,9 +134,9 @@ export default function TDoACompare({ onOverlay }: TDoACompareProps) {
 
         {/* VS divider */}
         <div className="flex items-center gap-2 px-2">
-          <div className="flex-1 h-px bg-white/10" />
-          <span className="text-[9px] font-mono text-white/30 uppercase">vs</span>
-          <div className="flex-1 h-px bg-white/10" />
+          <div className="flex-1 h-px bg-border" />
+          <span className="text-[9px] font-mono text-muted-foreground/50 uppercase">vs</span>
+          <div className="flex-1 h-px bg-border" />
         </div>
 
         {/* Slot B */}
@@ -159,14 +159,14 @@ export default function TDoACompare({ onOverlay }: TDoACompareProps) {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="border-t border-white/5 overflow-hidden"
+            className="border-t border-border/50 overflow-hidden"
           >
             <div className="px-3 py-2 max-h-40 overflow-y-auto scrollbar-thin">
-              <p className="text-[9px] text-white/40 uppercase tracking-wider mb-1.5">
+              <p className="text-[9px] text-muted-foreground/70 uppercase tracking-wider mb-1.5">
                 Select Job for Slot {selectingSlot}
               </p>
               {completedJobs.length === 0 ? (
-                <p className="text-[10px] text-white/30 py-2 text-center">
+                <p className="text-[10px] text-muted-foreground/50 py-2 text-center">
                   No completed jobs available
                 </p>
               ) : (
@@ -187,23 +187,23 @@ export default function TDoACompare({ onOverlay }: TDoACompareProps) {
                           isSelected
                             ? "bg-violet-500/20 border border-violet-500/30 text-violet-300"
                             : isOtherSlot
-                            ? "bg-white/5 border border-white/10 text-white/30"
-                            : "bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white/80"
+                            ? "bg-foreground/5 border border-border text-muted-foreground/50"
+                            : "bg-foreground/5 border border-border text-muted-foreground hover:bg-foreground/10 hover:text-foreground/80"
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-mono">
                             #{job.id} — {parseFloat(job.frequencyKhz).toLocaleString()} kHz
                           </span>
-                          <span className="text-white/30">
+                          <span className="text-muted-foreground/50">
                             {formatTimestamp(job.createdAt)}
                           </span>
                         </div>
-                        <div className="text-[9px] text-white/30 mt-0.5">
+                        <div className="text-[9px] text-muted-foreground/50 mt-0.5">
                           {parseFloat(job.likelyLat!).toFixed(2)}°,{" "}
                           {parseFloat(job.likelyLon!).toFixed(2)}°
                           {isOtherSlot && (
-                            <span className="ml-1 text-white/20">
+                            <span className="ml-1 text-muted-foreground/30">
                               (in other slot)
                             </span>
                           )}
@@ -223,11 +223,11 @@ export default function TDoACompare({ onOverlay }: TDoACompareProps) {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="flex-1 overflow-y-auto scrollbar-thin border-t border-white/5"
+          className="flex-1 overflow-y-auto scrollbar-thin border-t border-border/50"
         >
           <div className="px-3 py-3 space-y-3">
             {/* Position drift */}
-            <div className="rounded-lg bg-white/5 border border-white/10 p-3">
+            <div className="rounded-lg bg-foreground/5 border border-border p-3">
               <div className="flex items-center gap-1.5 mb-2">
                 <Ruler className="w-3 h-3 text-amber-400" />
                 <span className="text-[9px] text-amber-400/70 uppercase tracking-wider font-medium">
@@ -236,16 +236,16 @@ export default function TDoACompare({ onOverlay }: TDoACompareProps) {
               </div>
               <div className="flex items-center gap-3">
                 <div>
-                  <p className="text-[9px] text-white/35">Distance</p>
-                  <p className="text-lg font-mono text-white/90">
+                  <p className="text-[9px] text-muted-foreground/60">Distance</p>
+                  <p className="text-lg font-mono text-foreground/90">
                     {comparison.distance < 1
                       ? `${(comparison.distance * 1000).toFixed(0)} m`
                       : `${comparison.distance.toFixed(1)} km`}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[9px] text-white/35">Bearing</p>
-                  <p className="text-lg font-mono text-white/90">
+                  <p className="text-[9px] text-muted-foreground/60">Bearing</p>
+                  <p className="text-lg font-mono text-foreground/90">
                     {comparison.bearing.toFixed(1)}°
                   </p>
                 </div>
@@ -273,72 +273,67 @@ export default function TDoACompare({ onOverlay }: TDoACompareProps) {
             </div>
 
             {/* Frequency comparison */}
-            <div className="rounded-lg bg-white/5 border border-white/10 p-3">
+            <div className="rounded-lg bg-foreground/5 border border-border p-3">
               <div className="flex items-center gap-1.5 mb-2">
-                <Radio className="w-3 h-3 text-white/50" />
-                <span className="text-[9px] text-white/40 uppercase tracking-wider font-medium">
+                <Radio className="w-3 h-3 text-muted-foreground" />
+                <span className="text-[9px] text-muted-foreground/70 uppercase tracking-wider font-medium">
                   Frequency Comparison
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-[10px]">
                 <div>
                   <span className="text-violet-400/70">A:</span>{" "}
-                  <span className="font-mono text-white/70">
+                  <span className="font-mono text-foreground/70">
                     {parseFloat(jobA.frequencyKhz).toLocaleString()} kHz
                   </span>
                 </div>
                 <div>
                   <span className="text-cyan-400/70">B:</span>{" "}
-                  <span className="font-mono text-white/70">
+                  <span className="font-mono text-foreground/70">
                     {parseFloat(jobB.frequencyKhz).toLocaleString()} kHz
                   </span>
                 </div>
+                {jobA.passbandHz !== jobB.passbandHz && (
+                  <p className="col-span-2 text-[9px] text-amber-400/60 mt-1">
+                    Passband mismatch
+                  </p>
+                )}
               </div>
-              {jobA.frequencyKhz === jobB.frequencyKhz ? (
-                <p className="text-[9px] text-green-400/60 mt-1.5">
-                  Same frequency — drift shows temporal variation
-                </p>
-              ) : (
-                <p className="text-[9px] text-amber-400/60 mt-1.5">
-                  Different frequencies — drift shows cross-band variation
-                </p>
-              )}
             </div>
 
             {/* Host overlap */}
-            <div className="rounded-lg bg-white/5 border border-white/10 p-3">
+            <div className="rounded-lg bg-foreground/5 border border-border p-3">
               <div className="flex items-center gap-1.5 mb-2">
-                <MapPin className="w-3 h-3 text-white/50" />
-                <span className="text-[9px] text-white/40 uppercase tracking-wider font-medium">
+                <MapPin className="w-3 h-3 text-muted-foreground" />
+                <span className="text-[9px] text-muted-foreground/70 uppercase tracking-wider font-medium">
                   Receiver Overlap
                 </span>
               </div>
               <HostOverlap hostsA={jobA.hosts} hostsB={jobB.hosts} />
             </div>
-
-            {/* Overlay on globe button */}
-            <button
-              onClick={handleOverlay}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-violet-500/20 border border-violet-500/30 text-violet-300 text-[11px] font-medium hover:bg-violet-500/30 transition-colors"
-            >
-              <GitCompare className="w-4 h-4" />
-              Overlay Both on Globe
-            </button>
           </div>
         </motion.div>
       )}
 
-      {/* Empty state */}
+      {/* Overlay button */}
+      {jobA && jobB && comparison && (
+        <div className="px-3 py-2 border-t border-border/50">
+          <button
+            onClick={handleOverlay}
+            className="w-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 text-[10px] font-medium uppercase tracking-wider py-2 rounded-md transition-colors"
+          >
+            Overlay Comparison on Globe
+          </button>
+        </div>
+      )}
+
+      {/* Placeholder when no comparison is active */}
       {(!jobA || !jobB) && !selectingSlot && (
         <div className="flex-1 flex items-center justify-center px-4">
           <div className="text-center">
-            <GitCompare className="w-8 h-8 text-white/15 mx-auto mb-2" />
-            <p className="text-[11px] text-white/30">
-              Select two completed TDoA jobs to compare their results
-            </p>
-            <p className="text-[9px] text-white/20 mt-1">
-              {completedJobs.length} completed job{completedJobs.length !== 1 ? "s" : ""}{" "}
-              available
+            <GitCompare className="w-8 h-8 text-muted-foreground/30 mx-auto" />
+            <p className="text-xs text-muted-foreground/50 mt-2">
+              Select two TDoA jobs to compare results.
             </p>
           </div>
         </div>
@@ -347,7 +342,7 @@ export default function TDoACompare({ onOverlay }: TDoACompareProps) {
   );
 }
 
-/* ── Sub-components ───────────────────────────────── */
+/* ── Subcomponents ──────────────────────────────────── */
 
 function JobSlot({
   label,
@@ -380,18 +375,18 @@ function JobSlot({
             {label}
           </span>
           {job ? (
-            <span className="text-[10px] font-mono text-white/70">
+            <span className="text-[10px] font-mono text-foreground/70">
               Job #{job.id}
             </span>
           ) : (
-            <span className="text-[10px] text-white/30">Not selected</span>
+            <span className="text-[10px] text-muted-foreground/50">Not selected</span>
           )}
         </div>
         <div className="flex items-center gap-1">
           {job && (
             <button
               onClick={onClear}
-              className="p-0.5 rounded hover:bg-white/10 text-white/30 hover:text-white/60 transition-colors"
+              className="p-0.5 rounded hover:bg-foreground/10 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
             >
               <X className="w-3 h-3" />
             </button>
@@ -401,7 +396,7 @@ function JobSlot({
             className={`flex items-center gap-1 px-2 py-0.5 rounded text-[9px] transition-colors ${
               isSelecting
                 ? `${colorClasses.bg} ${colorClasses.text}`
-                : "bg-white/5 text-white/40 hover:bg-white/10 hover:text-white/60"
+                : "bg-foreground/5 text-muted-foreground/70 hover:bg-foreground/10 hover:text-muted-foreground"
             }`}
           >
             <ChevronDown
@@ -415,16 +410,16 @@ function JobSlot({
       </div>
       {job && (
         <div className="flex items-center gap-3 text-[9px]">
-          <span className="font-mono text-white/50">
+          <span className="font-mono text-muted-foreground">
             {parseFloat(job.frequencyKhz).toLocaleString()} kHz
           </span>
           {job.likelyLat && job.likelyLon && (
-            <span className="font-mono text-white/40">
+            <span className="font-mono text-muted-foreground/70">
               {parseFloat(job.likelyLat).toFixed(2)}°,{" "}
               {parseFloat(job.likelyLon).toFixed(2)}°
             </span>
           )}
-          <span className="text-white/25 ml-auto">
+          <span className="text-muted-foreground/30 ml-auto">
             {formatTimestamp(job.createdAt)}
           </span>
         </div>
@@ -447,20 +442,20 @@ function PositionCard({
     color === "violet" ? "border-violet-500/15" : "border-cyan-500/15";
 
   return (
-    <div className={`rounded-lg bg-white/5 border ${borderClass} p-2.5`}>
+    <div className={`rounded-lg bg-foreground/5 border ${borderClass} p-2.5`}>
       <p className={`text-[9px] ${colorClass} uppercase tracking-wider mb-1`}>
         {label}
       </p>
       <div className="space-y-1">
         <div>
-          <p className="text-[8px] text-white/30">Lat</p>
-          <p className="text-[11px] font-mono text-white/80">
+          <p className="text-[8px] text-muted-foreground/50">Lat</p>
+          <p className="text-[11px] font-mono text-foreground/80">
             {parseFloat(job.likelyLat!).toFixed(4)}°
           </p>
         </div>
         <div>
-          <p className="text-[8px] text-white/30">Lon</p>
-          <p className="text-[11px] font-mono text-white/80">
+          <p className="text-[8px] text-muted-foreground/50">Lon</p>
+          <p className="text-[11px] font-mono text-foreground/80">
             {parseFloat(job.likelyLon!).toFixed(4)}°
           </p>
         </div>
@@ -482,24 +477,24 @@ function HostOverlap({ hostsA, hostsB }: { hostsA: any; hostsB: any }) {
     <div className="space-y-1 text-[9px]">
       {shared.length > 0 && (
         <div>
-          <span className="text-white/30">Shared: </span>
+          <span className="text-muted-foreground/50">Shared: </span>
           <span className="font-mono text-green-400/60">{shared.join(", ")}</span>
         </div>
       )}
       {onlyA.length > 0 && (
         <div>
-          <span className="text-white/30">Only A: </span>
+          <span className="text-muted-foreground/50">Only A: </span>
           <span className="font-mono text-violet-400/60">{onlyA.join(", ")}</span>
         </div>
       )}
       {onlyB.length > 0 && (
         <div>
-          <span className="text-white/30">Only B: </span>
+          <span className="text-muted-foreground/50">Only B: </span>
           <span className="font-mono text-cyan-400/60">{onlyB.join(", ")}</span>
         </div>
       )}
       {shared.length === 0 && (
-        <p className="text-white/20">No shared receivers between runs</p>
+        <p className="text-muted-foreground/30">No shared receivers between runs</p>
       )}
     </div>
   );
