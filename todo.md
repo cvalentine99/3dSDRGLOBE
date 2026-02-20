@@ -187,3 +187,14 @@
 - [x] Glass-panel light theme: verify both themes render correctly in browser
 - [x] BUG FIX: SearchFilter panel text unreadable in dark mode after theme migration
 - [x] BUG FIX: Audit all panels for dark mode readability regression
+- [x] ACLED Overlay: abandoned — API requires paid Research-level access, switched to UCDP
+- [x] Conflict Overlay (UCDP): research UCDP API endpoints and data structure
+- [x] Conflict Overlay (UCDP): build server-side UCDP router with caching
+- [x] Conflict Overlay (UCDP): create shared types for UCDP conflict events
+- [x] Conflict Overlay (UCDP): build ConflictOverlay globe component with colored markers by event type
+- [x] Conflict Overlay (UCDP): build ConflictPanel with filters (date range, event type, region)
+- [x] Conflict Overlay (UCDP): event detail popup on marker click
+- [x] Conflict Overlay (UCDP): size markers by fatalities/best estimate
+- [x] Conflict Overlay (UCDP): integrate toggle button in Home.tsx nav bar
+- [x] Conflict Overlay (UCDP): keyboard shortcut (F key) for toggling conflict overlay
+- [x] Conflict Overlay (UCDP): vitest tests for UCDP router

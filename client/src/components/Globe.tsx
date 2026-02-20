@@ -12,6 +12,8 @@ import * as THREE from "three";
 import { useRadio } from "@/contexts/RadioContext";
 import type { Station } from "@/lib/types";
 import type { IonosondeStation } from "@/lib/propagationService";
+import type { SlimConflictEvent } from "@/components/ConflictOverlay";
+import { VIOLENCE_TYPE_COLORS, getMarkerSize } from "@/components/ConflictOverlay";
 import { getMufColor, getFof2Color } from "@/lib/propagationService";
 import { WebGLContextManager } from "@/lib/WebGLContextManager";
 import { FPSGovernor, type QualityLevel, type QualityConfig } from "@/lib/FPSGovernor";
@@ -93,19 +95,22 @@ interface GlobeProps {
   };
   /** Prediction data for rendering confidence ellipses on the globe */
   predictions?: PredictionData[];
+  /** UCDP conflict events for the conflict overlay */
+  conflictEvents?: SlimConflictEvent[];
 }
 
 export interface GlobeHandle {
   captureScreenshot: () => string | null;
 }
 
-const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = [], isStationOnline, tdoaOverlay, savedTargets = [], driftTrailData, predictions = [] }, ref) {
+const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = [], isStationOnline, tdoaOverlay, savedTargets = [], driftTrailData, predictions = [], conflictEvents = [] }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ionoGroupRef = useRef<THREE.Group | null>(null);
   const tdoaGroupRef = useRef<THREE.Group | null>(null);
   const savedTargetsGroupRef = useRef<THREE.Group | null>(null);
   const driftTrailGroupRef = useRef<THREE.Group | null>(null);
   const predictionGroupRef = useRef<THREE.Group | null>(null);
+  const conflictGroupRef = useRef<THREE.Group | null>(null);
   const [webglError, setWebglError] = useState<string | null>(null);
   const contextManagerRef = useRef<WebGLContextManager | null>(null);
   const fpsGovernorRef = useRef<FPSGovernor | null>(null);
@@ -321,6 +326,11 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
     const predictionGroup = new THREE.Group();
     scene.add(predictionGroup);
     predictionGroupRef.current = predictionGroup;
+
+    // Conflict events overlay group (UCDP)
+    const conflictGroup = new THREE.Group();
+    scene.add(conflictGroup);
+    conflictGroupRef.current = conflictGroup;
 
     // Ring group for selected station pulse
     const ringGroup = new THREE.Group();
@@ -1101,6 +1111,88 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
       disposeTdoaGroup(group);
     };
   }, [predictions]);
+
+  // Render UCDP conflict event markers on the globe
+  useEffect(() => {
+    const conflictGroup = conflictGroupRef.current;
+    if (!conflictGroup) return;
+
+    // Clear existing conflict markers
+    while (conflictGroup.children.length > 0) {
+      const child = conflictGroup.children[0];
+      conflictGroup.remove(child);
+      if (child instanceof THREE.Mesh) {
+        child.geometry.dispose();
+        if (child.material instanceof THREE.Material) child.material.dispose();
+      }
+    }
+
+    if (conflictEvents.length === 0) return;
+
+    // Use instanced rendering for performance with many events
+    // Group events by type for batch rendering
+    const byType = new Map<number, SlimConflictEvent[]>();
+    for (const evt of conflictEvents) {
+      const list = byType.get(evt.type) ?? [];
+      list.push(evt);
+      byType.set(evt.type, list);
+    }
+
+    // Shared geometries
+    const markerGeo = new THREE.CircleGeometry(1, 6); // hexagon, scaled per-instance
+    const haloGeo = new THREE.RingGeometry(0.8, 1.2, 12);
+
+    for (const [type, events] of Array.from(byType.entries())) {
+      const colorHex = VIOLENCE_TYPE_COLORS[type] ?? "#ffffff";
+      const color = new THREE.Color(colorHex);
+
+      for (const evt of events) {
+        const size = getMarkerSize(evt.best);
+        const pos = latLngToVector3(evt.lat, evt.lng, GLOBE_RADIUS * 1.011);
+
+        // Main marker (hexagon)
+        const markerMat = new THREE.MeshBasicMaterial({
+          color,
+          transparent: true,
+          opacity: 0.85,
+          side: THREE.DoubleSide,
+          depthTest: true,
+        });
+        const marker = new THREE.Mesh(markerGeo, markerMat);
+        marker.position.copy(pos);
+        marker.lookAt(0, 0, 0);
+        marker.scale.setScalar(size);
+        conflictGroup.add(marker);
+
+        // Glow halo for high-fatality events
+        if (evt.best >= 10) {
+          const haloMat = new THREE.MeshBasicMaterial({
+            color,
+            transparent: true,
+            opacity: Math.min(0.35, 0.1 + evt.best / 500),
+            side: THREE.DoubleSide,
+            depthTest: false,
+          });
+          const halo = new THREE.Mesh(haloGeo, haloMat);
+          halo.position.copy(pos);
+          halo.lookAt(0, 0, 0);
+          halo.scale.setScalar(size * 1.5);
+          conflictGroup.add(halo);
+        }
+      }
+    }
+
+    return () => {
+      while (conflictGroup.children.length > 0) {
+        const child = conflictGroup.children[0];
+        conflictGroup.remove(child);
+        if (child instanceof THREE.Mesh) {
+          child.geometry.dispose();
+          if (child.material instanceof THREE.Material) child.material.dispose();
+        }
+      }
+    };
+  }, [conflictEvents]);
 
   // Auto-rotate globe to continent/region when globeTarget changes
   useEffect(() => {

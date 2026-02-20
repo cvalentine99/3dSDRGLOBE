@@ -16,6 +16,7 @@
  *   N  — Toggle anomaly panel
  *   P  — Toggle propagation overlay
  *   C  — Toggle shared lists panel
+ *   F  — Toggle conflict data overlay
  *   ?  — Show/hide keyboard shortcuts help overlay
  *   Escape — Close all panels / dismiss help overlay
  */
@@ -40,6 +41,7 @@ interface UseKeyboardShortcutsOptions {
   onToggleAnomaly: () => void;
   onTogglePropagation: () => void;
   onToggleSharing: () => void;
+  onToggleConflict: () => void;
   onEscapeAll: () => void;
 }
 
@@ -66,6 +68,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     { key: "N", label: "N", description: "Toggle anomaly panel", category: "panels", action: options.onToggleAnomaly },
     { key: "P", label: "P", description: "Toggle propagation overlay", category: "panels", action: options.onTogglePropagation },
     { key: "C", label: "C", description: "Toggle shared lists panel", category: "panels", action: options.onToggleSharing },
+    { key: "F", label: "F", description: "Toggle conflict data overlay", category: "panels", action: options.onToggleConflict },
     { key: "?", label: "?", description: "Show keyboard shortcuts help", category: "general", action: () => setHelpOpen((v) => !v) },
     { key: "Escape", label: "Esc", description: "Close all panels / dismiss overlay", category: "general", action: options.onEscapeAll },
   ];
@@ -110,7 +113,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     [helpOpen, options.onToggleTdoa, options.onFocusSearch, options.onNavigateDashboard,
      options.onToggleWatchlist, options.onToggleAlerts, options.onToggleMilRf,
      options.onToggleTargets, options.onToggleAnomaly, options.onTogglePropagation,
-     options.onToggleSharing, options.onEscapeAll]
+     options.onToggleSharing, options.onToggleConflict, options.onEscapeAll]
   );
 
   useEffect(() => {

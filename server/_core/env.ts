@@ -8,4 +8,6 @@ export const ENV = {
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
   tdoaAuthKey: process.env.TDOA_AUTH_KEY ?? "",
+  acledEmail: process.env.ACLED_EMAIL ?? "",
+  acledPassword: process.env.ACLED_PASSWORD ?? "",
 };

@@ -22,10 +22,11 @@ import AnomalyAlertPanel from "@/components/AnomalyAlertPanel";
 import SharedListPanel from "@/components/SharedListPanel";
 import WatchlistPanel from "@/components/WatchlistPanel";
 import PropagationOverlay from "@/components/PropagationOverlay";
+import ConflictOverlay, { type SlimConflictEvent } from "@/components/ConflictOverlay";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { AnimatePresence } from "framer-motion";
 import { motion } from "framer-motion";
-import { Radar, Bell, Eye, Activity, Crosshair, Target, AlertTriangle, Users, BarChart3 } from "lucide-react";
+import { Radar, Bell, Eye, Activity, Crosshair, Target, AlertTriangle, Users, BarChart3, Flame } from "lucide-react";
 import { getUnacknowledgedCount } from "@/lib/alertService";
 import { getWatchlistCount, getOnlineCount } from "@/lib/watchlistService";
 import type { IonosondeStation } from "@/lib/propagationService";
@@ -122,6 +123,9 @@ function HomeContent() {
   const [targetsOpen, setTargetsOpen] = useState(false);
   const [anomalyPanelOpen, setAnomalyPanelOpen] = useState(false);
   const [sharingPanelOpen, setSharingPanelOpen] = useState(false);
+  const [conflictVisible, setConflictVisible] = useState(false);
+  const conflictEventsRef = useRef<SlimConflictEvent[]>([]);
+  const [, setConflictTick] = useState(0); // force re-render when events change
   const [, navigate] = useLocation();
 
   // Keyboard shortcuts
@@ -139,6 +143,7 @@ function HomeContent() {
     onToggleAnomaly: useCallback(() => setAnomalyPanelOpen((v) => !v), []),
     onTogglePropagation: useCallback(() => setPropVisible((v) => !v), []),
     onToggleSharing: useCallback(() => setSharingPanelOpen((v) => !v), []),
+    onToggleConflict: useCallback(() => setConflictVisible((v) => !v), []),
     onEscapeAll: useCallback(() => {
       setTdoaOpen(false);
       setMilRfOpen(false);
@@ -147,6 +152,7 @@ function HomeContent() {
       setTargetsOpen(false);
       setAnomalyPanelOpen(false);
       setSharingPanelOpen(false);
+      setConflictVisible(false);
       selectStation(null);
       setShowPanel(false);
     }, [selectStation, setShowPanel]),
@@ -375,6 +381,7 @@ function HomeContent() {
           savedTargets={savedTargets}
           driftTrailData={driftTrailData}
           predictions={predictions}
+          conflictEvents={conflictVisible ? conflictEventsRef.current : []}
         />
       </GlobeErrorBoundary>
 
@@ -467,6 +474,25 @@ function HomeContent() {
             propVisible ? 'text-cyan-700 dark:text-cyan-200' : 'text-cyan-600/80 dark:text-cyan-300/80 group-hover:text-cyan-700 dark:group-hover:text-cyan-200'
           }`}>
             Prop
+          </span>
+        </button>
+
+        {/* Conflict Data Overlay Button */}
+        <button
+          onClick={() => setConflictVisible(!conflictVisible)}
+          className={`relative flex items-center gap-2 px-3 py-2 rounded-lg backdrop-blur-md transition-all group ${
+            conflictVisible
+              ? 'bg-red-500/25 border border-red-500/40'
+              : 'bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30'
+          }`}
+          title="Conflict Data Overlay (UCDP)"
+          aria-label="Conflict Data Overlay"
+        >
+          <Flame className={`w-4 h-4 transition-colors ${conflictVisible ? 'text-red-600 dark:text-red-300' : 'text-red-600 dark:text-red-400 group-hover:text-red-700 dark:group-hover:text-red-300'}`} />
+          <span className={`text-[10px] font-mono uppercase tracking-wider transition-colors hidden sm:inline ${
+            conflictVisible ? 'text-red-700 dark:text-red-200' : 'text-red-600/80 dark:text-red-300/80 group-hover:text-red-700 dark:group-hover:text-red-200'
+          }`}>
+            Conflict
           </span>
         </button>
 
@@ -754,6 +780,15 @@ function HomeContent() {
           onIonosondesLoaded={handleIonosondesLoaded}
         />
       </AnimatePresence>
+
+      {/* Conflict Data Overlay (UCDP) */}
+      <ConflictOverlay
+        visible={conflictVisible}
+        onEventsLoaded={useCallback((events: SlimConflictEvent[]) => {
+          conflictEventsRef.current = events;
+          setConflictTick((t) => t + 1);
+        }, [])}
+      />
 
       {/* Search & Filter */}
       <SearchFilter />

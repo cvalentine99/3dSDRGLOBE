@@ -10,6 +10,7 @@ import { sharingRouter } from "./sharing";
 import { fingerprintsRouter } from "./fingerprints";
 import { anomaliesRouter } from "./anomalies";
 import { analyticsRouter } from "./analytics";
+import { ucdpRouter } from "./ucdp";
 
 export const appRouter = router({
   system: systemRouter,
@@ -23,6 +24,7 @@ export const appRouter = router({
   fingerprints: fingerprintsRouter,
   anomalies: anomaliesRouter,
   analytics: analyticsRouter,
+  ucdp: ucdpRouter,
 });
 
 export type AppRouter = typeof appRouter;
