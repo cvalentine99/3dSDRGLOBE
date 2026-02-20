@@ -88,7 +88,7 @@ const SUGGESTED_QUERIES = [
 
 export default function IntelChat() {
   const { isAuthenticated } = useAuth();
-  const { setGlobeTarget, filteredStations, setHighlightedStationLabel } = useRadio();
+  const { setGlobeTarget, filteredStations, setHighlightedStationLabel, overlayToggles } = useRadio();
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [input, setInput] = useState("");
@@ -368,14 +368,24 @@ export default function IntelChat() {
           break;
         }
         case "OVERLAY": {
-          const overlay = action.params.toLowerCase();
-          console.log(`[IntelChat] Toggle overlay: ${overlay}`);
-          // Overlay toggling would need to be wired through Home.tsx state
+          const overlay = action.params.toLowerCase().trim();
+          // Match overlay name to registered toggle callback
+          const toggles = overlayToggles.current;
+          // Try exact match first, then partial match
+          const key = Object.keys(toggles).find(
+            (k) => k === overlay || overlay.includes(k) || k.includes(overlay)
+          );
+          if (key && toggles[key]) {
+            toggles[key]();
+            console.log(`[IntelChat] Toggled overlay: ${key}`);
+          } else {
+            console.warn(`[IntelChat] Unknown overlay: ${overlay}. Available: ${Object.keys(toggles).join(", ")}`);
+          }
           break;
         }
       }
     },
-    [setGlobeTarget, filteredStations, setHighlightedStationLabel]
+    [setGlobeTarget, filteredStations, setHighlightedStationLabel, overlayToggles]
   );
 
   const toggleOpen = useCallback(() => {

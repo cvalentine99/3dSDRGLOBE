@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import type { Station, Receiver, ReceiverType, BandType, ContinentType, RegionType } from "@/lib/types";
 import { detectBands, detectContinent, detectRegion, CONTINENT_DEFINITIONS } from "@/lib/types";
 
@@ -74,6 +74,8 @@ interface RadioContextType {
   // Receiver highlight (from IntelChat globe actions)
   highlightedStationLabel: string | null;
   setHighlightedStationLabel: (label: string | null) => void;
+  // Overlay toggles (registered by Home.tsx, consumed by IntelChat)
+  overlayToggles: React.MutableRefObject<Record<string, (value?: boolean) => void>>;
 }
 
 const RadioContext = createContext<RadioContextType | null>(null);
@@ -94,6 +96,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const [globeTarget, setGlobeTarget] = useState<GlobeTarget>(null);
   const [favorites, setFavorites] = useState<Set<string>>(() => loadFavorites());
   const [highlightedStationLabel, setHighlightedStationLabel] = useState<string | null>(null);
+  const overlayTogglesRef = useRef<Record<string, (value?: boolean) => void>>({});
 
   const clearGlobeTarget = useCallback(() => setGlobeTarget(null), []);
 
@@ -340,6 +343,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         favoriteCount,
         highlightedStationLabel,
         setHighlightedStationLabel,
+        overlayToggles: overlayTogglesRef,
       }}
     >
       {children}

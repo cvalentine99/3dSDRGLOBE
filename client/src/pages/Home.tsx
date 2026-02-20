@@ -3,7 +3,7 @@
  * Design: "Ether" — Dark atmospheric immersion
  * Full-viewport globe with floating UI overlays
  */
-import { useState, useCallback, useRef, useMemo, Component, type ReactNode } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect, Component, type ReactNode } from "react";
 import { RadioProvider, useRadio } from "@/contexts/RadioContext";
 import Globe, { type TdoaOverlayData, type GlobeHandle } from "@/components/Globe";
 import { useReceiverStatusMap } from "@/hooks/useReceiverStatusMap";
@@ -100,7 +100,7 @@ function formatCountdown(targetMs: number): string {
 }
 
 function HomeContent() {
-  const { loading, stations, selectedStation, filteredStations, selectStation, setShowPanel, highlightedStationLabel } = useRadio();
+  const { loading, stations, selectedStation, filteredStations, selectStation, setShowPanel, highlightedStationLabel, overlayToggles } = useRadio();
   const { isStationOnline, progress: batchProgress, autoRefresh } = useReceiverStatusMap(stations, loading);
   const { highlightedStation, highlightedIndex, isKeyNavActive } = useKeyboardNav();
   const { theme } = useTheme();
@@ -167,6 +167,22 @@ function HomeContent() {
       selectStation(null);
       setShowPanel(false);
     }, [selectStation, setShowPanel]),
+  });
+
+  // Register overlay toggle callbacks for IntelChat globe actions
+  useEffect(() => {
+    overlayToggles.current = {
+      conflict: (val?: boolean) => setConflictVisible(v => val !== undefined ? val : !v),
+      propagation: (val?: boolean) => setPropVisible(v => val !== undefined ? val : !v),
+      heatmap: (val?: boolean) => setHeatmapMode(v => val !== undefined ? val : !v),
+      geofence: (val?: boolean) => setGeofencePanelOpen(v => val !== undefined ? val : !v),
+      timeline: (val?: boolean) => setConflictTimelineOpen(v => val !== undefined ? val : !v),
+      anomaly: (val?: boolean) => setAnomalyPanelOpen(v => val !== undefined ? val : !v),
+      watchlist: (val?: boolean) => setWatchlistOpen(v => val !== undefined ? val : !v),
+      milrf: (val?: boolean) => setMilRfOpen(v => val !== undefined ? val : !v),
+      waterfall: (val?: boolean) => setWaterfallVisible(v => val !== undefined ? val : !v),
+      targets: (val?: boolean) => setTargetsOpen(v => val !== undefined ? val : !v),
+    };
   });
 
   // Fetch unacknowledged anomaly alert count

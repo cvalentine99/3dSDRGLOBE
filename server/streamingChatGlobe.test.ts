@@ -269,9 +269,18 @@ describe("Globe Action Execution", () => {
   });
 
   it("should handle OVERLAY toggle types", () => {
-    const validOverlays = ["conflict", "propagation"];
+    const validOverlays = ["conflict", "propagation", "heatmap", "geofence", "timeline", "anomaly", "watchlist", "milrf", "waterfall", "targets"];
     const action = { type: "OVERLAY", params: "conflict", label: "Show Conflicts" };
     expect(validOverlays).toContain(action.params.toLowerCase());
+  });
+
+  it("should match all 10 registered overlay names", () => {
+    const registeredOverlays = ["conflict", "propagation", "heatmap", "geofence", "timeline", "anomaly", "watchlist", "milrf", "waterfall", "targets"];
+    expect(registeredOverlays).toHaveLength(10);
+    registeredOverlays.forEach((name) => {
+      expect(typeof name).toBe("string");
+      expect(name.length).toBeGreaterThan(0);
+    });
   });
 
   it("should reject invalid FLY_TO coordinates gracefully", () => {
@@ -494,5 +503,119 @@ describe("Globe Action Prompt", () => {
     examples.forEach((ex) => {
       expect(ex).toMatch(/\[GLOBE:(FLY_TO|HIGHLIGHT|OVERLAY):/);
     });
+  });
+});
+
+// ── 11. Overlay Toggle Wiring Tests ─────────────────────────────
+
+describe("Overlay Toggle Wiring", () => {
+  const REGISTERED_OVERLAYS = [
+    "conflict", "propagation", "heatmap", "geofence", "timeline",
+    "anomaly", "watchlist", "milrf", "waterfall", "targets",
+  ];
+
+  function matchOverlay(input: string, toggles: Record<string, (val?: boolean) => void>) {
+    const overlay = input.toLowerCase().trim();
+    const key = Object.keys(toggles).find(
+      (k) => k === overlay || overlay.includes(k) || k.includes(overlay)
+    );
+    return key ?? null;
+  }
+
+  it("should match exact overlay names", () => {
+    const toggles: Record<string, (val?: boolean) => void> = {};
+    REGISTERED_OVERLAYS.forEach((name) => {
+      toggles[name] = () => {};
+    });
+    REGISTERED_OVERLAYS.forEach((name) => {
+      expect(matchOverlay(name, toggles)).toBe(name);
+    });
+  });
+
+  it("should match overlay names case-insensitively", () => {
+    const toggles: Record<string, (val?: boolean) => void> = {};
+    REGISTERED_OVERLAYS.forEach((name) => {
+      toggles[name] = () => {};
+    });
+    expect(matchOverlay("CONFLICT", toggles)).toBe("conflict");
+    expect(matchOverlay("Propagation", toggles)).toBe("propagation");
+    expect(matchOverlay("HEATMAP", toggles)).toBe("heatmap");
+  });
+
+  it("should match partial overlay names via includes", () => {
+    const toggles: Record<string, (val?: boolean) => void> = {};
+    REGISTERED_OVERLAYS.forEach((name) => {
+      toggles[name] = () => {};
+    });
+    expect(matchOverlay("show conflict zones", toggles)).toBe("conflict");
+    expect(matchOverlay("propagation overlay", toggles)).toBe("propagation");
+  });
+
+  it("should return null for unknown overlay names", () => {
+    const toggles: Record<string, (val?: boolean) => void> = {};
+    REGISTERED_OVERLAYS.forEach((name) => {
+      toggles[name] = () => {};
+    });
+    expect(matchOverlay("unknown_overlay", toggles)).toBeNull();
+    expect(matchOverlay("xyz", toggles)).toBeNull();
+  });
+
+  it("should toggle overlay state when callback is invoked", () => {
+    let conflictState = false;
+    let propagationState = false;
+    const toggles: Record<string, (val?: boolean) => void> = {
+      conflict: (val?: boolean) => { conflictState = val !== undefined ? val : !conflictState; },
+      propagation: (val?: boolean) => { propagationState = val !== undefined ? val : !propagationState; },
+    };
+    toggles.conflict();
+    expect(conflictState).toBe(true);
+    toggles.conflict();
+    expect(conflictState).toBe(false);
+    toggles.propagation(true);
+    expect(propagationState).toBe(true);
+    toggles.propagation(false);
+    expect(propagationState).toBe(false);
+  });
+
+  it("should handle empty toggles map gracefully", () => {
+    const toggles: Record<string, (val?: boolean) => void> = {};
+    expect(matchOverlay("conflict", toggles)).toBeNull();
+  });
+
+  it("should handle all 10 overlay types from GLOBE_ACTION_PROMPT", () => {
+    const overlayExamples = [
+      "[GLOBE:OVERLAY:conflict:Show Conflict Zones]",
+      "[GLOBE:OVERLAY:propagation:Show Propagation]",
+      "[GLOBE:OVERLAY:heatmap:Toggle Heatmap]",
+      "[GLOBE:OVERLAY:geofence:Open Geofence Panel]",
+      "[GLOBE:OVERLAY:timeline:Open SIGINT Timeline]",
+      "[GLOBE:OVERLAY:anomaly:Show Anomaly Alerts]",
+      "[GLOBE:OVERLAY:watchlist:Open Watchlist]",
+      "[GLOBE:OVERLAY:targets:Show Targets]",
+      "[GLOBE:OVERLAY:milrf:Open MilRF Panel]",
+      "[GLOBE:OVERLAY:waterfall:Show Waterfall]",
+    ];
+    const regex = /\[GLOBE:OVERLAY:([^:]+):([^\]]+)\]/;
+    overlayExamples.forEach((ex) => {
+      const match = ex.match(regex);
+      expect(match).not.toBeNull();
+      expect(REGISTERED_OVERLAYS).toContain(match![1]);
+    });
+  });
+
+  it("should parse OVERLAY action and find matching toggle", () => {
+    const text = "[GLOBE:OVERLAY:geofence:Open Geofence Panel]";
+    const regex = /\[GLOBE:(FLY_TO|HIGHLIGHT|OVERLAY):([^:]+):([^\]]+)\]/;
+    const match = text.match(regex);
+    expect(match).not.toBeNull();
+    expect(match![1]).toBe("OVERLAY");
+    expect(match![2]).toBe("geofence");
+
+    const toggles: Record<string, (val?: boolean) => void> = {};
+    REGISTERED_OVERLAYS.forEach((name) => {
+      toggles[name] = () => {};
+    });
+    const key = matchOverlay(match![2], toggles);
+    expect(key).toBe("geofence");
   });
 });

@@ -785,22 +785,30 @@ export async function processChat(
 
 // ── Globe Action Prompt Addition ──────────────────────────────────
 
-const GLOBE_ACTION_PROMPT = `
-
-## Globe Actions
-When your response references specific locations, receivers, or targets, you can embed interactive globe actions.
-Use these markers in your response text — the UI will render them as clickable buttons:
-
-- \`[GLOBE:FLY_TO:lat,lng:label]\` — Fly the globe camera to a specific location
-  Example: [GLOBE:FLY_TO:48.8566,2.3522:Paris, France]
-- \`[GLOBE:HIGHLIGHT:receiverId:label]\` — Highlight a specific receiver on the globe
-  Example: [GLOBE:HIGHLIGHT:42:KiwiSDR Brussels]
-- \`[GLOBE:OVERLAY:conflict:label]\` — Toggle the conflict overlay on
-  Example: [GLOBE:OVERLAY:conflict:Show Conflict Zones]
-- \`[GLOBE:OVERLAY:propagation:label]\` — Toggle the propagation overlay on
-  Example: [GLOBE:OVERLAY:propagation:Show Propagation]
-
-Use these actions sparingly and only when they add value to the analysis. Place them naturally within your response text near the relevant discussion.`;
+const GLOBE_ACTION_PROMPT = [
+  "",
+  "## Globe Actions",
+  "When your response references specific locations, receivers, or targets, you can embed interactive globe actions.",
+  "Use these markers in your response text — the UI will render them as clickable buttons:",
+  "",
+  "- [GLOBE:FLY_TO:lat,lng:label] — Fly the globe camera to a specific location",
+  "  Example: [GLOBE:FLY_TO:48.8566,2.3522:Paris, France]",
+  "- [GLOBE:HIGHLIGHT:stationLabel:label] — Highlight a specific receiver on the globe (use the station label)",
+  "  Example: [GLOBE:HIGHLIGHT:KiwiSDR Brussels:Highlight Brussels]",
+  "- [GLOBE:OVERLAY:overlayName:label] — Toggle a UI overlay/panel on or off",
+  "  Available overlay names: conflict, propagation, heatmap, geofence, timeline, anomaly, watchlist, milrf, waterfall, targets",
+  "  Examples:",
+  "  [GLOBE:OVERLAY:conflict:Show Conflict Zones]",
+  "  [GLOBE:OVERLAY:propagation:Show Propagation]",
+  "  [GLOBE:OVERLAY:heatmap:Toggle Heatmap]",
+  "  [GLOBE:OVERLAY:geofence:Open Geofence Panel]",
+  "  [GLOBE:OVERLAY:timeline:Open SIGINT Timeline]",
+  "  [GLOBE:OVERLAY:anomaly:Show Anomaly Alerts]",
+  "  [GLOBE:OVERLAY:watchlist:Open Watchlist]",
+  "  [GLOBE:OVERLAY:targets:Show Targets]",
+  "",
+  "Use these actions sparingly and only when they add value to the analysis. Place them naturally within your response text near the relevant discussion.",
+].join("\n");
 
 // ── Streaming RAG Function ────────────────────────────────────────
 

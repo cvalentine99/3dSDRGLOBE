@@ -282,3 +282,7 @@
 - [x] Receiver Highlight: auto-clear highlight after 10s timeout
 - [x] Receiver Highlight: vitest tests for highlight wiring logic (receiverHighlight.test.ts)
 - [x] All 715 tests passing across 21 test files, zero TypeScript errors
+- [x] OVERLAY Toggle: overlayToggles ref in RadioContext with 10 registered overlays
+- [x] OVERLAY Toggle: wire OVERLAY globe action to toggle all overlays via context ref
+- [x] OVERLAY Toggle: vitest tests for overlay toggle wiring (9 new tests in streamingChatGlobe.test.ts)
+- [x] All 724 tests passing across 21 test files, zero TypeScript errors
