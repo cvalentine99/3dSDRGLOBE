@@ -14,6 +14,7 @@ import type { Station } from "@/lib/types";
 import type { IonosondeStation } from "@/lib/propagationService";
 import type { SlimConflictEvent } from "@/components/ConflictOverlay";
 import { VIOLENCE_TYPE_COLORS, getMarkerSize } from "@/components/ConflictOverlay";
+import { createConflictHeatmap, disposeConflictHeatmap } from "@/lib/conflictHeatmap";
 import { getMufColor, getFof2Color } from "@/lib/propagationService";
 import { WebGLContextManager } from "@/lib/WebGLContextManager";
 import { FPSGovernor, type QualityLevel, type QualityConfig } from "@/lib/FPSGovernor";
@@ -97,13 +98,17 @@ interface GlobeProps {
   predictions?: PredictionData[];
   /** UCDP conflict events for the conflict overlay */
   conflictEvents?: SlimConflictEvent[];
+  /** Whether to render conflict events as a heatmap instead of individual markers */
+  conflictHeatmapMode?: boolean;
+  /** Set of station labels that are near conflict zones (for highlighting) */
+  conflictZoneStations?: Set<string>;
 }
 
 export interface GlobeHandle {
   captureScreenshot: () => string | null;
 }
 
-const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = [], isStationOnline, tdoaOverlay, savedTargets = [], driftTrailData, predictions = [], conflictEvents = [] }, ref) {
+const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = [], isStationOnline, tdoaOverlay, savedTargets = [], driftTrailData, predictions = [], conflictEvents = [], conflictHeatmapMode = false, conflictZoneStations }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ionoGroupRef = useRef<THREE.Group | null>(null);
   const tdoaGroupRef = useRef<THREE.Group | null>(null);
@@ -515,6 +520,15 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
         }
       }
 
+      // Check if this station is in a conflict zone
+      const isInConflictZone = conflictZoneStations?.has(station.label);
+      if (isInConflictZone) {
+        // Override color to a warning amber for conflict zone receivers
+        color = 0xf59e0b;
+        opacity = 1.0;
+        scale = 0.075; // Larger to draw attention
+      }
+
       const mat = new THREE.MeshBasicMaterial({
         color,
         transparent: true,
@@ -528,10 +542,30 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
       mesh.lookAt(0, 0, 0);
       markerGroup.add(mesh);
       meshes.push({ mesh, station, baseScale: scale });
+
+      // Add a pulsing ring around conflict zone receivers
+      if (isInConflictZone) {
+        const ringGeo = new THREE.RingGeometry(0.8, 1.1, 16);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: "#f59e0b",
+          transparent: true,
+          opacity: 0.5,
+          side: THREE.DoubleSide,
+          depthTest: false,
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.position.copy(pos);
+        ring.lookAt(0, 0, 0);
+        ring.scale.setScalar(0.12);
+        ring.userData.isConflictRing = true;
+        ring.userData.baseScale = 0.12;
+        ring.userData.phase = Math.random() * Math.PI * 2; // random phase offset
+        markerGroup.add(ring);
+      }
     });
 
     sceneRef.current.markerMeshes = meshes;
-  }, [filteredStations, isStationOnline]);
+  }, [filteredStations, isStationOnline, conflictZoneStations]);
 
   useEffect(() => {
     updateMarkers();
@@ -607,6 +641,20 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
           }
         }
       });
+
+      // Animate conflict zone receiver rings (pulsing amber rings)
+      if (sceneRef.current) {
+        sceneRef.current.markerGroup.children.forEach((child) => {
+          if (child instanceof THREE.Mesh && child.userData.isConflictRing) {
+            const phase = child.userData.phase ?? 0;
+            const base = child.userData.baseScale ?? 0.12;
+            const pulseScale = base * (1 + 0.3 * Math.sin(elapsed * 2 + phase));
+            child.scale.setScalar(pulseScale);
+            const mat = child.material as THREE.MeshBasicMaterial;
+            mat.opacity = 0.3 + 0.2 * Math.sin(elapsed * 2 + phase);
+          }
+        });
+      }
 
       // Animate TDoA overlay
       if (tdoaGroupRef.current && tdoaGroupRef.current.children.length > 0) {
@@ -1112,25 +1160,46 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
     };
   }, [predictions]);
 
-  // Render UCDP conflict event markers on the globe
+  // Render UCDP conflict event markers or heatmap on the globe
   useEffect(() => {
     const conflictGroup = conflictGroupRef.current;
     if (!conflictGroup) return;
 
-    // Clear existing conflict markers
+    // Clear existing conflict markers/heatmap
     while (conflictGroup.children.length > 0) {
       const child = conflictGroup.children[0];
       conflictGroup.remove(child);
       if (child instanceof THREE.Mesh) {
         child.geometry.dispose();
         if (child.material instanceof THREE.Material) child.material.dispose();
+      } else if (child instanceof THREE.Points) {
+        disposeConflictHeatmap(child);
       }
     }
 
     if (conflictEvents.length === 0) return;
 
-    // Use instanced rendering for performance with many events
-    // Group events by type for batch rendering
+    // ── Heatmap mode ──────────────────────────────────────────────
+    if (conflictHeatmapMode) {
+      const heatmap = createConflictHeatmap(conflictEvents);
+      if (heatmap) {
+        conflictGroup.add(heatmap);
+      }
+      return () => {
+        while (conflictGroup.children.length > 0) {
+          const child = conflictGroup.children[0];
+          conflictGroup.remove(child);
+          if (child instanceof THREE.Points) {
+            disposeConflictHeatmap(child);
+          } else if (child instanceof THREE.Mesh) {
+            child.geometry.dispose();
+            if (child.material instanceof THREE.Material) child.material.dispose();
+          }
+        }
+      };
+    }
+
+    // ── Individual marker mode ────────────────────────────────────
     const byType = new Map<number, SlimConflictEvent[]>();
     for (const evt of conflictEvents) {
       const list = byType.get(evt.type) ?? [];
@@ -1189,10 +1258,12 @@ const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe({ ionosondes = 
         if (child instanceof THREE.Mesh) {
           child.geometry.dispose();
           if (child.material instanceof THREE.Material) child.material.dispose();
+        } else if (child instanceof THREE.Points) {
+          disposeConflictHeatmap(child);
         }
       }
     };
-  }, [conflictEvents]);
+  }, [conflictEvents, conflictHeatmapMode]);
 
   // Auto-rotate globe to continent/region when globeTarget changes
   useEffect(() => {

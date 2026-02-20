@@ -198,3 +198,13 @@
 - [x] Conflict Overlay (UCDP): integrate toggle button in Home.tsx nav bar
 - [x] Conflict Overlay (UCDP): keyboard shortcut (F key) for toggling conflict overlay
 - [x] Conflict Overlay (UCDP): vitest tests for UCDP router
+- [x] Conflict-Receiver Correlation: calculate distance between receivers and conflict events
+- [x] Conflict-Receiver Correlation: highlight receivers near active conflict zones with visual indicator
+- [x] Conflict-Receiver Correlation: show correlation info in receiver tooltip/panel
+- [x] Heatmap Mode: add density heatmap toggle for conflict events on globe
+- [x] Heatmap Mode: implement heatmap rendering using Three.js point cloud or texture
+- [x] Heatmap Mode: toggle button in conflict panel to switch between markers and heatmap
+- [x] Timeline Scrubber: add animated timeline slider for month-by-month playback
+- [x] Timeline Scrubber: play/pause controls with configurable speed
+- [x] Timeline Scrubber: filter conflict events by current timeline position
+- [x] Timeline Scrubber: visual month/year indicator during playback

@@ -1,6 +1,7 @@
 /**
  * ConflictOverlay — UCDP conflict event overlay for the 3D globe
- * Shows armed conflict events as colored markers with filtering and detail view.
+ * Shows armed conflict events as colored markers with filtering, detail view,
+ * heatmap mode, timeline scrubber, and receiver-conflict correlation.
  * Data source: Uppsala Conflict Data Program (UCDP) Georeferenced Event Dataset
  */
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -21,8 +22,18 @@ import {
   Info,
   Globe2,
   BarChart3,
+  Layers,
+  Radio,
+  AlertTriangle,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { useRadio } from "@/contexts/RadioContext";
+import TimelineScrubber from "./TimelineScrubber";
+import {
+  computeConflictCorrelations,
+  getStationThreatLevel,
+  type ConflictCorrelation,
+} from "@/lib/conflictCorrelation";
 
 // ── Types ───────────────────────────────────────────────────────────
 export interface SlimConflictEvent {
@@ -84,12 +95,27 @@ interface ConflictOverlayProps {
   visible: boolean;
   onEventsLoaded?: (events: SlimConflictEvent[]) => void;
   onEventSelect?: (event: SlimConflictEvent | null) => void;
+  /** Callback to toggle heatmap mode */
+  onHeatmapToggle?: (enabled: boolean) => void;
+  /** Current heatmap mode state */
+  heatmapMode?: boolean;
+  /** Callback when conflict zone stations are computed */
+  onConflictZoneStations?: (labels: Set<string>) => void;
+  /** Correlation radius in km */
+  correlationRadius?: number;
+  /** Callback to change correlation radius */
+  onCorrelationRadiusChange?: (radius: number) => void;
 }
 
 export default function ConflictOverlay({
   visible,
   onEventsLoaded,
   onEventSelect,
+  onHeatmapToggle,
+  heatmapMode = false,
+  onConflictZoneStations,
+  correlationRadius = 200,
+  onCorrelationRadiusChange,
 }: ConflictOverlayProps) {
   // ── Filter state ────────────────────────────────────────────────
   const [region, setRegion] = useState("All");
@@ -98,6 +124,12 @@ export default function ConflictOverlay({
   const [expanded, setExpanded] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<SlimConflictEvent | null>(null);
+  const [showCorrelation, setShowCorrelation] = useState(false);
+  const [timelineActive, setTimelineActive] = useState(false);
+  const [timelineRange, setTimelineRange] = useState<{ start: string; end: string } | null>(null);
+
+  // ── Access stations from RadioContext ───────────────────────────
+  const { filteredStations } = useRadio();
 
   // ── Computed date range ─────────────────────────────────────────
   const startDate = useMemo(() => {
@@ -105,6 +137,10 @@ export default function ConflictOverlay({
     d.setDate(d.getDate() - daysBack);
     return d.toISOString().split("T")[0];
   }, [daysBack]);
+
+  const endDate = useMemo(() => {
+    return new Date().toISOString().split("T")[0];
+  }, []);
 
   // ── Data fetching ───────────────────────────────────────────────
   const queryInput = useMemo(
@@ -137,12 +173,23 @@ export default function ConflictOverlay({
     refetchOnWindowFocus: false,
   });
 
+  // ── Filter events by timeline if active ─────────────────────────
+  const displayEvents = useMemo(() => {
+    if (!eventsData?.events) return [];
+    const events = eventsData.events as SlimConflictEvent[];
+    if (!timelineActive || !timelineRange) return events;
+
+    return events.filter((e) => {
+      return e.date >= timelineRange.start && e.date <= timelineRange.end;
+    });
+  }, [eventsData, timelineActive, timelineRange]);
+
   // ── Pass events to parent for globe rendering ───────────────────
   useEffect(() => {
-    if (eventsData?.events && onEventsLoaded) {
-      onEventsLoaded(eventsData.events as SlimConflictEvent[]);
+    if (onEventsLoaded) {
+      onEventsLoaded(displayEvents);
     }
-  }, [eventsData, onEventsLoaded]);
+  }, [displayEvents, onEventsLoaded]);
 
   // ── Clear events when hidden ────────────────────────────────────
   useEffect(() => {
@@ -150,6 +197,25 @@ export default function ConflictOverlay({
       onEventsLoaded([]);
     }
   }, [visible, onEventsLoaded]);
+
+  // ── Compute conflict-receiver correlations ──────────────────────
+  const correlations = useMemo(() => {
+    if (!showCorrelation || displayEvents.length === 0 || filteredStations.length === 0) {
+      return [];
+    }
+    return computeConflictCorrelations(filteredStations, displayEvents, correlationRadius);
+  }, [showCorrelation, displayEvents, filteredStations, correlationRadius]);
+
+  // ── Pass conflict zone station labels to parent ─────────────────
+  useEffect(() => {
+    if (onConflictZoneStations) {
+      if (showCorrelation && correlations.length > 0) {
+        onConflictZoneStations(new Set(correlations.map((c) => c.station.label)));
+      } else {
+        onConflictZoneStations(new Set());
+      }
+    }
+  }, [correlations, showCorrelation, onConflictZoneStations]);
 
   const toggleType = useCallback((type: number) => {
     setTypeFilter((prev) => {
@@ -171,9 +237,19 @@ export default function ConflictOverlay({
     [onEventSelect]
   );
 
+  const handleMonthChange = useCallback((start: string, end: string) => {
+    setTimelineActive(true);
+    setTimelineRange({ start, end });
+  }, []);
+
+  const handleShowAll = useCallback(() => {
+    setTimelineActive(false);
+    setTimelineRange(null);
+  }, []);
+
   if (!visible) return null;
 
-  const eventCount = eventsData?.fetchedCount ?? 0;
+  const eventCount = displayEvents.length;
   const totalCount = eventsData?.totalCount ?? 0;
 
   return (
@@ -232,6 +308,39 @@ export default function ConflictOverlay({
                 )}
               </button>
             </div>
+          </div>
+
+          {/* ── Mode toggles (Heatmap + Correlation) ──────────────── */}
+          <div className="flex items-center gap-1 px-4 py-2 border-b border-border">
+            <button
+              onClick={() => onHeatmapToggle?.(!heatmapMode)}
+              className={`text-[10px] px-2 py-1 rounded-md transition-colors flex items-center gap-1 ${
+                heatmapMode
+                  ? "bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/30"
+                  : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10 border border-transparent"
+              }`}
+              title="Toggle heatmap density view"
+            >
+              <Layers className="w-3 h-3" />
+              Heatmap
+            </button>
+            <button
+              onClick={() => setShowCorrelation(!showCorrelation)}
+              className={`text-[10px] px-2 py-1 rounded-md transition-colors flex items-center gap-1 ${
+                showCorrelation
+                  ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                  : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10 border border-transparent"
+              }`}
+              title="Highlight receivers near conflict zones"
+            >
+              <Radio className="w-3 h-3" />
+              Receivers
+            </button>
+            {showCorrelation && (
+              <span className="text-[9px] text-amber-600 dark:text-amber-400 font-mono ml-auto">
+                {correlations.length} found
+              </span>
+            )}
           </div>
 
           {/* ── Loading state ──────────────────────────────────── */}
@@ -329,6 +438,36 @@ export default function ConflictOverlay({
                       ))}
                     </div>
                   </div>
+
+                  {/* Correlation radius (only when correlation is active) */}
+                  {showCorrelation && (
+                    <div>
+                      <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1 mb-1.5">
+                        <Radio className="w-3 h-3" /> Correlation Radius
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="range"
+                          min={50}
+                          max={500}
+                          step={25}
+                          value={correlationRadius}
+                          onChange={(e) => onCorrelationRadiusChange?.(Number(e.target.value))}
+                          className="flex-1 h-1 rounded-full appearance-none cursor-pointer
+                            [&::-webkit-slider-thumb]:appearance-none
+                            [&::-webkit-slider-thumb]:w-3
+                            [&::-webkit-slider-thumb]:h-3
+                            [&::-webkit-slider-thumb]:rounded-full
+                            [&::-webkit-slider-thumb]:bg-amber-500
+                            [&::-webkit-slider-thumb]:cursor-pointer"
+                          style={{ background: `linear-gradient(to right, #f59e0b 0%, var(--color-foreground, #888) 100%)`, opacity: 0.5 }}
+                        />
+                        <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 min-w-[40px] text-right">
+                          {correlationRadius}km
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -340,11 +479,11 @@ export default function ConflictOverlay({
               {/* Event count bar */}
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Events shown
+                  Events {timelineActive ? "(filtered)" : "shown"}
                 </span>
                 <span className="text-xs font-mono text-foreground">
                   {eventCount.toLocaleString()}
-                  {totalCount > eventCount && (
+                  {totalCount > eventCount && !timelineActive && (
                     <span className="text-muted-foreground">
                       {" "}
                       / {totalCount.toLocaleString()}
@@ -354,7 +493,7 @@ export default function ConflictOverlay({
               </div>
 
               {/* Type breakdown */}
-              {summaryData && (
+              {summaryData && !timelineActive && (
                 <>
                   <div className="grid grid-cols-3 gap-2">
                     <StatCard
@@ -431,6 +570,51 @@ export default function ConflictOverlay({
             </div>
           )}
         </div>
+
+        {/* ── Timeline Scrubber ────────────────────────────────── */}
+        {expanded && !isLoading && eventsData && (
+          <TimelineScrubber
+            startDate={startDate}
+            endDate={endDate}
+            onMonthChange={handleMonthChange}
+            onShowAll={handleShowAll}
+            isActive={timelineActive}
+          />
+        )}
+
+        {/* ── Correlation Panel ────────────────────────────────── */}
+        <AnimatePresence>
+          {showCorrelation && correlations.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="glass-panel rounded-xl mt-2 overflow-hidden"
+            >
+              <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="text-xs font-semibold text-foreground">
+                    Receivers in Conflict Zones
+                  </span>
+                </div>
+                <span className="text-[9px] font-mono text-amber-600 dark:text-amber-400">
+                  {correlations.length}
+                </span>
+              </div>
+              <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                {correlations.slice(0, 20).map((corr) => (
+                  <CorrelationRow key={corr.station.label} correlation={corr} />
+                ))}
+                {correlations.length > 20 && (
+                  <div className="px-4 py-2 text-center text-[9px] text-muted-foreground">
+                    +{correlations.length - 20} more receivers
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ── Selected event detail ────────────────────────────── */}
         <AnimatePresence>
@@ -546,6 +730,52 @@ function DetailRow({
         }`}
       >
         {value}
+      </div>
+    </div>
+  );
+}
+
+function CorrelationRow({ correlation }: { correlation: ConflictCorrelation }) {
+  const threatLevel = getStationThreatLevel(correlation);
+  const threatColor =
+    threatLevel > 0.6
+      ? "text-red-600 dark:text-red-400"
+      : threatLevel > 0.3
+        ? "text-amber-600 dark:text-amber-400"
+        : "text-yellow-600 dark:text-yellow-400";
+
+  const threatBg =
+    threatLevel > 0.6
+      ? "bg-red-500/10"
+      : threatLevel > 0.3
+        ? "bg-amber-500/10"
+        : "bg-yellow-500/10";
+
+  return (
+    <div className={`flex items-center justify-between px-4 py-2 border-b border-border/50 ${threatBg} hover:bg-foreground/5 transition-colors`}>
+      <div className="flex-1 min-w-0">
+        <div className="text-[11px] font-medium text-foreground truncate">
+          {correlation.station.label}
+        </div>
+        <div className="text-[9px] text-muted-foreground">
+          {correlation.station.receivers[0]?.type ?? "SDR"} · {Math.round(correlation.closestDistance)}km to nearest
+        </div>
+      </div>
+      <div className="flex items-center gap-2 ml-2 shrink-0">
+        <div className="text-right">
+          <div className={`text-[10px] font-mono font-semibold ${threatColor}`}>
+            {correlation.nearbyConflicts}
+          </div>
+          <div className="text-[8px] text-muted-foreground">events</div>
+        </div>
+        {correlation.totalFatalities > 0 && (
+          <div className="text-right">
+            <div className="text-[10px] font-mono font-semibold text-red-600 dark:text-red-400">
+              {correlation.totalFatalities}
+            </div>
+            <div className="text-[8px] text-muted-foreground">fatal</div>
+          </div>
+        )}
       </div>
     </div>
   );

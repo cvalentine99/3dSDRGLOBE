@@ -126,6 +126,9 @@ function HomeContent() {
   const [conflictVisible, setConflictVisible] = useState(false);
   const conflictEventsRef = useRef<SlimConflictEvent[]>([]);
   const [, setConflictTick] = useState(0); // force re-render when events change
+  const [heatmapMode, setHeatmapMode] = useState(false);
+  const [conflictZoneStations, setConflictZoneStations] = useState<Set<string>>(new Set());
+  const [correlationRadius, setCorrelationRadius] = useState(200);
   const [, navigate] = useLocation();
 
   // Keyboard shortcuts
@@ -382,6 +385,8 @@ function HomeContent() {
           driftTrailData={driftTrailData}
           predictions={predictions}
           conflictEvents={conflictVisible ? conflictEventsRef.current : []}
+          conflictHeatmapMode={conflictVisible && heatmapMode}
+          conflictZoneStations={conflictVisible ? conflictZoneStations : undefined}
         />
       </GlobeErrorBoundary>
 
@@ -788,6 +793,11 @@ function HomeContent() {
           conflictEventsRef.current = events;
           setConflictTick((t) => t + 1);
         }, [])}
+        heatmapMode={heatmapMode}
+        onHeatmapToggle={setHeatmapMode}
+        onConflictZoneStations={setConflictZoneStations}
+        correlationRadius={correlationRadius}
+        onCorrelationRadiusChange={setCorrelationRadius}
       />
 
       {/* Search & Filter */}
