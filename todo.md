@@ -185,3 +185,5 @@
 - [x] Glass-panel light theme: implement theme-aware opacity/tint with separate light and dark variants
 - [x] Glass-panel light theme: tune backdrop-blur, background color, and border for light theme readability
 - [x] Glass-panel light theme: verify both themes render correctly in browser
+- [x] BUG FIX: SearchFilter panel text unreadable in dark mode after theme migration
+- [x] BUG FIX: Audit all panels for dark mode readability regression
