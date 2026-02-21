@@ -304,7 +304,7 @@ export const appRouter = router({
           knownLocation: z.object({
             lat: z.number(),
             lon: z.number(),
-            name: z.string(),
+            name: z.string().max(100).regex(/^[a-zA-Z0-9 .\-]*$/, "Name contains invalid characters"),
           }).optional(),
         })
       )
@@ -372,8 +372,8 @@ export const appRouter = router({
     resultFile: publicProcedure
       .input(
         z.object({
-          key: z.string(),
-          filename: z.string(),
+          key: z.string().regex(/^[a-zA-Z0-9._\-]+$/, "Invalid key format"),
+          filename: z.string().regex(/^[a-zA-Z0-9._\- ]+$/, "Invalid filename format"),
         })
       )
       .query(async ({ input }) => {

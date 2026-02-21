@@ -17,7 +17,7 @@ import {
   removeFromWatchlist,
 } from "@/lib/watchlistService";
 import { detectBands, BAND_DEFINITIONS } from "@/lib/types";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import SignalStrength from "@/components/SignalStrength";
 import UptimeSparkline from "@/components/UptimeSparkline";
 import SigintLogViewer from "@/components/SigintLogViewer";
@@ -74,7 +74,7 @@ export default function StationPanel() {
   const [watched, setWatched] = useState(false);
 
   // Sync watchlist state when station changes
-  useMemo(() => {
+  useEffect(() => {
     if (stationKey) setWatched(isWatched(stationKey));
   }, [stationKey]);
 
@@ -244,9 +244,9 @@ export default function StationPanel() {
                     <div className="flex items-start gap-3">
                       <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${TYPE_DOT[receiver.type] || "bg-primary"}`} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground leading-snug line-clamp-2"
-                           dangerouslySetInnerHTML={{ __html: receiver.label }}
-                        />
+                        <p className="text-sm font-medium text-foreground leading-snug line-clamp-2">
+                          {receiver.label}
+                        </p>
                         <div className="flex items-center gap-2 mt-2">
                           <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${TYPE_BG[receiver.type] || ""} ${TYPE_COLORS[receiver.type] || "text-primary"}`}>
                             {receiver.type}

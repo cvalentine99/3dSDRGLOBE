@@ -159,11 +159,17 @@ function generateJobKey(): string {
   return String(Date.now()).slice(-5);
 }
 
+/** Strip everything except alphanumeric, spaces, hyphens, and periods to prevent Octave injection */
+function sanitizeOctaveName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9 .\-]/g, "").slice(0, 100);
+}
+
 function buildPiParam(params: TdoaSubmitParams): string {
   const { mapBounds, knownLocation } = params;
   let pi = `struct('lat_range',[${mapBounds.south},${mapBounds.north}],'lon_range',[${mapBounds.west},${mapBounds.east}]`;
   if (knownLocation) {
-    pi += `,'known_location',struct('coord',[${knownLocation.lat},${knownLocation.lon}],'name','${knownLocation.name.replace(/'/g, "''")}')`;
+    const safeName = sanitizeOctaveName(knownLocation.name);
+    pi += `,'known_location',struct('coord',[${knownLocation.lat},${knownLocation.lon}],'name','${safeName}')`;
   }
   pi += `,'new',true)`;
   return pi;
@@ -351,10 +357,18 @@ export function cancelJob(jobId: string): boolean {
   return true;
 }
 
+const SAFE_PATH_SEGMENT = /^[a-zA-Z0-9._\-]+$/;
+
 export async function proxyResultFile(
   key: string,
   filename: string
 ): Promise<{ data: Buffer; contentType: string } | null> {
+  // Prevent path traversal / SSRF -- reject anything that isn't a simple filename
+  if (!SAFE_PATH_SEGMENT.test(key) || !SAFE_PATH_SEGMENT.test(filename)) {
+    console.warn(`[TDoA] Rejected unsafe proxy path: key="${key}", filename="${filename}"`);
+    return null;
+  }
+
   try {
     const url = `${FILES_BASE}/${key}/${filename}`;
     const resp = await axios.get(url, {
