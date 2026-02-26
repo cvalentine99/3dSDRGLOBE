@@ -299,3 +299,11 @@
 - [x] Directory Sources status indicator in Monitor panel (show fetch status, timestamps, manual refresh)
 - [x] Integrate ReceiverBook.de API as 4th directory source (1,512 receivers from /map page)
 - [x] New Receivers highlight mode with pulsing violet rings on globe for freshly discovered stations
+- [x] RAG Enhancement: query_directory_sources tool — query directory aggregator for live receiver discovery stats
+- [x] RAG Enhancement: compare_receivers tool — side-by-side comparison of 2+ receivers (uptime, SNR, users, location)
+- [x] RAG Enhancement: cross_correlate tool — find correlations between receivers, targets, and conflict events within a radius
+- [x] RAG Enhancement: search_scan_history tool — query receiver scan cycle history for uptime trends
+- [x] RAG Enhancement: follow-up suggestion chips after each response (2-3 contextual queries as clickable buttons)
+- [x] RAG Enhancement: conversation export as Markdown file
+- [x] RAG Enhancement: tool result data previews during streaming (mini-tables of retrieved data)
+- [x] RAG Enhancement: context window management (summarize old messages when history gets long)

@@ -25,6 +25,10 @@ const RAG_TOOL_NAMES = [
   "get_sweep_history",
   "get_system_stats",
   "search_fingerprints",
+  "query_directory_sources",
+  "compare_receivers",
+  "cross_correlate",
+  "search_scan_history",
 ];
 
 const TOOL_PARAMS: Record<string, { required: string[]; optional: string[] }> = {
@@ -64,11 +68,27 @@ const TOOL_PARAMS: Record<string, { required: string[]; optional: string[] }> = 
     required: [],
     optional: ["targetId", "modulationType", "limit"],
   },
+  query_directory_sources: {
+    required: [],
+    optional: [],
+  },
+  compare_receivers: {
+    required: ["receiverIds"],
+    optional: [],
+  },
+  cross_correlate: {
+    required: ["lat", "lng"],
+    optional: ["radiusKm"],
+  },
+  search_scan_history: {
+    required: [],
+    optional: ["receiverId", "limit"],
+  },
 };
 
 describe("RAG Tool Definitions", () => {
-  it("should define exactly 9 tools", () => {
-    expect(RAG_TOOL_NAMES).toHaveLength(9);
+  it("should define exactly 13 tools", () => {
+    expect(RAG_TOOL_NAMES).toHaveLength(13);
   });
 
   it("should have unique tool names", () => {
@@ -87,6 +107,10 @@ describe("RAG Tool Definitions", () => {
       "sweep_history",
       "system_stats",
       "fingerprints",
+      "directory_sources",
+      "compare_receivers",
+      "cross_correlate",
+      "scan_history",
     ];
     for (const source of sources) {
       const found = RAG_TOOL_NAMES.some((name) => name.includes(source));
@@ -667,5 +691,376 @@ describe("Receiver Online Stats", () => {
     expect(stats.onlineReceivers).toBe(0);
     expect(stats.offlineReceivers).toBe(0);
     expect(stats.byType).toHaveLength(0);
+  });
+});
+
+// ── Tool Result Preview Tests ────────────────────────────────────
+
+describe("Tool Result Preview Generation", () => {
+  function createToolPreview(toolName: string, result: string): { summary: string; count?: number; highlights?: string[] } {
+    try {
+      const data = JSON.parse(result);
+      switch (toolName) {
+        case "search_receivers": {
+          const online = data.onlineCount ?? 0;
+          const offline = data.offlineCount ?? 0;
+          return {
+            summary: `${data.returned ?? 0} receivers found (${online} online, ${offline} offline)`,
+            count: data.returned,
+            highlights: (data.receivers || []).slice(0, 3).map((r: { stationLabel?: string; country?: string }) => `${r.stationLabel || "Unknown"} (${r.country || "?"})`),
+          };
+        }
+        case "search_conflict_events": {
+          const total = data.returned ?? data.events?.length ?? 0;
+          const fatalities = data.events?.reduce((s: number, e: { bestEstimate?: number }) => s + (e.bestEstimate || 0), 0) ?? 0;
+          return {
+            summary: `${total} conflict events (${fatalities} total fatalities)`,
+            count: total,
+            highlights: (data.events || []).slice(0, 3).map((e: { country?: string; bestEstimate?: number }) => `${e.country || "?"}: ${e.bestEstimate || 0} fatalities`),
+          };
+        }
+        case "get_system_stats": {
+          return {
+            summary: `System: ${data.receivers?.total ?? "?"} receivers, ${data.targets?.total ?? "?"} targets`,
+            highlights: [
+              `Online: ${data.receivers?.online ?? "?"}`,
+              `Alerts: ${data.anomalyAlerts?.total ?? "?"}`,
+            ],
+          };
+        }
+        case "cross_correlate": {
+          return {
+            summary: `Cross-correlation: ${data.nearbyReceivers?.length ?? 0} receivers, ${data.nearbyTargets?.length ?? 0} targets, ${data.nearbyConflicts?.length ?? 0} conflicts nearby`,
+            count: (data.nearbyReceivers?.length ?? 0) + (data.nearbyTargets?.length ?? 0) + (data.nearbyConflicts?.length ?? 0),
+          };
+        }
+        default: {
+          const keys = Object.keys(data);
+          const countKey = keys.find(k => k === "returned" || k === "total" || k === "count");
+          return {
+            summary: countKey ? `${data[countKey]} results` : `Data retrieved (${keys.length} fields)`,
+            count: countKey ? data[countKey] : undefined,
+          };
+        }
+      }
+    } catch {
+      return { summary: "Data retrieved" };
+    }
+  }
+
+  it("should generate receiver search preview", () => {
+    const result = JSON.stringify({
+      returned: 15,
+      onlineCount: 10,
+      offlineCount: 5,
+      receivers: [
+        { stationLabel: "KiwiSDR Berlin", country: "Germany" },
+        { stationLabel: "OpenWebRX Paris", country: "France" },
+      ],
+    });
+    const preview = createToolPreview("search_receivers", result);
+    expect(preview.summary).toContain("15 receivers found");
+    expect(preview.summary).toContain("10 online");
+    expect(preview.count).toBe(15);
+    expect(preview.highlights).toHaveLength(2);
+    expect(preview.highlights![0]).toContain("Berlin");
+  });
+
+  it("should generate conflict events preview with fatality sum", () => {
+    const result = JSON.stringify({
+      returned: 3,
+      events: [
+        { country: "Ukraine", bestEstimate: 120 },
+        { country: "Sudan", bestEstimate: 50 },
+        { country: "Nigeria", bestEstimate: 5 },
+      ],
+    });
+    const preview = createToolPreview("search_conflict_events", result);
+    expect(preview.summary).toContain("3 conflict events");
+    expect(preview.summary).toContain("175 total fatalities");
+    expect(preview.count).toBe(3);
+    expect(preview.highlights).toHaveLength(3);
+  });
+
+  it("should generate system stats preview", () => {
+    const result = JSON.stringify({
+      receivers: { total: 1700, online: 500 },
+      targets: { total: 42 },
+      anomalyAlerts: { total: 8 },
+    });
+    const preview = createToolPreview("get_system_stats", result);
+    expect(preview.summary).toContain("1700 receivers");
+    expect(preview.summary).toContain("42 targets");
+    expect(preview.highlights).toBeDefined();
+    expect(preview.highlights!.some(h => h.includes("500"))).toBe(true);
+  });
+
+  it("should generate cross-correlation preview", () => {
+    const result = JSON.stringify({
+      nearbyReceivers: [{ id: 1 }, { id: 2 }],
+      nearbyTargets: [{ id: 3 }],
+      nearbyConflicts: [{ id: 4 }, { id: 5 }, { id: 6 }],
+    });
+    const preview = createToolPreview("cross_correlate", result);
+    expect(preview.summary).toContain("2 receivers");
+    expect(preview.summary).toContain("1 targets");
+    expect(preview.summary).toContain("3 conflicts");
+    expect(preview.count).toBe(6);
+  });
+
+  it("should handle invalid JSON gracefully", () => {
+    const preview = createToolPreview("search_receivers", "not json");
+    expect(preview.summary).toBe("Data retrieved");
+  });
+
+  it("should handle unknown tool with generic preview", () => {
+    const result = JSON.stringify({ returned: 42, items: [] });
+    const preview = createToolPreview("unknown_tool", result);
+    expect(preview.summary).toContain("42 results");
+    expect(preview.count).toBe(42);
+  });
+});
+
+// ── Follow-Up Suggestion Parsing Tests ──────────────────────────
+
+describe("Follow-Up Suggestion Parsing", () => {
+  const SUGGESTION_REGEX = /\[SUGGESTION:([^\]]+)\]/g;
+
+  function parseSuggestions(text: string): { text: string }[] {
+    const suggestions: { text: string }[] = [];
+    let match;
+    const regex = new RegExp(SUGGESTION_REGEX.source, "g");
+    while ((match = regex.exec(text)) !== null) {
+      suggestions.push({ text: match[1].trim() });
+    }
+    return suggestions;
+  }
+
+  function stripSuggestions(text: string): string {
+    return text
+      .replace(SUGGESTION_REGEX, "")
+      .replace(/---\s*\n\*\*Suggested follow-ups:\*\*\s*/g, "")
+      .trim();
+  }
+
+  it("should parse suggestions from response text", () => {
+    const text = `Here is the analysis.\n\n---\n**Suggested follow-ups:**\n- [SUGGESTION:Show me receivers in Europe]\n- [SUGGESTION:What are the top conflict zones?]\n- [SUGGESTION:Compare KiwiSDR vs OpenWebRX uptime]`;
+    const suggestions = parseSuggestions(text);
+    expect(suggestions).toHaveLength(3);
+    expect(suggestions[0].text).toBe("Show me receivers in Europe");
+    expect(suggestions[1].text).toBe("What are the top conflict zones?");
+    expect(suggestions[2].text).toBe("Compare KiwiSDR vs OpenWebRX uptime");
+  });
+
+  it("should strip suggestions from display text", () => {
+    const text = `Analysis results here.\n\n---\n**Suggested follow-ups:**\n- [SUGGESTION:Follow up 1]\n- [SUGGESTION:Follow up 2]`;
+    const clean = stripSuggestions(text);
+    expect(clean).not.toContain("[SUGGESTION:");
+    expect(clean).not.toContain("Suggested follow-ups:");
+    expect(clean).toContain("Analysis results here.");
+  });
+
+  it("should handle text with no suggestions", () => {
+    const text = "Just a regular response with no suggestions.";
+    const suggestions = parseSuggestions(text);
+    expect(suggestions).toHaveLength(0);
+    const clean = stripSuggestions(text);
+    expect(clean).toBe(text);
+  });
+
+  it("should handle suggestions with special characters", () => {
+    const text = `[SUGGESTION:What's the uptime for receiver #42?]`;
+    const suggestions = parseSuggestions(text);
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0].text).toContain("#42");
+  });
+});
+
+// ── Context Window Management Tests ─────────────────────────────
+
+describe("Context Window Management", () => {
+  interface ChatMsg {
+    role: "user" | "assistant" | "system";
+    content: string;
+  }
+
+  const MAX_HISTORY_MESSAGES = 20;
+  const MAX_HISTORY_CHARS = 30000;
+
+  function manageContext(history: ChatMsg[]): ChatMsg[] {
+    const totalChars = history.reduce((s, m) => s + m.content.length, 0);
+    if (history.length > MAX_HISTORY_MESSAGES || totalChars > MAX_HISTORY_CHARS) {
+      const recentCount = 6;
+      const oldMessages = history.slice(0, -recentCount);
+      const recentMessages = history.slice(-recentCount);
+
+      if (oldMessages.length > 0) {
+        const summaryText = oldMessages
+          .map(m => `[${m.role}]: ${m.content.slice(0, 200)}`)
+          .join("\n");
+        const summaryMsg: ChatMsg = {
+          role: "system",
+          content: `[CONVERSATION SUMMARY]\n${summaryText.slice(0, 3000)}\n[END SUMMARY]`,
+        };
+        return [summaryMsg, ...recentMessages];
+      }
+    }
+    return history;
+  }
+
+  it("should not trim short conversations", () => {
+    const history: ChatMsg[] = [
+      { role: "user", content: "Hello" },
+      { role: "assistant", content: "Hi there" },
+    ];
+    const result = manageContext(history);
+    expect(result).toHaveLength(2);
+    expect(result[0].content).toBe("Hello");
+  });
+
+  it("should trim conversations exceeding message limit", () => {
+    const history: ChatMsg[] = Array.from({ length: 25 }, (_, i) => ({
+      role: (i % 2 === 0 ? "user" : "assistant") as "user" | "assistant",
+      content: `Message ${i}`,
+    }));
+    const result = manageContext(history);
+    // Should have 1 summary + 6 recent = 7
+    expect(result).toHaveLength(7);
+    expect(result[0].role).toBe("system");
+    expect(result[0].content).toContain("CONVERSATION SUMMARY");
+    expect(result[result.length - 1].content).toBe("Message 24");
+  });
+
+  it("should trim conversations exceeding character limit", () => {
+    const history: ChatMsg[] = [
+      { role: "user", content: "a".repeat(20000) },
+      { role: "assistant", content: "b".repeat(15000) },
+      { role: "user", content: "Short question" },
+      { role: "assistant", content: "Short answer" },
+      { role: "user", content: "Another question" },
+      { role: "assistant", content: "Another answer" },
+      { role: "user", content: "Final question" },
+      { role: "assistant", content: "Final answer" },
+    ];
+    const result = manageContext(history);
+    // Should trim because totalChars > 30000
+    expect(result.length).toBeLessThan(history.length);
+    expect(result[0].role).toBe("system");
+    expect(result[0].content).toContain("CONVERSATION SUMMARY");
+  });
+
+  it("should preserve the 6 most recent messages", () => {
+    const history: ChatMsg[] = Array.from({ length: 30 }, (_, i) => ({
+      role: (i % 2 === 0 ? "user" : "assistant") as "user" | "assistant",
+      content: `Message ${i}`,
+    }));
+    const result = manageContext(history);
+    const recentMessages = result.slice(1); // Skip summary
+    expect(recentMessages).toHaveLength(6);
+    expect(recentMessages[0].content).toBe("Message 24");
+    expect(recentMessages[5].content).toBe("Message 29");
+  });
+
+  it("should truncate summary to 3000 chars", () => {
+    const history: ChatMsg[] = Array.from({ length: 25 }, (_, i) => ({
+      role: "user" as const,
+      content: "x".repeat(500) + ` msg${i}`,
+    }));
+    const result = manageContext(history);
+    const summary = result[0];
+    // The summary content should be bounded
+    expect(summary.content.length).toBeLessThanOrEqual(3100); // 3000 + header/footer
+  });
+});
+
+// ── Conversation Export Tests ────────────────────────────────────
+
+describe("Conversation Export", () => {
+  interface ChatMsg {
+    role: "user" | "assistant";
+    content: string;
+    globeActions?: Array<{ type: string; label: string; params: string }>;
+  }
+
+  function generateExport(messages: ChatMsg[]): string {
+    let md = `# Valentine RF Intelligence Chat Export\n`;
+    md += `**Messages:** ${messages.length}\n\n---\n\n`;
+
+    for (const msg of messages) {
+      const role = msg.role === "user" ? "User" : "Intel Analyst";
+      md += `### ${role}\n\n`;
+      md += `${msg.content}\n\n`;
+      if (msg.globeActions && msg.globeActions.length > 0) {
+        md += `**Globe Actions:**\n`;
+        for (const a of msg.globeActions) {
+          md += `- ${a.type}: ${a.label} (${a.params})\n`;
+        }
+        md += `\n`;
+      }
+      md += `---\n\n`;
+    }
+
+    return md;
+  }
+
+  it("should generate valid markdown export", () => {
+    const messages: ChatMsg[] = [
+      { role: "user", content: "Show me receivers in Europe" },
+      { role: "assistant", content: "Here are 500 receivers in Europe." },
+    ];
+    const md = generateExport(messages);
+    expect(md).toContain("# Valentine RF Intelligence Chat Export");
+    expect(md).toContain("**Messages:** 2");
+    expect(md).toContain("### User");
+    expect(md).toContain("### Intel Analyst");
+    expect(md).toContain("Show me receivers in Europe");
+  });
+
+  it("should include globe actions in export", () => {
+    const messages: ChatMsg[] = [
+      {
+        role: "assistant",
+        content: "Found a receiver in Berlin.",
+        globeActions: [
+          { type: "FLY_TO", label: "Berlin", params: "52.52,13.405" },
+        ],
+      },
+    ];
+    const md = generateExport(messages);
+    expect(md).toContain("**Globe Actions:**");
+    expect(md).toContain("FLY_TO: Berlin");
+  });
+
+  it("should handle empty conversation", () => {
+    const md = generateExport([]);
+    expect(md).toContain("**Messages:** 0");
+  });
+});
+
+// ── New RAG Tool Parameter Tests ─────────────────────────────────
+
+describe("New RAG Tool Parameters", () => {
+  it("compare_receivers should require receiverIds array", () => {
+    const params = TOOL_PARAMS["compare_receivers"];
+    expect(params.required).toContain("receiverIds");
+  });
+
+  it("cross_correlate should require lat and lng", () => {
+    const params = TOOL_PARAMS["cross_correlate"];
+    expect(params.required).toContain("lat");
+    expect(params.required).toContain("lng");
+    expect(params.optional).toContain("radiusKm");
+  });
+
+  it("search_scan_history should have optional receiverId", () => {
+    const params = TOOL_PARAMS["search_scan_history"];
+    expect(params.optional).toContain("receiverId");
+    expect(params.optional).toContain("limit");
+  });
+
+  it("query_directory_sources should have no required params", () => {
+    const params = TOOL_PARAMS["query_directory_sources"];
+    expect(params.required).toHaveLength(0);
+    expect(params.optional).toHaveLength(0);
   });
 });

@@ -31,6 +31,9 @@ import {
   Radio,
   Layers,
   Navigation,
+  Download,
+  Database,
+  ArrowRight,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────
@@ -41,11 +44,23 @@ interface GlobeAction {
   label: string;
 }
 
+interface FollowUpSuggestion {
+  text: string;
+}
+
+interface ToolResultPreview {
+  toolName: string;
+  summary: string;
+  preview?: { count?: number; highlights?: string[] };
+}
+
 interface ChatMsg {
   id: number;
   role: "user" | "assistant" | "system";
   content: string;
   globeActions?: GlobeAction[];
+  suggestions?: FollowUpSuggestion[];
+  toolResults?: ToolResultPreview[];
   timestamp?: number;
   isStreaming?: boolean;
   statusText?: string;
@@ -54,6 +69,7 @@ interface ChatMsg {
 // ── Globe Action Parser ──────────────────────────────────────────
 
 const GLOBE_ACTION_REGEX = /\[GLOBE:(FLY_TO|HIGHLIGHT|OVERLAY):([^:]+):([^\]]+)\]/g;
+const SUGGESTION_REGEX = /\[SUGGESTION:([^\]]+)\]/g;
 
 function parseGlobeActions(text: string): GlobeAction[] {
   const actions: GlobeAction[] = [];
@@ -69,8 +85,18 @@ function parseGlobeActions(text: string): GlobeAction[] {
   return actions;
 }
 
+function parseSuggestions(text: string): FollowUpSuggestion[] {
+  const suggestions: FollowUpSuggestion[] = [];
+  let match;
+  const regex = new RegExp(SUGGESTION_REGEX.source, "g");
+  while ((match = regex.exec(text)) !== null) {
+    suggestions.push({ text: match[1].trim() });
+  }
+  return suggestions;
+}
+
 function stripGlobeActions(text: string): string {
-  return text.replace(GLOBE_ACTION_REGEX, "").trim();
+  return text.replace(GLOBE_ACTION_REGEX, "").replace(SUGGESTION_REGEX, "").replace(/---\s*\n\*\*Suggested follow-ups:\*\*\s*/g, "").trim();
 }
 
 // ── Constants ────────────────────────────────────────────────────
@@ -206,6 +232,25 @@ export default function IntelChat() {
 
               if (event.type === "status") {
                 setStatusText(event.data);
+              } else if (event.type === "tool_result") {
+                // Show tool result preview as a mini data card
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? {
+                          ...m,
+                          toolResults: [
+                            ...(m.toolResults || []),
+                            {
+                              toolName: event.toolName || "unknown",
+                              summary: event.data,
+                              preview: event.preview,
+                            },
+                          ],
+                        }
+                      : m
+                  )
+                );
               } else if (event.type === "token") {
                 fullContent += event.data;
                 setMessages((prev) =>
@@ -216,8 +261,9 @@ export default function IntelChat() {
                   )
                 );
               } else if (event.type === "done") {
-                // Parse globe actions from final content
+                // Parse globe actions and suggestions from final content
                 const actions = parseGlobeActions(fullContent);
+                const suggestions = parseSuggestions(fullContent);
                 const cleanContent = stripGlobeActions(fullContent);
                 setMessages((prev) =>
                   prev.map((m) =>
@@ -228,6 +274,8 @@ export default function IntelChat() {
                           isStreaming: false,
                           globeActions:
                             actions.length > 0 ? actions : undefined,
+                          suggestions:
+                            suggestions.length > 0 ? suggestions : undefined,
                         }
                       : m
                   )
@@ -256,6 +304,7 @@ export default function IntelChat() {
         // Finalize if not already done
         if (fullContent) {
           const actions = parseGlobeActions(fullContent);
+          const suggestions = parseSuggestions(fullContent);
           const cleanContent = stripGlobeActions(fullContent);
           setMessages((prev) =>
             prev.map((m) =>
@@ -265,6 +314,7 @@ export default function IntelChat() {
                     content: cleanContent || m.content,
                     isStreaming: false,
                     globeActions: actions.length > 0 ? actions : m.globeActions,
+                    suggestions: suggestions.length > 0 ? suggestions : m.suggestions,
                   }
                 : m
             )
@@ -388,6 +438,46 @@ export default function IntelChat() {
     [setGlobeTarget, filteredStations, setHighlightedStationLabel, overlayToggles]
   );
 
+  // ── Export Conversation ─────────────────────────────────────────
+
+  const handleExport = useCallback(() => {
+    if (messages.length === 0) return;
+
+    const now = new Date();
+    const dateStr = now.toISOString().split("T")[0];
+    const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "");
+
+    let md = `# Valentine RF Intelligence Chat Export\n`;
+    md += `**Date:** ${now.toLocaleString()}\n`;
+    md += `**Messages:** ${messages.length}\n\n---\n\n`;
+
+    for (const msg of messages) {
+      const role = msg.role === "user" ? "\u{1F464} **User**" : "\u{1F916} **Intel Analyst**";
+      md += `### ${role}\n\n`;
+      md += `${msg.content}\n\n`;
+      if (msg.globeActions && msg.globeActions.length > 0) {
+        md += `**Globe Actions:**\n`;
+        for (const a of msg.globeActions) {
+          md += `- ${a.type}: ${a.label} (${a.params})\n`;
+        }
+        md += `\n`;
+      }
+      md += `---\n\n`;
+    }
+
+    md += `\n*Exported from Valentine RF SIGINT Platform*\n`;
+
+    const blob = new Blob([md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `intel-chat-${dateStr}-${timeStr}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [messages]);
+
   const toggleOpen = useCallback(() => {
     setIsOpen((prev) => {
       if (!prev) setUnreadCount(0);
@@ -474,6 +564,14 @@ export default function IntelChat() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
+                <button
+                  onClick={handleExport}
+                  className="p-1.5 rounded-md text-cyan-500/50 hover:text-emerald-400 hover:bg-emerald-400/10 transition-colors"
+                  title="Export conversation as Markdown"
+                  disabled={messages.length === 0}
+                >
+                  <Download className="w-4 h-4" />
+                </button>
                 <button
                   onClick={handleClear}
                   className="p-1.5 rounded-md text-cyan-500/50 hover:text-red-400 hover:bg-red-400/10 transition-colors"
@@ -567,11 +665,16 @@ export default function IntelChat() {
                 </div>
               ) : (
                 <>
-                  {messages.map((msg) => (
+                  {messages.map((msg, idx) => (
                     <MessageBubble
                       key={msg.id}
                       message={msg}
                       onGlobeAction={handleGlobeAction}
+                      onSuggestionClick={handleSuggestionClick}
+                      isLastAssistant={
+                        msg.role === "assistant" &&
+                        idx === messages.length - 1
+                      }
                     />
                   ))}
                   {isLoading && statusText && (
@@ -645,9 +748,13 @@ export default function IntelChat() {
 function MessageBubble({
   message,
   onGlobeAction,
+  onSuggestionClick,
+  isLastAssistant,
 }: {
   message: ChatMsg;
   onGlobeAction: (action: GlobeAction) => void;
+  onSuggestionClick: (query: string) => void;
+  isLastAssistant: boolean;
 }) {
   const isUser = message.role === "user";
 
@@ -686,6 +793,47 @@ function MessageBubble({
           <p className="whitespace-pre-wrap break-words">{message.content}</p>
         ) : (
           <>
+            {/* Tool Result Data Previews */}
+            {message.toolResults && message.toolResults.length > 0 && (
+              <div className="mb-2 space-y-1">
+                {message.toolResults.map((tr, i) => (
+                  <div
+                    key={i}
+                    className="rounded-md px-2.5 py-1.5 text-[11px]"
+                    style={{
+                      background: "rgba(0, 200, 255, 0.06)",
+                      border: "1px solid rgba(0, 200, 255, 0.12)",
+                    }}
+                  >
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <Database className="w-3 h-3 text-cyan-500/60" />
+                      <span className="text-cyan-400/80 font-medium">
+                        {tr.toolName.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
+                      </span>
+                      {tr.preview?.count !== undefined && (
+                        <span className="ml-auto text-cyan-500/50 tabular-nums">
+                          {tr.preview.count} results
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-cyan-300/60">{tr.summary}</p>
+                    {tr.preview?.highlights && tr.preview.highlights.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {tr.preview.highlights.map((h, j) => (
+                          <span
+                            key={j}
+                            className="inline-block px-1.5 py-0.5 rounded text-[10px] text-cyan-300/70"
+                            style={{ background: "rgba(0, 200, 255, 0.08)" }}
+                          >
+                            {h}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="prose prose-invert prose-sm max-w-none [&_table]:text-xs [&_th]:px-2 [&_td]:px-2 [&_th]:py-1 [&_td]:py-1 [&_table]:border-cyan-500/20 [&_th]:border-cyan-500/20 [&_td]:border-cyan-500/20 [&_h1]:text-cyan-200 [&_h2]:text-cyan-200 [&_h3]:text-cyan-200 [&_strong]:text-cyan-200 [&_a]:text-cyan-400 [&_code]:text-amber-300 [&_code]:bg-amber-400/10 [&_pre]:bg-black/30">
               <Streamdown>{message.content}</Streamdown>
             </div>
@@ -701,6 +849,26 @@ function MessageBubble({
                     action={action}
                     onClick={() => onGlobeAction(action)}
                   />
+                ))}
+              </div>
+            )}
+            {/* Follow-Up Suggestion Chips */}
+            {isLastAssistant && !message.isStreaming && message.suggestions && message.suggestions.length > 0 && (
+              <div className="mt-2 pt-2 space-y-1" style={{ borderTop: "1px solid rgba(0, 200, 255, 0.08)" }}>
+                <p className="text-[9px] text-cyan-500/40 uppercase tracking-widest mb-1">Follow-up</p>
+                {message.suggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    onClick={() => onSuggestionClick(s.text)}
+                    className="flex items-center gap-1.5 w-full text-left text-[11px] px-2.5 py-1.5 rounded-md text-cyan-300/70 hover:text-cyan-200 transition-all duration-150 hover:scale-[1.01] group"
+                    style={{
+                      background: "rgba(0, 200, 255, 0.04)",
+                      border: "1px solid rgba(0, 200, 255, 0.08)",
+                    }}
+                  >
+                    <ArrowRight className="w-3 h-3 text-cyan-500/40 group-hover:text-cyan-400 transition-colors shrink-0" />
+                    <span className="truncate">{s.text}</span>
+                  </button>
                 ))}
               </div>
             )}

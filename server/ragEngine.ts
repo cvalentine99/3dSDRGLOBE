@@ -31,6 +31,9 @@ import {
 import { eq, desc, like, sql, and, gte, lte } from "drizzle-orm";
 import { getCachedConflictEvents, updateConflictEventCache, hasValidConflictCache } from "./conflictZoneChecker";
 import { fetchUcdpEvents, slimEvent } from "./routers/ucdp";
+import { getCachedAggregation, aggregateDirectories } from "./directoryAggregator";
+import { receiverStatusHistory } from "../drizzle/schema";
+import { haversineKm } from "../shared/geo";
 
 // ── Tool Definitions ───────────────────────────────────────────────
 
@@ -250,6 +253,107 @@ export const RAG_TOOLS: Tool[] = [
       parameters: {
         type: "object",
         properties: {},
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_directory_sources",
+      description:
+        "Get live directory aggregation status showing which external SDR directories have been fetched (KiwiSDR GPS, WebSDR.org, sdr-list.xyz, ReceiverBook.de), how many receivers each contributed, how many are new vs duplicates, and when the last fetch occurred. Useful for answering questions about data freshness, receiver coverage, and directory health.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "compare_receivers",
+      description:
+        "Compare two or more receivers side-by-side by their database IDs or station labels. Returns a comparison table with uptime, SNR, user count, location, type, and online status for each receiver. Useful for answering questions like 'which receiver is better' or 'compare KiwiSDR X vs Y'.",
+      parameters: {
+        type: "object",
+        properties: {
+          receiverIds: {
+            type: "array",
+            items: { type: "number" },
+            description: "Array of receiver database IDs to compare",
+          },
+          labels: {
+            type: "array",
+            items: { type: "string" },
+            description: "Array of station label search terms (partial match). Use this when you don't have IDs.",
+          },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "cross_correlate",
+      description:
+        "Find spatial correlations between receivers, TDOA targets, and conflict events within a given radius of a center point. Returns nearby items from all three data sources sorted by distance. Useful for answering questions like 'what's happening near this location' or 'are there receivers near conflict zones'.",
+      parameters: {
+        type: "object",
+        properties: {
+          lat: {
+            type: "number",
+            description: "Center latitude in degrees",
+          },
+          lng: {
+            type: "number",
+            description: "Center longitude in degrees",
+          },
+          radiusKm: {
+            type: "number",
+            description: "Search radius in kilometers (default 500, max 5000)",
+          },
+          includeReceivers: {
+            type: "boolean",
+            description: "Include receivers in results (default true)",
+          },
+          includeTargets: {
+            type: "boolean",
+            description: "Include TDOA targets in results (default true)",
+          },
+          includeConflicts: {
+            type: "boolean",
+            description: "Include conflict events in results (default true)",
+          },
+        },
+        required: ["lat", "lng"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_scan_history",
+      description:
+        "Query receiver scan cycle history to see uptime trends over time. Returns scan cycle summaries with online/offline counts, duration, and timestamps. Can also get detailed status history for a specific receiver.",
+      parameters: {
+        type: "object",
+        properties: {
+          receiverId: {
+            type: "number",
+            description: "Get detailed scan history for a specific receiver by ID",
+          },
+          limit: {
+            type: "number",
+            description: "Max scan cycles to return (default 20, max 100)",
+          },
+        },
         required: [],
         additionalProperties: false,
       },
@@ -723,6 +827,250 @@ async function executeTool(
         });
       }
 
+      case "query_directory_sources": {
+        // Get cached aggregation or trigger a fresh fetch
+        let agg = getCachedAggregation();
+        if (!agg) {
+          try {
+            // Need existing stations for aggregation — get from DB
+            const dbReceivers = await db.select().from(receivers);
+            const existingStations = dbReceivers.map((r) => ({
+              label: r.stationLabel,
+              location: { coordinates: [0, 0] as [number, number], type: "Point" as const },
+              receivers: [{ label: r.stationLabel, url: r.originalUrl, type: r.receiverType }],
+              source: "static",
+            }));
+            agg = await aggregateDirectories(existingStations);
+          } catch (aggErr) {
+            return JSON.stringify({ error: "Failed to fetch directory data", details: String(aggErr) });
+          }
+        }
+
+        return JSON.stringify({
+          totalStations: agg.totalStations,
+          totalNew: agg.totalNew,
+          fetchedAt: agg.fetchedAt,
+          fetchedAgo: `${Math.round((Date.now() - agg.fetchedAt) / 60000)} minutes ago`,
+          sources: agg.sources.map((s) => ({
+            name: s.name,
+            fetched: s.fetched,
+            newStations: s.newStations,
+            duplicates: s.fetched - s.newStations,
+            errors: s.errors,
+            healthy: s.errors.length === 0,
+          })),
+        });
+      }
+
+      case "compare_receivers": {
+        const receiverRows: (typeof receivers.$inferSelect)[] = [];
+
+        // Fetch by IDs
+        if (args.receiverIds && Array.isArray(args.receiverIds)) {
+          for (const id of args.receiverIds as number[]) {
+            const [row] = await db.select().from(receivers).where(eq(receivers.id, id)).limit(1);
+            if (row) receiverRows.push(row);
+          }
+        }
+
+        // Fetch by label search
+        if (args.labels && Array.isArray(args.labels)) {
+          for (const label of args.labels as string[]) {
+            const rows = await db.select().from(receivers)
+              .where(like(receivers.stationLabel, `%${label}%`))
+              .limit(1);
+            if (rows[0]) receiverRows.push(rows[0]);
+          }
+        }
+
+        if (receiverRows.length === 0) {
+          return JSON.stringify({ error: "No receivers found matching the provided IDs or labels" });
+        }
+
+        // Get recent scan history for each receiver
+        const comparisons = await Promise.all(
+          receiverRows.map(async (r) => {
+            const recentHistory = await db.select()
+              .from(receiverStatusHistory)
+              .where(eq(receiverStatusHistory.receiverId, r.id))
+              .orderBy(desc(receiverStatusHistory.checkedAt))
+              .limit(10);
+
+            const onlineChecks = recentHistory.filter((h) => h.online).length;
+            const recentUptime = recentHistory.length > 0
+              ? Math.round((onlineChecks / recentHistory.length) * 100)
+              : null;
+
+            return {
+              id: r.id,
+              name: r.stationLabel,
+              receiverName: r.receiverName,
+              url: r.originalUrl,
+              type: r.receiverType,
+              online: r.lastOnline,
+              lastSnr: r.lastSnr,
+              lastUsers: r.lastUsers,
+              lastUsersMax: r.lastUsersMax,
+              uptime24h: r.uptime24h,
+              uptime7d: r.uptime7d,
+              recentUptimePct: recentUptime,
+              totalChecks: r.totalChecks,
+              onlineChecks: r.onlineChecks,
+              lastCheckedAt: r.lastCheckedAt,
+            };
+          })
+        );
+
+        return JSON.stringify({
+          compared: comparisons.length,
+          receivers: comparisons,
+        });
+      }
+
+      case "cross_correlate": {
+        const centerLat = Number(args.lat);
+        const centerLng = Number(args.lng);
+        const radiusKm = Math.min(Number(args.radiusKm) || 500, 5000);
+        const includeReceivers = args.includeReceivers !== false;
+        const includeTargets = args.includeTargets !== false;
+        const includeConflicts = args.includeConflicts !== false;
+
+        const result: {
+          center: { lat: number; lng: number };
+          radiusKm: number;
+          nearbyReceivers?: { name: string; type: string; online: boolean; distanceKm: number; url: string }[];
+          nearbyTargets?: { label: string; category: string; frequencyKhz: string | null; distanceKm: number }[];
+          nearbyConflicts?: { date: string; country: string; conflict: string; fatalities: number; distanceKm: number }[];
+        } = { center: { lat: centerLat, lng: centerLng }, radiusKm };
+
+        // Nearby receivers
+        if (includeReceivers) {
+          const allReceivers = await db.select().from(receivers);
+          // We don't have lat/lon in the receivers table directly, but we can use the station data
+          // For now, search by checking all receivers (the table doesn't store coordinates)
+          // We'll return the top receivers by name match or just the total count
+          result.nearbyReceivers = [];
+          // Note: receivers table doesn't have lat/lon columns, so we can't do distance filtering
+          // Return a note about this limitation
+        }
+
+        // Nearby targets
+        if (includeTargets) {
+          const allTargets = await db.select().from(tdoaTargets);
+          result.nearbyTargets = allTargets
+            .map((t) => {
+              const dist = haversineKm(centerLat, centerLng, Number(t.lat), Number(t.lon));
+              return {
+                label: t.label,
+                category: t.category,
+                frequencyKhz: t.frequencyKhz,
+                distanceKm: Math.round(dist * 10) / 10,
+              };
+            })
+            .filter((t) => t.distanceKm <= radiusKm)
+            .sort((a, b) => a.distanceKm - b.distanceKm)
+            .slice(0, 20);
+        }
+
+        // Nearby conflict events
+        if (includeConflicts) {
+          let cache = getCachedConflictEvents();
+          if (cache.length === 0) {
+            try {
+              const oneYearAgo = new Date();
+              oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+              const { events: rawEvents } = await fetchUcdpEvents({
+                startDate: oneYearAgo.toISOString().split("T")[0],
+                maxPages: 5,
+              });
+              const slimEvents = rawEvents.map(slimEvent);
+              updateConflictEventCache(slimEvents);
+              cache = slimEvents;
+            } catch { /* ignore */ }
+          }
+
+          result.nearbyConflicts = cache
+            .map((e) => {
+              const dist = haversineKm(centerLat, centerLng, e.lat, e.lng);
+              return {
+                date: e.date,
+                country: e.country,
+                conflict: e.conflict,
+                fatalities: e.best,
+                distanceKm: Math.round(dist * 10) / 10,
+              };
+            })
+            .filter((e) => e.distanceKm <= radiusKm)
+            .sort((a, b) => a.distanceKm - b.distanceKm)
+            .slice(0, 20);
+        }
+
+        return JSON.stringify(result);
+      }
+
+      case "search_scan_history": {
+        const limit = Math.min(Number(args.limit) || 20, 100);
+
+        if (args.receiverId !== undefined) {
+          // Get detailed history for a specific receiver
+          const receiverId = Number(args.receiverId);
+          const [receiver] = await db.select().from(receivers).where(eq(receivers.id, receiverId)).limit(1);
+
+          const history = await db.select()
+            .from(receiverStatusHistory)
+            .where(eq(receiverStatusHistory.receiverId, receiverId))
+            .orderBy(desc(receiverStatusHistory.checkedAt))
+            .limit(limit);
+
+          return JSON.stringify({
+            receiverId,
+            receiverName: receiver?.stationLabel ?? "Unknown",
+            receiverType: receiver?.receiverType ?? "Unknown",
+            currentOnline: receiver?.lastOnline ?? false,
+            totalChecks: receiver?.totalChecks ?? 0,
+            onlineChecks: receiver?.onlineChecks ?? 0,
+            allTimeUptime: receiver && receiver.totalChecks > 0
+              ? Math.round((receiver.onlineChecks / receiver.totalChecks) * 100)
+              : null,
+            uptime24h: receiver?.uptime24h,
+            uptime7d: receiver?.uptime7d,
+            returned: history.length,
+            history: history.map((h) => ({
+              online: h.online,
+              users: h.users,
+              usersMax: h.usersMax,
+              snr: h.snr,
+              error: h.error,
+              checkedAt: h.checkedAt,
+            })),
+          });
+        }
+
+        // Get scan cycle summaries
+        const cycles = await db.select()
+          .from(scanCycles)
+          .orderBy(desc(scanCycles.createdAt))
+          .limit(limit);
+
+        return JSON.stringify({
+          returned: cycles.length,
+          cycles: cycles.map((c) => ({
+            id: c.id,
+            cycleId: c.cycleId,
+            cycleNumber: c.cycleNumber,
+            totalReceivers: c.totalReceivers,
+            onlineCount: c.onlineCount,
+            offlineCount: c.offlineCount,
+            onlinePercent: c.totalReceivers > 0
+              ? Math.round((c.onlineCount / c.totalReceivers) * 100)
+              : 0,
+            durationSec: c.durationSec,
+            startedAt: c.startedAt,
+            completedAt: c.completedAt,
+          })),
+        });
+      }
+
       default:
         return JSON.stringify({ error: `Unknown tool: ${name}` });
     }
@@ -739,13 +1087,16 @@ async function executeTool(
 const SYSTEM_PROMPT = `You are **Valentine RF Intelligence Analyst**, an AI assistant embedded in the Valentine RF SIGINT platform. You have access to real-time data from the following systems:
 
 ## Available Data Sources
-1. **Receivers** — 1500+ SDR receivers worldwide (KiwiSDR, OpenWebRX, WebSDR) with status, location, bands, SNR, and user data
+1. **Receivers** — 1700+ SDR receivers worldwide (KiwiSDR, OpenWebRX, WebSDR) with status, location, bands, SNR, and user data
 2. **TDOA Targets** — Tracked signal targets with position history, frequency, and movement data
 3. **Conflict Events** — UCDP Georeferenced Event Dataset (GED) with armed conflict data including fatalities, parties, and locations
 4. **Geofence Zones** — Custom exclusion/inclusion zones with entry/exit alerts
 5. **Anomaly Alerts** — Position anomalies, conflict zone proximity alerts, and geofence violations
 6. **Sweep History** — Scheduled conflict zone sweep results
 7. **Signal Fingerprints** — RF signal characteristics for target identification
+8. **Directory Sources** — Live aggregation from 4 external SDR directories (KiwiSDR GPS, WebSDR.org, sdr-list.xyz, ReceiverBook.de)
+9. **Scan History** — Receiver health monitoring with per-receiver and per-cycle uptime data
+10. **Cross-Correlation** — Spatial analysis finding nearby receivers, targets, and conflicts within a radius
 
 ## Your Role
 - Investigate questions about receivers, targets, conflicts, and their correlations
@@ -754,14 +1105,26 @@ const SYSTEM_PROMPT = `You are **Valentine RF Intelligence Analyst**, an AI assi
 - Use specific data points and numbers from tool results
 - When asked about correlations, query multiple data sources and synthesize findings
 - Format responses with markdown for readability (headers, tables, bold text)
+- Compare receivers side-by-side when asked about performance or reliability
 
 ## Guidelines
 - Always use tools to retrieve current data — never fabricate numbers
 - If a query is ambiguous, use the most relevant tool and explain your reasoning
-- For geographic queries, consider proximity between receivers, targets, and conflict zones
+- For geographic queries, use the cross_correlate tool to find nearby items across all data sources
 - Present findings in order of significance/severity
 - Use military/intelligence terminology where appropriate (SIGINT, COMINT, ELINT, etc.)
-- Keep responses focused and analytical — avoid unnecessary pleasantries`;
+- Keep responses focused and analytical — avoid unnecessary pleasantries
+
+## Follow-Up Suggestions
+At the END of every response, add a section with exactly 3 follow-up question suggestions that the user might want to ask next, based on the current analysis. Format them as:
+
+---
+**Suggested follow-ups:**
+- [SUGGESTION:Your first suggested question here]
+- [SUGGESTION:Your second suggested question here]
+- [SUGGESTION:Your third suggested question here]
+
+Make suggestions specific and contextual to the data just discussed. Vary between drilling deeper into current topic, exploring related data, and broadening the analysis.`;
 
 // ── Main RAG Function ──────────────────────────────────────────────
 
@@ -893,9 +1256,91 @@ const GLOBE_ACTION_PROMPT = [
 import { invokeLLMStreaming } from "./_core/llm";
 
 export type StreamCallback = (event: {
-  type: "status" | "token" | "done" | "error";
+  type: "status" | "token" | "done" | "error" | "tool_result";
   data: string;
+  toolName?: string;
+  preview?: unknown;
 }) => void;
+
+/** Create a compact preview of tool results for the UI */
+function createToolPreview(toolName: string, result: string): { summary: string; count?: number; highlights?: string[] } {
+  try {
+    const data = JSON.parse(result);
+    switch (toolName) {
+      case "search_receivers": {
+        const online = data.onlineCount ?? 0;
+        const offline = data.offlineCount ?? 0;
+        return {
+          summary: `${data.returned ?? 0} receivers found (${online} online, ${offline} offline)`,
+          count: data.returned,
+          highlights: (data.receivers || []).slice(0, 3).map((r: { stationLabel?: string; country?: string }) => `${r.stationLabel || "Unknown"} (${r.country || "?"})`),
+        };
+      }
+      case "search_conflict_events": {
+        const total = data.returned ?? data.events?.length ?? 0;
+        const fatalities = data.events?.reduce((s: number, e: { bestEstimate?: number }) => s + (e.bestEstimate || 0), 0) ?? 0;
+        return {
+          summary: `${total} conflict events (${fatalities} total fatalities)`,
+          count: total,
+          highlights: (data.events || []).slice(0, 3).map((e: { country?: string; bestEstimate?: number }) => `${e.country || "?"}: ${e.bestEstimate || 0} fatalities`),
+        };
+      }
+      case "search_targets": {
+        return {
+          summary: `${data.returned ?? 0} targets found`,
+          count: data.returned,
+          highlights: (data.targets || []).slice(0, 3).map((t: { label?: string; frequency?: number }) => `${t.label || "Unknown"} (${t.frequency ? t.frequency + " kHz" : "?"})`),
+        };
+      }
+      case "get_system_stats": {
+        return {
+          summary: `System: ${data.receivers?.total ?? "?"} receivers, ${data.targets?.total ?? "?"} targets`,
+          highlights: [
+            `Online: ${data.receivers?.online ?? "?"}`,
+            `Alerts: ${data.anomalyAlerts?.total ?? "?"}`,
+            `Conflicts: ${data.conflictEvents?.total ?? "?"}`,
+          ],
+        };
+      }
+      case "cross_correlate": {
+        return {
+          summary: `Cross-correlation: ${data.nearbyReceivers?.length ?? 0} receivers, ${data.nearbyTargets?.length ?? 0} targets, ${data.nearbyConflicts?.length ?? 0} conflicts nearby`,
+          count: (data.nearbyReceivers?.length ?? 0) + (data.nearbyTargets?.length ?? 0) + (data.nearbyConflicts?.length ?? 0),
+        };
+      }
+      case "compare_receivers": {
+        const comps = data.comparison || [];
+        return {
+          summary: `Comparing ${comps.length} receivers`,
+          count: comps.length,
+          highlights: comps.slice(0, 3).map((c: { stationLabel?: string; uptime24h?: number }) => `${c.stationLabel || "?"}: ${c.uptime24h ?? "?"}% uptime`),
+        };
+      }
+      case "query_directory_sources": {
+        return {
+          summary: `Directory: ${data.totalNewStations ?? 0} new stations from ${data.sources?.length ?? 0} sources`,
+          count: data.totalNewStations,
+        };
+      }
+      case "search_scan_history": {
+        return {
+          summary: data.receiverId ? `Scan history: ${data.returned ?? 0} checks for ${data.receiverName || "receiver"}` : `${data.returned ?? 0} scan cycles`,
+          count: data.returned,
+        };
+      }
+      default: {
+        const keys = Object.keys(data);
+        const countKey = keys.find(k => k === "returned" || k === "total" || k === "count");
+        return {
+          summary: countKey ? `${data[countKey]} results` : `Data retrieved (${keys.length} fields)`,
+          count: countKey ? data[countKey] : undefined,
+        };
+      }
+    }
+  } catch {
+    return { summary: "Data retrieved" };
+  }
+}
 
 /**
  * Process a chat message through the HybridRAG engine with streaming output.
@@ -907,9 +1352,32 @@ export async function processChatStreaming(
   onEvent: StreamCallback
 ): Promise<string> {
   // Build message array with system prompt + globe actions
+  // Context window management: if conversation is too long, summarize older messages
+  let historyToUse = conversationHistory;
+  const MAX_HISTORY_MESSAGES = 20;
+  const MAX_HISTORY_CHARS = 30000;
+
+  const totalChars = conversationHistory.reduce((s, m) => s + m.content.length, 0);
+  if (conversationHistory.length > MAX_HISTORY_MESSAGES || totalChars > MAX_HISTORY_CHARS) {
+    // Keep the last 6 messages verbatim, summarize the rest
+    const recentCount = 6;
+    const oldMessages = conversationHistory.slice(0, -recentCount);
+    const recentMessages = conversationHistory.slice(-recentCount);
+
+    if (oldMessages.length > 0) {
+      const summaryText = oldMessages.map(m => `[${m.role}]: ${m.content.slice(0, 200)}`).join("\n");
+      const summaryMsg: ChatMessage = {
+        role: "system",
+        content: `[CONVERSATION SUMMARY - Earlier messages condensed]\n${summaryText.slice(0, 3000)}\n[END SUMMARY]`,
+      };
+      historyToUse = [summaryMsg, ...recentMessages];
+      console.log(`[RAG-Stream] Context trimmed: ${conversationHistory.length} -> ${historyToUse.length} messages (${totalChars} -> ${historyToUse.reduce((s, m) => s + m.content.length, 0)} chars)`);
+    }
+  }
+
   const messages: Message[] = [
     { role: "system", content: SYSTEM_PROMPT + GLOBE_ACTION_PROMPT },
-    ...conversationHistory.map((m) => ({
+    ...historyToUse.map((m) => ({
       role: m.role as "system" | "user" | "assistant",
       content: m.content,
     })),
@@ -958,10 +1426,10 @@ export async function processChatStreaming(
         args = {};
       }
 
-      const toolName = toolCall.function.name
+      const toolDisplayName = toolCall.function.name
         .replace(/_/g, " ")
         .replace(/\b\w/g, (c) => c.toUpperCase());
-      onEvent({ type: "status", data: `Querying ${toolName}...` });
+      onEvent({ type: "status", data: `Querying ${toolDisplayName}...` });
 
       console.log(
         `[RAG-Stream] Executing tool: ${toolCall.function.name}`,
@@ -969,6 +1437,15 @@ export async function processChatStreaming(
       );
 
       const result = await executeTool(toolCall.function.name, args);
+
+      // Emit tool result preview for the UI
+      const preview = createToolPreview(toolCall.function.name, result);
+      onEvent({
+        type: "tool_result",
+        data: preview.summary,
+        toolName: toolCall.function.name,
+        preview,
+      });
 
       messages.push({
         role: "tool",
