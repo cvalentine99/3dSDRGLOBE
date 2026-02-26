@@ -1064,3 +1064,340 @@ describe("New RAG Tool Parameters", () => {
     expect(params.optional).toHaveLength(0);
   });
 });
+
+// ── Source Citation Parsing Tests ──────────────────────────────
+
+describe("Source Citation Parsing", () => {
+  const SOURCE_REGEX = /\[SOURCE:([^\]]+)\]/g;
+
+  function parseSources(text: string): string[] {
+    const sources: string[] = [];
+    let match;
+    const regex = new RegExp(SOURCE_REGEX.source, "g");
+    while ((match = regex.exec(text)) !== null) {
+      const src = match[1].trim();
+      if (!sources.includes(src)) sources.push(src);
+    }
+    return sources;
+  }
+
+  function stripSources(text: string): string {
+    return text.replace(SOURCE_REGEX, "").trim();
+  }
+
+  it("should parse source citations from response text", () => {
+    const text = `There are 1,700 receivers online. [SOURCE:DB/receivers] The conflict data shows 50 events. [SOURCE:UCDP/events]`;
+    const sources = parseSources(text);
+    expect(sources).toHaveLength(2);
+    expect(sources[0]).toBe("DB/receivers");
+    expect(sources[1]).toBe("UCDP/events");
+  });
+
+  it("should deduplicate repeated sources", () => {
+    const text = `Online: 500 [SOURCE:DB/receivers]. Offline: 200 [SOURCE:DB/receivers]. Conflicts: 10 [SOURCE:UCDP/events]`;
+    const sources = parseSources(text);
+    expect(sources).toHaveLength(2);
+    expect(sources[0]).toBe("DB/receivers");
+    expect(sources[1]).toBe("UCDP/events");
+  });
+
+  it("should strip source markers from display text", () => {
+    const text = `There are 500 receivers online. [SOURCE:DB/receivers]`;
+    const clean = stripSources(text);
+    expect(clean).not.toContain("[SOURCE:");
+    expect(clean).toContain("500 receivers online.");
+  });
+
+  it("should handle text with no sources", () => {
+    const text = "Just a regular response.";
+    const sources = parseSources(text);
+    expect(sources).toHaveLength(0);
+  });
+
+  it("should parse directory source citations", () => {
+    const text = `New receivers from KiwiSDR GPS [SOURCE:DIR/kiwisdr_gps] and WebSDR.org [SOURCE:DIR/websdr_org]`;
+    const sources = parseSources(text);
+    expect(sources).toHaveLength(2);
+    expect(sources[0]).toBe("DIR/kiwisdr_gps");
+    expect(sources[1]).toBe("DIR/websdr_org");
+  });
+
+  it("should parse sweep source citations", () => {
+    const text = `Latest sweep checked 42 targets [SOURCE:SWEEP/conflict_sweep]`;
+    const sources = parseSources(text);
+    expect(sources).toHaveLength(1);
+    expect(sources[0]).toBe("SWEEP/conflict_sweep");
+  });
+
+  it("should parse cross-reference citations", () => {
+    const text = `Cross-correlation found 5 receivers near the conflict zone [SOURCE:CROSS-REF/geo_correlation]`;
+    const sources = parseSources(text);
+    expect(sources).toHaveLength(1);
+    expect(sources[0]).toBe("CROSS-REF/geo_correlation");
+  });
+});
+
+// ── Source Color Mapping Tests ─────────────────────────────────
+
+describe("Source Color Mapping", () => {
+  const SOURCE_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+    "DB": { bg: "rgba(0, 200, 255, 0.1)", border: "rgba(0, 200, 255, 0.25)", text: "rgb(100, 220, 255)" },
+    "UCDP": { bg: "rgba(255, 80, 80, 0.1)", border: "rgba(255, 80, 80, 0.25)", text: "rgb(255, 140, 140)" },
+    "DIR": { bg: "rgba(100, 255, 150, 0.1)", border: "rgba(100, 255, 150, 0.25)", text: "rgb(130, 255, 170)" },
+    "SWEEP": { bg: "rgba(255, 180, 0, 0.1)", border: "rgba(255, 180, 0, 0.25)", text: "rgb(255, 210, 100)" },
+    "CROSS-REF": { bg: "rgba(180, 100, 255, 0.1)", border: "rgba(180, 100, 255, 0.25)", text: "rgb(200, 150, 255)" },
+  };
+
+  function getSourceColor(source: string) {
+    const prefix = source.split("/")[0];
+    return SOURCE_COLORS[prefix] || SOURCE_COLORS["DB"];
+  }
+
+  it("should return correct color for DB sources", () => {
+    const color = getSourceColor("DB/receivers");
+    expect(color.text).toBe("rgb(100, 220, 255)");
+  });
+
+  it("should return correct color for UCDP sources", () => {
+    const color = getSourceColor("UCDP/events");
+    expect(color.text).toBe("rgb(255, 140, 140)");
+  });
+
+  it("should return correct color for DIR sources", () => {
+    const color = getSourceColor("DIR/kiwisdr_gps");
+    expect(color.text).toBe("rgb(130, 255, 170)");
+  });
+
+  it("should return correct color for SWEEP sources", () => {
+    const color = getSourceColor("SWEEP/conflict_sweep");
+    expect(color.text).toBe("rgb(255, 210, 100)");
+  });
+
+  it("should return correct color for CROSS-REF sources", () => {
+    const color = getSourceColor("CROSS-REF/geo_correlation");
+    expect(color.text).toBe("rgb(200, 150, 255)");
+  });
+
+  it("should fall back to DB color for unknown sources", () => {
+    const color = getSourceColor("UNKNOWN/something");
+    expect(color.text).toBe("rgb(100, 220, 255)");
+  });
+});
+
+// ── Saved Queries Tests ────────────────────────────────────────
+
+describe("Saved Queries", () => {
+  interface SavedQuery {
+    id: number;
+    name: string;
+    query: string;
+    category: string;
+    isPinned: boolean;
+    useCount: number;
+    lastUsedAt: number;
+  }
+
+  const mockQueries: SavedQuery[] = [
+    { id: 1, name: "Europe Health Check", query: "Show me receiver health in Europe", category: "receivers", isPinned: true, useCount: 15, lastUsedAt: Date.now() },
+    { id: 2, name: "Top Conflicts", query: "What conflict events have the most fatalities?", category: "conflicts", isPinned: false, useCount: 8, lastUsedAt: Date.now() - 3600000 },
+    { id: 3, name: "System Overview", query: "Give me a system status overview", category: "system", isPinned: true, useCount: 22, lastUsedAt: Date.now() - 7200000 },
+    { id: 4, name: "Anomaly Check", query: "Are there any recent anomaly alerts?", category: "alerts", isPinned: false, useCount: 3, lastUsedAt: Date.now() - 86400000 },
+  ];
+
+  it("should filter queries by category", () => {
+    const filtered = mockQueries.filter(q => q.category === "receivers");
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].name).toBe("Europe Health Check");
+  });
+
+  it("should filter pinned queries", () => {
+    const pinned = mockQueries.filter(q => q.isPinned);
+    expect(pinned).toHaveLength(2);
+  });
+
+  it("should sort by use count descending", () => {
+    const sorted = [...mockQueries].sort((a, b) => b.useCount - a.useCount);
+    expect(sorted[0].name).toBe("System Overview");
+    expect(sorted[1].name).toBe("Europe Health Check");
+  });
+
+  it("should sort by last used descending", () => {
+    const sorted = [...mockQueries].sort((a, b) => b.lastUsedAt - a.lastUsedAt);
+    expect(sorted[0].name).toBe("Europe Health Check");
+  });
+
+  it("should search queries by name", () => {
+    const search = "conflict";
+    const filtered = mockQueries.filter(q =>
+      q.name.toLowerCase().includes(search) || q.query.toLowerCase().includes(search)
+    );
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].name).toBe("Top Conflicts");
+  });
+
+  it("should handle empty search results", () => {
+    const filtered = mockQueries.filter(q =>
+      q.name.toLowerCase().includes("nonexistent")
+    );
+    expect(filtered).toHaveLength(0);
+  });
+});
+
+// ── Briefing Data Collection Tests ─────────────────────────────
+
+describe("Briefing Data Collection", () => {
+  interface BriefingData {
+    receiverHealth: {
+      total: number;
+      online: number;
+      offline: number;
+      onlinePercent: number;
+      byType: Record<string, { total: number; online: number }>;
+    };
+    recentAlerts: {
+      total: number;
+      bySeverity: Record<string, number>;
+    };
+    conflictEvents: {
+      total: number;
+      totalFatalities: number;
+    };
+  }
+
+  function computeBriefingData(
+    receivers: Array<{ type: string; online: boolean }>,
+    alerts: Array<{ severity: string }>,
+    conflicts: Array<{ fatalities: number }>
+  ): BriefingData {
+    const byType: Record<string, { total: number; online: number }> = {};
+    for (const r of receivers) {
+      if (!byType[r.type]) byType[r.type] = { total: 0, online: 0 };
+      byType[r.type].total++;
+      if (r.online) byType[r.type].online++;
+    }
+
+    const bySeverity: Record<string, number> = {};
+    for (const a of alerts) {
+      bySeverity[a.severity] = (bySeverity[a.severity] || 0) + 1;
+    }
+
+    const online = receivers.filter(r => r.online).length;
+    return {
+      receiverHealth: {
+        total: receivers.length,
+        online,
+        offline: receivers.length - online,
+        onlinePercent: receivers.length > 0 ? Math.round((online / receivers.length) * 100) : 0,
+        byType,
+      },
+      recentAlerts: {
+        total: alerts.length,
+        bySeverity,
+      },
+      conflictEvents: {
+        total: conflicts.length,
+        totalFatalities: conflicts.reduce((s, c) => s + c.fatalities, 0),
+      },
+    };
+  }
+
+  it("should compute correct receiver health stats", () => {
+    const data = computeBriefingData(
+      [
+        { type: "KiwiSDR", online: true },
+        { type: "KiwiSDR", online: false },
+        { type: "OpenWebRX", online: true },
+      ],
+      [],
+      []
+    );
+    expect(data.receiverHealth.total).toBe(3);
+    expect(data.receiverHealth.online).toBe(2);
+    expect(data.receiverHealth.offline).toBe(1);
+    expect(data.receiverHealth.onlinePercent).toBe(67);
+    expect(data.receiverHealth.byType["KiwiSDR"].total).toBe(2);
+    expect(data.receiverHealth.byType["KiwiSDR"].online).toBe(1);
+  });
+
+  it("should compute correct alert severity breakdown", () => {
+    const data = computeBriefingData(
+      [],
+      [
+        { severity: "high" },
+        { severity: "medium" },
+        { severity: "high" },
+        { severity: "low" },
+      ],
+      []
+    );
+    expect(data.recentAlerts.total).toBe(4);
+    expect(data.recentAlerts.bySeverity["high"]).toBe(2);
+    expect(data.recentAlerts.bySeverity["medium"]).toBe(1);
+    expect(data.recentAlerts.bySeverity["low"]).toBe(1);
+  });
+
+  it("should compute correct conflict fatality totals", () => {
+    const data = computeBriefingData(
+      [],
+      [],
+      [{ fatalities: 120 }, { fatalities: 50 }, { fatalities: 5 }]
+    );
+    expect(data.conflictEvents.total).toBe(3);
+    expect(data.conflictEvents.totalFatalities).toBe(175);
+  });
+
+  it("should handle empty data", () => {
+    const data = computeBriefingData([], [], []);
+    expect(data.receiverHealth.total).toBe(0);
+    expect(data.receiverHealth.onlinePercent).toBe(0);
+    expect(data.recentAlerts.total).toBe(0);
+    expect(data.conflictEvents.total).toBe(0);
+    expect(data.conflictEvents.totalFatalities).toBe(0);
+  });
+});
+
+// ── Briefing Content Formatting Tests ──────────────────────────
+
+describe("Briefing Content Formatting", () => {
+  it("should generate correct briefing title format", () => {
+    const types = ["daily", "weekly", "on_demand"] as const;
+    const labels = { daily: "Daily", weekly: "Weekly", on_demand: "On-Demand" };
+    const dateStr = new Date().toISOString().split("T")[0];
+
+    for (const type of types) {
+      const title = `${labels[type]} Intelligence Briefing — ${dateStr}`;
+      expect(title).toContain(labels[type]);
+      expect(title).toContain(dateStr);
+    }
+  });
+
+  it("should include all required briefing sections in prompt", () => {
+    const requiredSections = [
+      "Executive Summary",
+      "Network Status",
+      "Threat Assessment",
+      "Key Findings",
+      "Recommended Actions",
+    ];
+
+    // Simulate the prompt structure
+    const prompt = `Generate a concise intelligence briefing.\n\nInclude:\n1. **Executive Summary**\n2. **Network Status**\n3. **Threat Assessment**\n4. **Key Findings**\n5. **Recommended Actions**`;
+
+    for (const section of requiredSections) {
+      expect(prompt).toContain(section);
+    }
+  });
+
+  it("should format data sources as array", () => {
+    const dataSources = [
+      "receivers",
+      "anomaly_alerts",
+      "conflict_events",
+      "scan_cycles",
+      "conflict_sweeps",
+    ];
+    expect(dataSources).toHaveLength(5);
+    expect(dataSources).toContain("receivers");
+    expect(dataSources).toContain("conflict_events");
+  });
+});

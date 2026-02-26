@@ -307,3 +307,15 @@
 - [x] RAG Enhancement: conversation export as Markdown file
 - [x] RAG Enhancement: tool result data previews during streaming (mini-tables of retrieved data)
 - [x] RAG Enhancement: context window management (summarize old messages when history gets long)
+- [x] Saved Queries: DB schema for saved_queries table (userId, name, prompt, category, pinned, usageCount)
+- [x] Saved Queries: tRPC endpoints (list, create, delete, update, togglePin, incrementUse)
+- [x] Saved Queries: Sidebar UI in IntelChat with categories, pin/unpin, usage count, one-click run
+- [x] Saved Queries: Quick-save button on chat input to bookmark current prompt
+- [x] RAG Citations: System prompt instructs LLM to emit [SOURCE:...] markers with data source tracking
+- [x] RAG Citations: Render inline citations as styled color-coded badges in the chat UI
+- [x] RAG Citations: Source legend footer showing all sources referenced in a response
+- [x] Briefing Mode: DB schema for briefings table (userId, content, generatedAt, type, stats, dataSources)
+- [x] Briefing Mode: Server-side briefing generator combining receiver health, conflicts, anomalies via LLM
+- [x] Briefing Mode: tRPC endpoints (generate, list, getLatest, markRead, unreadCount)
+- [x] Briefing Mode: Briefing panel UI accessible from IntelChat header with Quick/Daily/Weekly generation
+- [x] Briefing Mode: Past briefings history with read/unread tracking and Markdown export

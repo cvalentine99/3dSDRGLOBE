@@ -34,7 +34,12 @@ import {
   Download,
   Database,
   ArrowRight,
+  Bookmark,
+  FileText,
+  Info,
 } from "lucide-react";
+import SavedQueriesSidebar from "./SavedQueriesSidebar";
+import BriefingPanel from "./BriefingPanel";
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -70,6 +75,7 @@ interface ChatMsg {
 
 const GLOBE_ACTION_REGEX = /\[GLOBE:(FLY_TO|HIGHLIGHT|OVERLAY):([^:]+):([^\]]+)\]/g;
 const SUGGESTION_REGEX = /\[SUGGESTION:([^\]]+)\]/g;
+const SOURCE_REGEX = /\[SOURCE:([^\]]+)\]/g;
 
 function parseGlobeActions(text: string): GlobeAction[] {
   const actions: GlobeAction[] = [];
@@ -96,7 +102,37 @@ function parseSuggestions(text: string): FollowUpSuggestion[] {
 }
 
 function stripGlobeActions(text: string): string {
-  return text.replace(GLOBE_ACTION_REGEX, "").replace(SUGGESTION_REGEX, "").replace(/---\s*\n\*\*Suggested follow-ups:\*\*\s*/g, "").trim();
+  return text
+    .replace(GLOBE_ACTION_REGEX, "")
+    .replace(SUGGESTION_REGEX, "")
+    .replace(SOURCE_REGEX, "")
+    .replace(/---\s*\n\*\*Suggested follow-ups:\*\*\s*/g, "")
+    .trim();
+}
+
+function parseSources(text: string): string[] {
+  const sources: string[] = [];
+  let match;
+  const regex = new RegExp(SOURCE_REGEX.source, "g");
+  while ((match = regex.exec(text)) !== null) {
+    const src = match[1].trim();
+    if (!sources.includes(src)) sources.push(src);
+  }
+  return sources;
+}
+
+/** Map source labels to colors */
+const SOURCE_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+  "DB": { bg: "rgba(0, 200, 255, 0.1)", border: "rgba(0, 200, 255, 0.25)", text: "rgb(100, 220, 255)" },
+  "UCDP": { bg: "rgba(255, 80, 80, 0.1)", border: "rgba(255, 80, 80, 0.25)", text: "rgb(255, 140, 140)" },
+  "DIR": { bg: "rgba(100, 255, 150, 0.1)", border: "rgba(100, 255, 150, 0.25)", text: "rgb(130, 255, 170)" },
+  "SWEEP": { bg: "rgba(255, 180, 0, 0.1)", border: "rgba(255, 180, 0, 0.25)", text: "rgb(255, 210, 100)" },
+  "CROSS-REF": { bg: "rgba(180, 100, 255, 0.1)", border: "rgba(180, 100, 255, 0.25)", text: "rgb(200, 150, 255)" },
+};
+
+function getSourceColor(source: string) {
+  const prefix = source.split("/")[0];
+  return SOURCE_COLORS[prefix] || SOURCE_COLORS["DB"];
 }
 
 // ── Constants ────────────────────────────────────────────────────
@@ -125,6 +161,8 @@ export default function IntelChat() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
+  const [showSavedQueries, setShowSavedQueries] = useState(false);
+  const [showBriefings, setShowBriefings] = useState(false);
 
   // tRPC queries
   const clearHistory = trpc.chat.clearHistory.useMutation();
@@ -565,6 +603,28 @@ export default function IntelChat() {
               </div>
               <div className="flex items-center gap-1">
                 <button
+                  onClick={() => setShowSavedQueries(!showSavedQueries)}
+                  className={`p-1.5 rounded-md transition-colors ${
+                    showSavedQueries
+                      ? "text-amber-400 bg-amber-400/10"
+                      : "text-cyan-500/50 hover:text-amber-400 hover:bg-amber-400/10"
+                  }`}
+                  title="Saved queries"
+                >
+                  <Bookmark className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setShowBriefings(!showBriefings)}
+                  className={`p-1.5 rounded-md transition-colors ${
+                    showBriefings
+                      ? "text-amber-400 bg-amber-400/10"
+                      : "text-cyan-500/50 hover:text-amber-400 hover:bg-amber-400/10"
+                  }`}
+                  title="Intelligence briefings"
+                >
+                  <FileText className="w-4 h-4" />
+                </button>
+                <button
                   onClick={handleExport}
                   className="p-1.5 rounded-md text-cyan-500/50 hover:text-emerald-400 hover:bg-emerald-400/10 transition-colors"
                   title="Export conversation as Markdown"
@@ -599,6 +659,20 @@ export default function IntelChat() {
                 </button>
               </div>
             </div>
+
+            {/* Main Content Area with optional sidebar */}
+            <div className="flex flex-1 overflow-hidden">
+              {/* Saved Queries Sidebar */}
+              <AnimatePresence>
+                {showSavedQueries && (
+                  <SavedQueriesSidebar
+                    isOpen={showSavedQueries}
+                    onToggle={() => setShowSavedQueries(false)}
+                    onRunQuery={handleSuggestionClick}
+                    currentInput={input}
+                  />
+                )}
+              </AnimatePresence>
 
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 scrollbar-thin">
@@ -685,6 +759,13 @@ export default function IntelChat() {
                 </>
               )}
             </div>
+            </div>
+
+            {/* Briefing Panel */}
+            <BriefingPanel
+              isOpen={showBriefings}
+              onClose={() => setShowBriefings(false)}
+            />
 
             {/* Input Area */}
             {isAuthenticated && (
@@ -840,6 +921,34 @@ function MessageBubble({
             {message.isStreaming && (
               <span className="inline-block w-1.5 h-4 bg-cyan-400 animate-pulse ml-0.5 align-text-bottom" />
             )}
+            {/* Source Citations */}
+            {!message.isStreaming && (() => {
+              const sources = parseSources(message.content);
+              if (sources.length === 0) return null;
+              return (
+                <div className="mt-2 pt-1.5 flex flex-wrap gap-1" style={{ borderTop: "1px solid rgba(0, 200, 255, 0.06)" }}>
+                  <span className="text-[9px] text-cyan-500/30 uppercase tracking-widest mr-1 self-center flex items-center gap-0.5">
+                    <Info className="w-2.5 h-2.5" /> Sources
+                  </span>
+                  {sources.map((src, i) => {
+                    const color = getSourceColor(src);
+                    return (
+                      <span
+                        key={i}
+                        className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium"
+                        style={{
+                          background: color.bg,
+                          border: `1px solid ${color.border}`,
+                          color: color.text,
+                        }}
+                      >
+                        {src}
+                      </span>
+                    );
+                  })}
+                </div>
+              );
+            })()}
             {/* Globe Action Buttons */}
             {message.globeActions && message.globeActions.length > 0 && (
               <div className="mt-2 pt-2 flex flex-wrap gap-1.5" style={{ borderTop: "1px solid rgba(0, 200, 255, 0.08)" }}>

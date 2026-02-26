@@ -627,3 +627,81 @@ export const chatMessages = mysqlTable(
 
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type InsertChatMessage = typeof chatMessages.$inferInsert;
+
+/**
+ * Saved queries — bookmarked chat prompts for quick re-use.
+ * Users can pin favorites, organize by category, and track usage.
+ */
+export const savedQueries = mysqlTable(
+  "saved_queries",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** User open ID (from auth) */
+    userOpenId: varchar("userOpenId", { length: 256 }).notNull(),
+    /** User-assigned name for the query */
+    name: varchar("name", { length: 256 }).notNull(),
+    /** The actual prompt text */
+    prompt: text("prompt").notNull(),
+    /** Category for grouping */
+    category: mysqlEnum("category", [
+      "general",
+      "receivers",
+      "targets",
+      "conflicts",
+      "anomalies",
+      "geofence",
+      "system",
+    ]).default("general").notNull(),
+    /** Whether this query is pinned to the top */
+    pinned: boolean("pinned").default(false).notNull(),
+    /** Number of times this query has been executed */
+    usageCount: int("usageCount").default(0).notNull(),
+    /** Last time this query was executed (Unix ms) */
+    lastUsedAt: bigint("lastUsedAt", { mode: "number" }),
+    createdAt: bigint("createdAt", { mode: "number" }).notNull(),
+    updatedAt: bigint("updatedAt", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    index("idx_saved_queries_user").on(table.userOpenId),
+    index("idx_saved_queries_pinned").on(table.pinned),
+  ]
+);
+
+export type SavedQuery = typeof savedQueries.$inferSelect;
+export type InsertSavedQuery = typeof savedQueries.$inferInsert;
+
+/**
+ * Intelligence briefings — auto-generated or on-demand summaries
+ * combining receiver health, conflict events, and anomaly alerts.
+ */
+export const briefings = mysqlTable(
+  "briefings",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** User open ID (owner of this briefing) */
+    userOpenId: varchar("userOpenId", { length: 256 }).notNull(),
+    /** Briefing title */
+    title: varchar("title", { length: 256 }).notNull(),
+    /** Full briefing content (markdown) */
+    content: text("content").notNull(),
+    /** Briefing type: daily, weekly, or on-demand */
+    briefingType: mysqlEnum("briefingType", ["daily", "weekly", "on_demand"]).default("on_demand").notNull(),
+    /** Summary statistics as JSON */
+    stats: json("stats"),
+    /** Data sources used to generate this briefing */
+    dataSources: json("dataSources"),
+    /** Whether this briefing has been read */
+    isRead: boolean("isRead").default(false).notNull(),
+    /** Generation timestamp (Unix ms) */
+    generatedAt: bigint("generatedAt", { mode: "number" }).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_briefings_user").on(table.userOpenId),
+    index("idx_briefings_type").on(table.briefingType),
+    index("idx_briefings_generatedAt").on(table.generatedAt),
+  ]
+);
+
+export type Briefing = typeof briefings.$inferSelect;
+export type InsertBriefing = typeof briefings.$inferInsert;
