@@ -322,3 +322,17 @@
 - [x] E2E Testing: Catalog all tRPC endpoints and API routes
 - [x] E2E Testing: Write comprehensive e2e tests for every endpoint (154 tests across 3 files)
 - [x] E2E Testing: Run all tests and fix any failures — 154/154 passing across all 17 routers
+- [x] UCDP API Fix: Investigate 401 Unauthorized errors from UCDP API — UCDP now requires paid token auth (Feb 2026)
+- [x] UCDP API Fix: Fix authentication mechanism — replaced with free HDX HAPI (Humanitarian API)
+- [x] UCDP API Fix: Verify UCDP E2E tests pass with real data — all 12 HDX HAPI tests pass with live data
+- [x] Mutation Side-Effect Tests: targets.save + addHistoryEntry triggers anomaly detection
+- [x] Mutation Side-Effect Tests: addHistoryEntry triggers geofence zone alerts (exclusion + inclusion zones)
+- [x] Mutation Side-Effect Tests: geofence create + target movement generates alerts
+- [x] Mutation Side-Effect Tests: conflict zone proximity detection on position update
+- [x] Mutation Side-Effect Tests: fingerprint create + findMatches cross-validation
+- [x] Mutation Side-Effect Tests: sharing list CRUD with member operations sequence
+- [x] Mutation Side-Effect Tests: Run all tests and verify zero failures — 992/992 passing
+- [x] Replace UCDP API: Research free conflict/crisis data APIs — tested ACLED (403), GDELT (timeout), ReliefWeb (auth), HDX HAPI (works!)
+- [x] Replace UCDP API: Implement HDX HAPI in the conflict data router (219 countries, 3 event types, national risk scores)
+- [x] Replace UCDP API: Update E2E tests for HDX HAPI — 12 tests covering getEvents, getSummary, getNationalRisk, getRegions, clearCache
+- [x] Replace UCDP API: Verify all conflict data endpoints work with new source — all passing with real data
