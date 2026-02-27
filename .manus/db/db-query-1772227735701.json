@@ -1,0 +1,67 @@
+{
+  "query": "SELECT COUNT(*) as total FROM receivers; DESCRIBE receivers;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3xenzgJ3NGNThF2.2d7d812ed0e5 --database 8ixynDjhKaWGr2C97gbZUT --execute SELECT COUNT(*) as total FROM receivers; DESCRIBE receivers;",
+  "rows": [
+    {
+      "total": "1801"
+    },
+    {
+      "total": "Field\tType\tNull\tKey\tDefault\tExtra"
+    },
+    {
+      "total": "id\tint(11)\tNO\tPRI\tNULL\tauto_increment"
+    },
+    {
+      "total": "normalizedUrl\tvarchar(512)\tNO\tUNI\tNULL\t"
+    },
+    {
+      "total": "originalUrl\tvarchar(512)\tNO\t\tNULL\t"
+    },
+    {
+      "total": "receiverType\tenum('KiwiSDR','OpenWebRX','WebSDR')\tNO\tMUL\tNULL\t"
+    },
+    {
+      "total": "stationLabel\tvarchar(256)\tNO\t\tNULL\t"
+    },
+    {
+      "total": "receiverName\ttext\tYES\t\tNULL\t"
+    },
+    {
+      "total": "lastOnline\ttinyint(1)\tNO\tMUL\t0\t"
+    },
+    {
+      "total": "lastCheckedAt\tbigint(20)\tYES\t\tNULL\t"
+    },
+    {
+      "total": "lastSnr\tfloat\tYES\t\tNULL\t"
+    },
+    {
+      "total": "lastUsers\tint(11)\tYES\t\tNULL\t"
+    },
+    {
+      "total": "lastUsersMax\tint(11)\tYES\t\tNULL\t"
+    },
+    {
+      "total": "uptime24h\tfloat\tYES\t\tNULL\t"
+    },
+    {
+      "total": "uptime7d\tfloat\tYES\t\tNULL\t"
+    },
+    {
+      "total": "totalChecks\tint(11)\tNO\t\t0\t"
+    },
+    {
+      "total": "onlineChecks\tint(11)\tNO\t\t0\t"
+    },
+    {
+      "total": "createdAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\t"
+    },
+    {
+      "total": "updatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\tDEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\n1801\nField\tType\tNull\tKey\tDefault\tExtra\nid\tint(11)\tNO\tPRI\tNULL\tauto_increment\nnormalizedUrl\tvarchar(512)\tNO\tUNI\tNULL\t\noriginalUrl\tvarchar(512)\tNO\t\tNULL\t\nreceiverType\tenum('KiwiSDR','OpenWebRX','WebSDR')\tNO\tMUL\tNULL\t\nstationLabel\tvarchar(256)\tNO\t\tNULL\t\nreceiverName\ttext\tYES\t\tNULL\t\nlastOnline\ttinyint(1)\tNO\tMUL\t0\t\nlastCheckedAt\tbigint(20)\tYES\t\tNULL\t\nlastSnr\tfloat\tYES\t\tNULL\t\nlastUsers\tint(11)\tYES\t\tNULL\t\nlastUsersMax\tint(11)\tYES\t\tNULL\t\nuptime24h\tfloat\tYES\t\tNULL\t\nuptime7d\tfloat\tYES\t\tNULL\t\ntotalChecks\tint(11)\tNO\t\t0\t\nonlineChecks\tint(11)\tNO\t\t0\t\ncreatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\t\nupdatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\tDEFAULT_GENERATED on update CURRENT_TIMESTAMP\n",
+  "stderr": "",
+  "execution_time_ms": 63
+}

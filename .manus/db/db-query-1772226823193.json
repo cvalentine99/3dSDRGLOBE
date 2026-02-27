@@ -1,0 +1,25 @@
+{
+  "query": "SELECT COUNT(*) as total FROM anomaly_alerts; SELECT COUNT(*) as total FROM tdoa_targets; SELECT COUNT(*) as total FROM tdoa_target_history;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3xenzgJ3NGNThF2.2d7d812ed0e5 --database 8ixynDjhKaWGr2C97gbZUT --execute SELECT COUNT(*) as total FROM anomaly_alerts; SELECT COUNT(*) as total FROM tdoa_targets; SELECT COUNT(*) as total FROM tdoa_target_history;",
+  "rows": [
+    {
+      "total": "0"
+    },
+    {
+      "total": "total"
+    },
+    {
+      "total": "0"
+    },
+    {
+      "total": "total"
+    },
+    {
+      "total": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\n0\ntotal\n0\ntotal\n0\n",
+  "stderr": "",
+  "execution_time_ms": 168
+}

@@ -355,3 +355,6 @@
 - [x] Push code to cvalentine99/3dSDRGLOBE GitHub repository
 - [ ] Verify .github/workflows/ci.yml is added via GitHub UI (workflow permission required)
 - [x] Move chat button/panel from lower right to lower left corner
+- [x] BUG FIX: IntelChat anomaly alerts query — anomaly_alerts table is empty (correct behavior, no targets tracked yet)
+- [x] BUG FIX: IntelChat RAG search_receivers tool — fixed createToolPreview using wrong field names (returned vs totalReceivers, onlineCount vs onlineReceivers)
+- [x] BUG FIX: IntelChat RAG tools — fixed preview field mismatches and added proper anomaly_alerts preview handler

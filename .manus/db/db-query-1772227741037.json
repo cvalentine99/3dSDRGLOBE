@@ -1,0 +1,13 @@
+{
+  "query": "SELECT COUNT(*) as total FROM receivers;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3xenzgJ3NGNThF2.2d7d812ed0e5 --database 8ixynDjhKaWGr2C97gbZUT --execute SELECT COUNT(*) as total FROM receivers;",
+  "rows": [
+    {
+      "total": "1801"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\n1801\n",
+  "stderr": "",
+  "execution_time_ms": 57
+}

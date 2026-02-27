@@ -1286,12 +1286,14 @@ function createToolPreview(toolName: string, result: string): { summary: string;
     const data = JSON.parse(result);
     switch (toolName) {
       case "search_receivers": {
-        const online = data.onlineCount ?? 0;
-        const offline = data.offlineCount ?? 0;
+        const total = data.totalReceivers ?? data.returned ?? 0;
+        const online = data.onlineReceivers ?? 0;
+        const offline = data.offlineReceivers ?? 0;
+        const typeInfo = (data.byType || []).map((t: { type?: string; total?: number; online?: number }) => `${t.type}: ${t.online ?? 0}/${t.total ?? 0}`).join(", ");
         return {
-          summary: `${data.returned ?? 0} receivers found (${online} online, ${offline} offline)`,
-          count: data.returned,
-          highlights: (data.receivers || []).slice(0, 3).map((r: { stationLabel?: string; country?: string }) => `${r.stationLabel || "Unknown"} (${r.country || "?"})`),
+          summary: `${total} receivers total (${online} online, ${offline} offline)${typeInfo ? " — " + typeInfo : ""}`,
+          count: total,
+          highlights: (data.receivers || []).slice(0, 3).map((r: { name?: string; type?: string; online?: boolean }) => `${r.name || "Unknown"} (${r.type || "?"})${r.online ? " \u2705" : " \u274c"}`),
         };
       }
       case "search_conflict_events": {
@@ -1344,6 +1346,26 @@ function createToolPreview(toolName: string, result: string): { summary: string;
         return {
           summary: data.receiverId ? `Scan history: ${data.returned ?? 0} checks for ${data.receiverName || "receiver"}` : `${data.returned ?? 0} scan cycles`,
           count: data.returned,
+        };
+      }
+      case "search_anomaly_alerts": {
+        const alertCount = data.returned ?? data.alerts?.length ?? 0;
+        if (alertCount === 0) {
+          return {
+            summary: "No anomaly alerts found. Alerts are generated when tracked targets deviate from expected positions.",
+            count: 0,
+          };
+        }
+        const severityCounts = (data.alerts || []).reduce((acc: Record<string, number>, a: { severity?: string }) => {
+          const s = a.severity || "unknown";
+          acc[s] = (acc[s] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        const severityStr = Object.entries(severityCounts).map(([k, v]) => `${v} ${k}`).join(", ");
+        return {
+          summary: `${alertCount} anomaly alerts (${severityStr})`,
+          count: alertCount,
+          highlights: (data.alerts || []).slice(0, 3).map((a: { severity?: string; deviationKm?: number; description?: string }) => `${a.severity || "?"}: ${a.description || `${a.deviationKm ?? "?"}km deviation`}`),
         };
       }
       default: {

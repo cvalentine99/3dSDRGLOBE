@@ -154,7 +154,7 @@ describe("E2E: receiver router", () => {
         // Network errors or timeouts are expected in test environment
         expect(err).toBeDefined();
       }
-    }, 15000);
+    }, 30000);
 
     it("rejects invalid URL", async () => {
       const caller = appRouter.createCaller(createPublicContext());

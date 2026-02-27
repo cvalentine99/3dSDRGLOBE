@@ -702,12 +702,14 @@ describe("Tool Result Preview Generation", () => {
       const data = JSON.parse(result);
       switch (toolName) {
         case "search_receivers": {
-          const online = data.onlineCount ?? 0;
-          const offline = data.offlineCount ?? 0;
+          const total = data.totalReceivers ?? data.returned ?? 0;
+          const online = data.onlineReceivers ?? 0;
+          const offline = data.offlineReceivers ?? 0;
+          const typeInfo = (data.byType || []).map((t: { type?: string; total?: number; online?: number }) => `${t.type}: ${t.online ?? 0}/${t.total ?? 0}`).join(", ");
           return {
-            summary: `${data.returned ?? 0} receivers found (${online} online, ${offline} offline)`,
-            count: data.returned,
-            highlights: (data.receivers || []).slice(0, 3).map((r: { stationLabel?: string; country?: string }) => `${r.stationLabel || "Unknown"} (${r.country || "?"})`),
+            summary: `${total} receivers total (${online} online, ${offline} offline)${typeInfo ? " \u2014 " + typeInfo : ""}`,
+            count: total,
+            highlights: (data.receivers || []).slice(0, 3).map((r: { name?: string; type?: string; online?: boolean }) => `${r.name || "Unknown"} (${r.type || "?"})${r.online ? " \u2705" : " \u274c"}`),
           };
         }
         case "search_conflict_events": {
@@ -750,18 +752,25 @@ describe("Tool Result Preview Generation", () => {
 
   it("should generate receiver search preview", () => {
     const result = JSON.stringify({
-      returned: 15,
-      onlineCount: 10,
-      offlineCount: 5,
+      totalReceivers: 1801,
+      onlineReceivers: 599,
+      offlineReceivers: 1202,
+      returned: 10,
+      byType: [
+        { type: "KiwiSDR", total: 1129, online: 398 },
+        { type: "OpenWebRX", total: 546, online: 201 },
+      ],
       receivers: [
-        { stationLabel: "KiwiSDR Berlin", country: "Germany" },
-        { stationLabel: "OpenWebRX Paris", country: "France" },
+        { name: "KiwiSDR Berlin", type: "KiwiSDR", online: true },
+        { name: "OpenWebRX Paris", type: "OpenWebRX", online: false },
       ],
     });
     const preview = createToolPreview("search_receivers", result);
-    expect(preview.summary).toContain("15 receivers found");
-    expect(preview.summary).toContain("10 online");
-    expect(preview.count).toBe(15);
+    expect(preview.summary).toContain("1801 receivers total");
+    expect(preview.summary).toContain("599 online");
+    expect(preview.summary).toContain("1202 offline");
+    expect(preview.summary).toContain("KiwiSDR");
+    expect(preview.count).toBe(1801);
     expect(preview.highlights).toHaveLength(2);
     expect(preview.highlights![0]).toContain("Berlin");
   });
