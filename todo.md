@@ -352,3 +352,6 @@
 - [x] Test isolation: Verify zero test data leaks after full test run (all tables at 0 rows)
 - [x] Test isolation: Fix 3 flaky test assertions (race conditions in side-effects and chat tests)
 - [x] All 1021 tests passing across 27 test files, zero TypeScript errors, zero DB leaks
+- [x] Push code to cvalentine99/3dSDRGLOBE GitHub repository
+- [ ] Verify .github/workflows/ci.yml is added via GitHub UI (workflow permission required)
+- [x] Move chat button/panel from lower right to lower left corner

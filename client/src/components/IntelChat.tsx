@@ -1,7 +1,7 @@
 /**
  * IntelChat.tsx — HybridRAG Intelligence Chat Popup
  *
- * Floating chat dialog in the lower-right corner that provides
+ * Floating chat dialog in the lower-left corner that provides
  * an AI-powered intelligence analyst interface. Uses SSE streaming
  * for token-by-token response rendering. Messages are persisted in DB.
  * Supports globe actions (fly-to, highlight, overlay toggle).
@@ -530,7 +530,7 @@ export default function IntelChat() {
       {/* Floating Toggle Button */}
       <motion.button
         onClick={toggleOpen}
-        className="fixed bottom-6 right-6 z-[9999] flex items-center justify-center rounded-full shadow-lg shadow-cyan-500/20 transition-all duration-200"
+        className="fixed bottom-6 left-6 z-[9999] flex items-center justify-center rounded-full shadow-lg shadow-cyan-500/20 transition-all duration-200"
         style={{
           width: 56,
           height: 56,
@@ -566,7 +566,7 @@ export default function IntelChat() {
             className="fixed z-[9998] flex flex-col overflow-hidden rounded-xl shadow-2xl shadow-cyan-500/10"
             style={{
               bottom: isExpanded ? 16 : 80,
-              right: isExpanded ? 16 : 24,
+              left: isExpanded ? 16 : 24,
               width: isExpanded
                 ? "min(900px, calc(100vw - 32px))"
                 : "min(440px, calc(100vw - 48px))",
