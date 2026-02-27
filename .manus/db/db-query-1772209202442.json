@@ -1,0 +1,194 @@
+{
+  "query": "SELECT id, label FROM tdoa_targets ORDER BY id LIMIT 50;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3xenzgJ3NGNThF2.2d7d812ed0e5 --database 8ixynDjhKaWGr2C97gbZUT --execute SELECT id, label FROM tdoa_targets ORDER BY id LIMIT 50;",
+  "rows": [
+    {
+      "id": "11",
+      "label": "Anomaly Check"
+    },
+    {
+      "id": "13",
+      "label": "Remove Me"
+    },
+    {
+      "id": "24",
+      "label": "Anomaly Check"
+    },
+    {
+      "id": "26",
+      "label": "Remove Me"
+    },
+    {
+      "id": "45",
+      "label": "Anomaly Check"
+    },
+    {
+      "id": "47",
+      "label": "Remove Me"
+    },
+    {
+      "id": "60",
+      "label": "Anomaly Check"
+    },
+    {
+      "id": "62",
+      "label": "Remove Me"
+    },
+    {
+      "id": "73",
+      "label": "SE-Share-Target-1"
+    },
+    {
+      "id": "74",
+      "label": "SE-Share-Target-2"
+    },
+    {
+      "id": "75",
+      "label": "SE-FP-Match-1"
+    },
+    {
+      "id": "76",
+      "label": "SE-FP-Match-2"
+    },
+    {
+      "id": "88",
+      "label": "SE-Share-Target-1"
+    },
+    {
+      "id": "89",
+      "label": "SE-Share-Target-2"
+    },
+    {
+      "id": "90",
+      "label": "SE-FP-Match-1"
+    },
+    {
+      "id": "91",
+      "label": "SE-FP-Match-2"
+    },
+    {
+      "id": "103",
+      "label": "SE-Share-Target-1"
+    },
+    {
+      "id": "104",
+      "label": "SE-Share-Target-2"
+    },
+    {
+      "id": "105",
+      "label": "SE-FP-Match-1"
+    },
+    {
+      "id": "106",
+      "label": "SE-FP-Match-2"
+    },
+    {
+      "id": "118",
+      "label": "SE-Share-Target-1"
+    },
+    {
+      "id": "119",
+      "label": "SE-Share-Target-2"
+    },
+    {
+      "id": "120",
+      "label": "SE-FP-Match-1"
+    },
+    {
+      "id": "121",
+      "label": "SE-FP-Match-2"
+    },
+    {
+      "id": "133",
+      "label": "SE-Share-Target-1"
+    },
+    {
+      "id": "134",
+      "label": "SE-Share-Target-2"
+    },
+    {
+      "id": "135",
+      "label": "SE-FP-Match-1"
+    },
+    {
+      "id": "136",
+      "label": "SE-FP-Match-2"
+    },
+    {
+      "id": "148",
+      "label": "SE-Share-Target-1"
+    },
+    {
+      "id": "149",
+      "label": "SE-Share-Target-2"
+    },
+    {
+      "id": "150",
+      "label": "SE-FP-Match-1"
+    },
+    {
+      "id": "151",
+      "label": "SE-FP-Match-2"
+    },
+    {
+      "id": "165",
+      "label": "SE-FP-Match-1"
+    },
+    {
+      "id": "166",
+      "label": "SE-FP-Match-2"
+    },
+    {
+      "id": "229",
+      "label": "Anomaly Check"
+    },
+    {
+      "id": "238",
+      "label": "Remove Me"
+    },
+    {
+      "id": "253",
+      "label": "Anomaly Check"
+    },
+    {
+      "id": "264",
+      "label": "Remove Me"
+    },
+    {
+      "id": "281",
+      "label": "Anomaly Check"
+    },
+    {
+      "id": "292",
+      "label": "Remove Me"
+    },
+    {
+      "id": "311",
+      "label": "Anomaly Check"
+    },
+    {
+      "id": "320",
+      "label": "Remove Me"
+    },
+    {
+      "id": "339",
+      "label": "Anomaly Check"
+    },
+    {
+      "id": "348",
+      "label": "Remove Me"
+    },
+    {
+      "id": "30017",
+      "label": "Anomaly Check"
+    },
+    {
+      "id": "30026",
+      "label": "Remove Me"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tlabel\n11\tAnomaly Check\n13\tRemove Me\n24\tAnomaly Check\n26\tRemove Me\n45\tAnomaly Check\n47\tRemove Me\n60\tAnomaly Check\n62\tRemove Me\n73\tSE-Share-Target-1\n74\tSE-Share-Target-2\n75\tSE-FP-Match-1\n76\tSE-FP-Match-2\n88\tSE-Share-Target-1\n89\tSE-Share-Target-2\n90\tSE-FP-Match-1\n91\tSE-FP-Match-2\n103\tSE-Share-Target-1\n104\tSE-Share-Target-2\n105\tSE-FP-Match-1\n106\tSE-FP-Match-2\n118\tSE-Share-Target-1\n119\tSE-Share-Target-2\n120\tSE-FP-Match-1\n121\tSE-FP-Match-2\n133\tSE-Share-Target-1\n134\tSE-Share-Target-2\n135\tSE-FP-Match-1\n136\tSE-FP-Match-2\n148\tSE-Share-Target-1\n149\tSE-Share-Target-2\n150\tSE-FP-Match-1\n151\tSE-FP-Match-2\n165\tSE-FP-Match-1\n166\tSE-FP-Match-2\n229\tAnomaly Check\n238\tRemove Me\n253\tAnomaly Check\n264\tRemove Me\n281\tAnomaly Check\n292\tRemove Me\n311\tAnomaly Check\n320\tRemove Me\n339\tAnomaly Check\n348\tRemove Me\n30017\tAnomaly Check\n30026\tRemove Me\n",
+  "stderr": "",
+  "execution_time_ms": 56
+}

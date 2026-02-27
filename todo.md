@@ -344,3 +344,5 @@
 - [x] GitHub Actions CI: configure Node.js, pnpm, and database setup in CI environment
 - [x] GitHub Actions CI: run pnpm test with proper environment variables
 - [x] All 1021 tests passing across 28 test files, zero TypeScript errors
+- [x] Remove ugly black target label tags from globe visualization
+- [x] Clean up test target data from database if present

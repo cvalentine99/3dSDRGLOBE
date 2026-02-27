@@ -1,0 +1,110 @@
+{
+  "query": "SELECT id, label, category FROM tdoa_targets ORDER BY id LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3xenzgJ3NGNThF2.2d7d812ed0e5 --database 8ixynDjhKaWGr2C97gbZUT --execute SELECT id, label, category FROM tdoa_targets ORDER BY id LIMIT 20;",
+  "rows": [
+    {
+      "id": "1",
+      "label": "E2E Test Target",
+      "category": "unknown"
+    },
+    {
+      "id": "2",
+      "label": "Vis Test",
+      "category": "unknown"
+    },
+    {
+      "id": "3",
+      "label": "Updated Label",
+      "category": "unknown"
+    },
+    {
+      "id": "5",
+      "label": "History Test",
+      "category": "unknown"
+    },
+    {
+      "id": "6",
+      "label": "GetHist Test",
+      "category": "unknown"
+    },
+    {
+      "id": "7",
+      "label": "Predict Test",
+      "category": "unknown"
+    },
+    {
+      "id": "8",
+      "label": "Classify Test",
+      "category": "unknown"
+    },
+    {
+      "id": "9",
+      "label": "CSV Import Test",
+      "category": "unknown"
+    },
+    {
+      "id": "10",
+      "label": "KML Test",
+      "category": "unknown"
+    },
+    {
+      "id": "11",
+      "label": "Anomaly Check",
+      "category": "unknown"
+    },
+    {
+      "id": "12",
+      "label": "Shared Target",
+      "category": "unknown"
+    },
+    {
+      "id": "13",
+      "label": "Remove Me",
+      "category": "unknown"
+    },
+    {
+      "id": "14",
+      "label": "E2E Test Target",
+      "category": "unknown"
+    },
+    {
+      "id": "15",
+      "label": "Vis Test",
+      "category": "unknown"
+    },
+    {
+      "id": "16",
+      "label": "Updated Label",
+      "category": "unknown"
+    },
+    {
+      "id": "18",
+      "label": "History Test",
+      "category": "unknown"
+    },
+    {
+      "id": "19",
+      "label": "GetHist Test",
+      "category": "unknown"
+    },
+    {
+      "id": "20",
+      "label": "Predict Test",
+      "category": "unknown"
+    },
+    {
+      "id": "21",
+      "label": "Classify Test",
+      "category": "time_signal"
+    },
+    {
+      "id": "22",
+      "label": "CSV Import Test",
+      "category": "unknown"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tlabel\tcategory\n1\tE2E Test Target\tunknown\n2\tVis Test\tunknown\n3\tUpdated Label\tunknown\n5\tHistory Test\tunknown\n6\tGetHist Test\tunknown\n7\tPredict Test\tunknown\n8\tClassify Test\tunknown\n9\tCSV Import Test\tunknown\n10\tKML Test\tunknown\n11\tAnomaly Check\tunknown\n12\tShared Target\tunknown\n13\tRemove Me\tunknown\n14\tE2E Test Target\tunknown\n15\tVis Test\tunknown\n16\tUpdated Label\tunknown\n18\tHistory Test\tunknown\n19\tGetHist Test\tunknown\n20\tPredict Test\tunknown\n21\tClassify Test\ttime_signal\n22\tCSV Import Test\tunknown\n",
+  "stderr": "",
+  "execution_time_ms": 64
+}

@@ -1,0 +1,50 @@
+{
+  "query": "SELECT id, label FROM tdoa_targets WHERE label NOT LIKE '%Test%' AND label NOT LIKE '%E-%' AND label NOT LIKE '%Batch%' AND label NOT LIKE '%Shared%' AND label NOT LIKE '%Updated%' AND label NOT LIKE '%Anomaly%' AND label NOT LIKE '%Conflict%' AND label NOT LIKE '%Geofence%' AND label NOT LIKE '%Analytics%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3xenzgJ3NGNThF2.2d7d812ed0e5 --database 8ixynDjhKaWGr2C97gbZUT --execute SELECT id, label FROM tdoa_targets WHERE label NOT LIKE '%Test%' AND label NOT LIKE '%E-%' AND label NOT LIKE '%Batch%' AND label NOT LIKE '%Shared%' AND label NOT LIKE '%Updated%' AND label NOT LIKE '%Anomaly%' AND label NOT LIKE '%Conflict%' AND label NOT LIKE '%Geofence%' AND label NOT LIKE '%Analytics%';",
+  "rows": [
+    {
+      "id": "13",
+      "label": "Remove Me"
+    },
+    {
+      "id": "26",
+      "label": "Remove Me"
+    },
+    {
+      "id": "47",
+      "label": "Remove Me"
+    },
+    {
+      "id": "62",
+      "label": "Remove Me"
+    },
+    {
+      "id": "238",
+      "label": "Remove Me"
+    },
+    {
+      "id": "264",
+      "label": "Remove Me"
+    },
+    {
+      "id": "292",
+      "label": "Remove Me"
+    },
+    {
+      "id": "320",
+      "label": "Remove Me"
+    },
+    {
+      "id": "348",
+      "label": "Remove Me"
+    },
+    {
+      "id": "30026",
+      "label": "Remove Me"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tlabel\n13\tRemove Me\n26\tRemove Me\n47\tRemove Me\n62\tRemove Me\n238\tRemove Me\n264\tRemove Me\n292\tRemove Me\n320\tRemove Me\n348\tRemove Me\n30026\tRemove Me\n",
+  "stderr": "",
+  "execution_time_ms": 61
+}

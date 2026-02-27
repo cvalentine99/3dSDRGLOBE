@@ -1,0 +1,9 @@
+{
+  "query": "DELETE FROM geofence_alerts; DELETE FROM signal_fingerprints; DELETE FROM shared_list_targets; DELETE FROM shared_list_members; DELETE FROM shared_target_lists; DELETE FROM anomaly_alerts; DELETE FROM tdoa_target_history; DELETE FROM tdoa_targets;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3xenzgJ3NGNThF2.2d7d812ed0e5 --database 8ixynDjhKaWGr2C97gbZUT --execute DELETE FROM geofence_alerts; DELETE FROM signal_fingerprints; DELETE FROM shared_list_targets; DELETE FROM shared_list_members; DELETE FROM shared_target_lists; DELETE FROM anomaly_alerts; DELETE FROM tdoa_target_history; DELETE FROM tdoa_targets;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 314
+}

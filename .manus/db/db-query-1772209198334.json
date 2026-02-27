@@ -1,0 +1,240 @@
+{
+  "query": "SELECT id, label, category FROM tdoa_targets ORDER BY id;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3xenzgJ3NGNThF2.2d7d812ed0e5 --database 8ixynDjhKaWGr2C97gbZUT --execute SELECT id, label, category FROM tdoa_targets ORDER BY id;",
+  "rows": [
+    {
+      "id": "11",
+      "label": "Anomaly Check",
+      "category": "unknown"
+    },
+    {
+      "id": "13",
+      "label": "Remove Me",
+      "category": "unknown"
+    },
+    {
+      "id": "24",
+      "label": "Anomaly Check",
+      "category": "unknown"
+    },
+    {
+      "id": "26",
+      "label": "Remove Me",
+      "category": "unknown"
+    },
+    {
+      "id": "45",
+      "label": "Anomaly Check",
+      "category": "unknown"
+    },
+    {
+      "id": "47",
+      "label": "Remove Me",
+      "category": "unknown"
+    },
+    {
+      "id": "60",
+      "label": "Anomaly Check",
+      "category": "unknown"
+    },
+    {
+      "id": "62",
+      "label": "Remove Me",
+      "category": "unknown"
+    },
+    {
+      "id": "73",
+      "label": "SE-Share-Target-1",
+      "category": "utility"
+    },
+    {
+      "id": "74",
+      "label": "SE-Share-Target-2",
+      "category": "broadcast"
+    },
+    {
+      "id": "75",
+      "label": "SE-FP-Match-1",
+      "category": "military"
+    },
+    {
+      "id": "76",
+      "label": "SE-FP-Match-2",
+      "category": "military"
+    },
+    {
+      "id": "88",
+      "label": "SE-Share-Target-1",
+      "category": "utility"
+    },
+    {
+      "id": "89",
+      "label": "SE-Share-Target-2",
+      "category": "broadcast"
+    },
+    {
+      "id": "90",
+      "label": "SE-FP-Match-1",
+      "category": "military"
+    },
+    {
+      "id": "91",
+      "label": "SE-FP-Match-2",
+      "category": "military"
+    },
+    {
+      "id": "103",
+      "label": "SE-Share-Target-1",
+      "category": "utility"
+    },
+    {
+      "id": "104",
+      "label": "SE-Share-Target-2",
+      "category": "broadcast"
+    },
+    {
+      "id": "105",
+      "label": "SE-FP-Match-1",
+      "category": "military"
+    },
+    {
+      "id": "106",
+      "label": "SE-FP-Match-2",
+      "category": "military"
+    },
+    {
+      "id": "118",
+      "label": "SE-Share-Target-1",
+      "category": "utility"
+    },
+    {
+      "id": "119",
+      "label": "SE-Share-Target-2",
+      "category": "broadcast"
+    },
+    {
+      "id": "120",
+      "label": "SE-FP-Match-1",
+      "category": "military"
+    },
+    {
+      "id": "121",
+      "label": "SE-FP-Match-2",
+      "category": "military"
+    },
+    {
+      "id": "133",
+      "label": "SE-Share-Target-1",
+      "category": "utility"
+    },
+    {
+      "id": "134",
+      "label": "SE-Share-Target-2",
+      "category": "broadcast"
+    },
+    {
+      "id": "135",
+      "label": "SE-FP-Match-1",
+      "category": "military"
+    },
+    {
+      "id": "136",
+      "label": "SE-FP-Match-2",
+      "category": "military"
+    },
+    {
+      "id": "148",
+      "label": "SE-Share-Target-1",
+      "category": "utility"
+    },
+    {
+      "id": "149",
+      "label": "SE-Share-Target-2",
+      "category": "broadcast"
+    },
+    {
+      "id": "150",
+      "label": "SE-FP-Match-1",
+      "category": "military"
+    },
+    {
+      "id": "151",
+      "label": "SE-FP-Match-2",
+      "category": "military"
+    },
+    {
+      "id": "165",
+      "label": "SE-FP-Match-1",
+      "category": "military"
+    },
+    {
+      "id": "166",
+      "label": "SE-FP-Match-2",
+      "category": "military"
+    },
+    {
+      "id": "229",
+      "label": "Anomaly Check",
+      "category": "unknown"
+    },
+    {
+      "id": "238",
+      "label": "Remove Me",
+      "category": "unknown"
+    },
+    {
+      "id": "253",
+      "label": "Anomaly Check",
+      "category": "unknown"
+    },
+    {
+      "id": "264",
+      "label": "Remove Me",
+      "category": "unknown"
+    },
+    {
+      "id": "281",
+      "label": "Anomaly Check",
+      "category": "unknown"
+    },
+    {
+      "id": "292",
+      "label": "Remove Me",
+      "category": "unknown"
+    },
+    {
+      "id": "311",
+      "label": "Anomaly Check",
+      "category": "unknown"
+    },
+    {
+      "id": "320",
+      "label": "Remove Me",
+      "category": "unknown"
+    },
+    {
+      "id": "339",
+      "label": "Anomaly Check",
+      "category": "unknown"
+    },
+    {
+      "id": "348",
+      "label": "Remove Me",
+      "category": "unknown"
+    },
+    {
+      "id": "30017",
+      "label": "Anomaly Check",
+      "category": "unknown"
+    },
+    {
+      "id": "30026",
+      "label": "Remove Me",
+      "category": "unknown"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tlabel\tcategory\n11\tAnomaly Check\tunknown\n13\tRemove Me\tunknown\n24\tAnomaly Check\tunknown\n26\tRemove Me\tunknown\n45\tAnomaly Check\tunknown\n47\tRemove Me\tunknown\n60\tAnomaly Check\tunknown\n62\tRemove Me\tunknown\n73\tSE-Share-Target-1\tutility\n74\tSE-Share-Target-2\tbroadcast\n75\tSE-FP-Match-1\tmilitary\n76\tSE-FP-Match-2\tmilitary\n88\tSE-Share-Target-1\tutility\n89\tSE-Share-Target-2\tbroadcast\n90\tSE-FP-Match-1\tmilitary\n91\tSE-FP-Match-2\tmilitary\n103\tSE-Share-Target-1\tutility\n104\tSE-Share-Target-2\tbroadcast\n105\tSE-FP-Match-1\tmilitary\n106\tSE-FP-Match-2\tmilitary\n118\tSE-Share-Target-1\tutility\n119\tSE-Share-Target-2\tbroadcast\n120\tSE-FP-Match-1\tmilitary\n121\tSE-FP-Match-2\tmilitary\n133\tSE-Share-Target-1\tutility\n134\tSE-Share-Target-2\tbroadcast\n135\tSE-FP-Match-1\tmilitary\n136\tSE-FP-Match-2\tmilitary\n148\tSE-Share-Target-1\tutility\n149\tSE-Share-Target-2\tbroadcast\n150\tSE-FP-Match-1\tmilitary\n151\tSE-FP-Match-2\tmilitary\n165\tSE-FP-Match-1\tmilitary\n166\tSE-FP-Match-2\tmilitary\n229\tAnomaly Check\tunknown\n238\tRemove Me\tunknown\n253\tAnomaly Check\tunknown\n264\tRemove Me\tunknown\n281\tAnomaly Check\tunknown\n292\tRemove Me\tunknown\n311\tAnomaly Check\tunknown\n320\tRemove Me\tunknown\n339\tAnomaly Check\tunknown\n348\tRemove Me\tunknown\n30017\tAnomaly Check\tunknown\n30026\tRemove Me\tunknown\n",
+  "stderr": "",
+  "execution_time_ms": 55
+}

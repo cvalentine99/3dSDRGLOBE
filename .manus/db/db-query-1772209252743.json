@@ -1,0 +1,13 @@
+{
+  "query": "SELECT GROUP_CONCAT(CONCAT(id, ':', name) SEPARATOR ' | ') FROM geofence_zones;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3xenzgJ3NGNThF2.2d7d812ed0e5 --database 8ixynDjhKaWGr2C97gbZUT --execute SELECT GROUP_CONCAT(CONCAT(id, ':', name) SEPARATOR ' | ') FROM geofence_zones;",
+  "rows": [
+    {
+      "GROUP_CONCAT(CONCAT(id, ':', name) SEPARATOR ' | ')": "71:SE-Exclusion-Zone | 72:SE-Inclusion-Zone | 74:SE-Batch-Zone | 75:SE-Exclusion-Zone | 76:SE-Inclusion-Zone | 78:SE-Batch-Zone | 79:SE-Exclusion-Zone | 80:SE-Inclusion-Zone | 82:SE-Batch-Zone | 86:SE-Batch-Zone | 88:SE-Inclusion-Zone | 90:SE-Batch-Zone | 92:SE-Inclusion-Zone | 94:SE-Batch-Zone | 96:SE-Inclusion-Zone | 98:SE-Batch-Zone | 102:SE-Batch-Zone | 103:SE-Exclusion-Zone"
+    }
+  ],
+  "messages": [],
+  "stdout": "GROUP_CONCAT(CONCAT(id, ':', name) SEPARATOR ' | ')\n71:SE-Exclusion-Zone | 72:SE-Inclusion-Zone | 74:SE-Batch-Zone | 75:SE-Exclusion-Zone | 76:SE-Inclusion-Zone | 78:SE-Batch-Zone | 79:SE-Exclusion-Zone | 80:SE-Inclusion-Zone | 82:SE-Batch-Zone | 86:SE-Batch-Zone | 88:SE-Inclusion-Zone | 90:SE-Batch-Zone | 92:SE-Inclusion-Zone | 94:SE-Batch-Zone | 96:SE-Inclusion-Zone | 98:SE-Batch-Zone | 102:SE-Batch-Zone | 103:SE-Exclusion-Zone\n",
+  "stderr": "",
+  "execution_time_ms": 59
+}

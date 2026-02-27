@@ -1,0 +1,82 @@
+{
+  "query": "SELECT id, name FROM geofence_zones;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3xenzgJ3NGNThF2.2d7d812ed0e5 --database 8ixynDjhKaWGr2C97gbZUT --execute SELECT id, name FROM geofence_zones;",
+  "rows": [
+    {
+      "id": "71",
+      "name": "SE-Exclusion-Zone"
+    },
+    {
+      "id": "72",
+      "name": "SE-Inclusion-Zone"
+    },
+    {
+      "id": "74",
+      "name": "SE-Batch-Zone"
+    },
+    {
+      "id": "75",
+      "name": "SE-Exclusion-Zone"
+    },
+    {
+      "id": "76",
+      "name": "SE-Inclusion-Zone"
+    },
+    {
+      "id": "78",
+      "name": "SE-Batch-Zone"
+    },
+    {
+      "id": "79",
+      "name": "SE-Exclusion-Zone"
+    },
+    {
+      "id": "80",
+      "name": "SE-Inclusion-Zone"
+    },
+    {
+      "id": "82",
+      "name": "SE-Batch-Zone"
+    },
+    {
+      "id": "86",
+      "name": "SE-Batch-Zone"
+    },
+    {
+      "id": "88",
+      "name": "SE-Inclusion-Zone"
+    },
+    {
+      "id": "90",
+      "name": "SE-Batch-Zone"
+    },
+    {
+      "id": "92",
+      "name": "SE-Inclusion-Zone"
+    },
+    {
+      "id": "94",
+      "name": "SE-Batch-Zone"
+    },
+    {
+      "id": "96",
+      "name": "SE-Inclusion-Zone"
+    },
+    {
+      "id": "98",
+      "name": "SE-Batch-Zone"
+    },
+    {
+      "id": "102",
+      "name": "SE-Batch-Zone"
+    },
+    {
+      "id": "103",
+      "name": "SE-Exclusion-Zone"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\n71\tSE-Exclusion-Zone\n72\tSE-Inclusion-Zone\n74\tSE-Batch-Zone\n75\tSE-Exclusion-Zone\n76\tSE-Inclusion-Zone\n78\tSE-Batch-Zone\n79\tSE-Exclusion-Zone\n80\tSE-Inclusion-Zone\n82\tSE-Batch-Zone\n86\tSE-Batch-Zone\n88\tSE-Inclusion-Zone\n90\tSE-Batch-Zone\n92\tSE-Inclusion-Zone\n94\tSE-Batch-Zone\n96\tSE-Inclusion-Zone\n98\tSE-Batch-Zone\n102\tSE-Batch-Zone\n103\tSE-Exclusion-Zone\n",
+  "stderr": "",
+  "execution_time_ms": 52
+}

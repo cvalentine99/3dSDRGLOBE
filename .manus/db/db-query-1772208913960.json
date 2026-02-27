@@ -1,0 +1,60 @@
+{
+  "query": "SELECT id, label, category FROM tdoa_targets WHERE label NOT LIKE '%Test%' AND label NOT LIKE '%E-%' AND label NOT LIKE '%Batch%' AND label NOT LIKE '%Shared%' AND label NOT LIKE '%Updated%' AND label NOT LIKE '%Anomaly%' AND label NOT LIKE '%Conflict%' AND label NOT LIKE '%Geofence%' AND label NOT LIKE '%Analytics%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3xenzgJ3NGNThF2.2d7d812ed0e5 --database 8ixynDjhKaWGr2C97gbZUT --execute SELECT id, label, category FROM tdoa_targets WHERE label NOT LIKE '%Test%' AND label NOT LIKE '%E-%' AND label NOT LIKE '%Batch%' AND label NOT LIKE '%Shared%' AND label NOT LIKE '%Updated%' AND label NOT LIKE '%Anomaly%' AND label NOT LIKE '%Conflict%' AND label NOT LIKE '%Geofence%' AND label NOT LIKE '%Analytics%';",
+  "rows": [
+    {
+      "id": "13",
+      "label": "Remove Me",
+      "category": "unknown"
+    },
+    {
+      "id": "26",
+      "label": "Remove Me",
+      "category": "unknown"
+    },
+    {
+      "id": "47",
+      "label": "Remove Me",
+      "category": "unknown"
+    },
+    {
+      "id": "62",
+      "label": "Remove Me",
+      "category": "unknown"
+    },
+    {
+      "id": "238",
+      "label": "Remove Me",
+      "category": "unknown"
+    },
+    {
+      "id": "264",
+      "label": "Remove Me",
+      "category": "unknown"
+    },
+    {
+      "id": "292",
+      "label": "Remove Me",
+      "category": "unknown"
+    },
+    {
+      "id": "320",
+      "label": "Remove Me",
+      "category": "unknown"
+    },
+    {
+      "id": "348",
+      "label": "Remove Me",
+      "category": "unknown"
+    },
+    {
+      "id": "30026",
+      "label": "Remove Me",
+      "category": "unknown"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tlabel\tcategory\n13\tRemove Me\tunknown\n26\tRemove Me\tunknown\n47\tRemove Me\tunknown\n62\tRemove Me\tunknown\n238\tRemove Me\tunknown\n264\tRemove Me\tunknown\n292\tRemove Me\tunknown\n320\tRemove Me\tunknown\n348\tRemove Me\tunknown\n30026\tRemove Me\tunknown\n",
+  "stderr": "",
+  "execution_time_ms": 59
+}

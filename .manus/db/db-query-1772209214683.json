@@ -1,0 +1,13 @@
+{
+  "query": "SELECT GROUP_CONCAT(CONCAT(id, ':', label) SEPARATOR ' | ') FROM tdoa_targets;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3xenzgJ3NGNThF2.2d7d812ed0e5 --database 8ixynDjhKaWGr2C97gbZUT --execute SELECT GROUP_CONCAT(CONCAT(id, ':', label) SEPARATOR ' | ') FROM tdoa_targets;",
+  "rows": [
+    {
+      "GROUP_CONCAT(CONCAT(id, ':', label) SEPARATOR ' | ')": "11:Anomaly Check | 13:Remove Me | 24:Anomaly Check | 26:Remove Me | 45:Anomaly Check | 47:Remove Me | 60:Anomaly Check | 62:Remove Me | 73:SE-Share-Target-1 | 74:SE-Share-Target-2 | 75:SE-FP-Match-1 | 76:SE-FP-Match-2 | 88:SE-Share-Target-1 | 89:SE-Share-Target-2 | 90:SE-FP-Match-1 | 91:SE-FP-Match-2 | 103:SE-Share-Target-1 | 104:SE-Share-Target-2 | 105:SE-FP-Match-1 | 106:SE-FP-Match-2 | 118:SE-Share-Target-1 | 119:SE-Share-Target-2 | 120:SE-FP-Match-1 | 121:SE-FP-Match-2 | 133:SE-Share-Target-1 | 134:SE-Share-Target-2 | 135:SE-FP-Match-1 | 136:SE-FP-Match-2 | 148:SE-Share-Target-1 | 149:SE-Share-Target-2 | 150:SE-FP-Match-1 | 151:SE-FP-Match-2 | 165:SE-FP-Match-1 | 166:SE-FP-Match-2 | 229:Anomaly Check | 238:Remove Me | 253:Anomaly Check | 264:Remove Me | 281:Anomaly Check | 292:Remove Me | 311:Anomaly Check | 320:Remove Me | 339:Anomaly Check | 348:Remove Me | 30017:Anomaly Check | 30026:Remove Me"
+    }
+  ],
+  "messages": [],
+  "stdout": "GROUP_CONCAT(CONCAT(id, ':', label) SEPARATOR ' | ')\n11:Anomaly Check | 13:Remove Me | 24:Anomaly Check | 26:Remove Me | 45:Anomaly Check | 47:Remove Me | 60:Anomaly Check | 62:Remove Me | 73:SE-Share-Target-1 | 74:SE-Share-Target-2 | 75:SE-FP-Match-1 | 76:SE-FP-Match-2 | 88:SE-Share-Target-1 | 89:SE-Share-Target-2 | 90:SE-FP-Match-1 | 91:SE-FP-Match-2 | 103:SE-Share-Target-1 | 104:SE-Share-Target-2 | 105:SE-FP-Match-1 | 106:SE-FP-Match-2 | 118:SE-Share-Target-1 | 119:SE-Share-Target-2 | 120:SE-FP-Match-1 | 121:SE-FP-Match-2 | 133:SE-Share-Target-1 | 134:SE-Share-Target-2 | 135:SE-FP-Match-1 | 136:SE-FP-Match-2 | 148:SE-Share-Target-1 | 149:SE-Share-Target-2 | 150:SE-FP-Match-1 | 151:SE-FP-Match-2 | 165:SE-FP-Match-1 | 166:SE-FP-Match-2 | 229:Anomaly Check | 238:Remove Me | 253:Anomaly Check | 264:Remove Me | 281:Anomaly Check | 292:Remove Me | 311:Anomaly Check | 320:Remove Me | 339:Anomaly Check | 348:Remove Me | 30017:Anomaly Check | 30026:Remove Me\n",
+  "stderr": "",
+  "execution_time_ms": 62
+}

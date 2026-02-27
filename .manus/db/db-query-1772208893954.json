@@ -1,0 +1,1403 @@
+{
+  "query": "SELECT id, label, category, lat, lon FROM tdoa_targets ORDER BY id;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3xenzgJ3NGNThF2.2d7d812ed0e5 --database 8ixynDjhKaWGr2C97gbZUT --execute SELECT id, label, category, lat, lon FROM tdoa_targets ORDER BY id;",
+  "rows": [
+    {
+      "id": "1",
+      "label": "E2E Test Target",
+      "category": "unknown",
+      "lat": "48.856600",
+      "lon": "2.352200"
+    },
+    {
+      "id": "2",
+      "label": "Vis Test",
+      "category": "unknown",
+      "lat": "0.000000",
+      "lon": "0.000000"
+    },
+    {
+      "id": "3",
+      "label": "Updated Label",
+      "category": "unknown",
+      "lat": "10.000000",
+      "lon": "20.000000"
+    },
+    {
+      "id": "5",
+      "label": "History Test",
+      "category": "unknown",
+      "lat": "1.001000",
+      "lon": "1.001000"
+    },
+    {
+      "id": "6",
+      "label": "GetHist Test",
+      "category": "unknown",
+      "lat": "2.000000",
+      "lon": "2.000000"
+    },
+    {
+      "id": "7",
+      "label": "Predict Test",
+      "category": "unknown",
+      "lat": "3.000000",
+      "lon": "3.000000"
+    },
+    {
+      "id": "8",
+      "label": "Classify Test",
+      "category": "unknown",
+      "lat": "40.000000",
+      "lon": "-74.000000"
+    },
+    {
+      "id": "9",
+      "label": "CSV Import Test",
+      "category": "unknown",
+      "lat": "51.500000",
+      "lon": "-0.100000"
+    },
+    {
+      "id": "10",
+      "label": "KML Test",
+      "category": "unknown",
+      "lat": "48.856600",
+      "lon": "2.352200"
+    },
+    {
+      "id": "11",
+      "label": "Anomaly Check",
+      "category": "unknown",
+      "lat": "10.000000",
+      "lon": "10.000000"
+    },
+    {
+      "id": "12",
+      "label": "Shared Target",
+      "category": "unknown",
+      "lat": "30.000000",
+      "lon": "30.000000"
+    },
+    {
+      "id": "13",
+      "label": "Remove Me",
+      "category": "unknown",
+      "lat": "1.000000",
+      "lon": "1.000000"
+    },
+    {
+      "id": "14",
+      "label": "E2E Test Target",
+      "category": "unknown",
+      "lat": "48.856600",
+      "lon": "2.352200"
+    },
+    {
+      "id": "15",
+      "label": "Vis Test",
+      "category": "unknown",
+      "lat": "0.000000",
+      "lon": "0.000000"
+    },
+    {
+      "id": "16",
+      "label": "Updated Label",
+      "category": "unknown",
+      "lat": "10.000000",
+      "lon": "20.000000"
+    },
+    {
+      "id": "18",
+      "label": "History Test",
+      "category": "unknown",
+      "lat": "1.001000",
+      "lon": "1.001000"
+    },
+    {
+      "id": "19",
+      "label": "GetHist Test",
+      "category": "unknown",
+      "lat": "2.000000",
+      "lon": "2.000000"
+    },
+    {
+      "id": "20",
+      "label": "Predict Test",
+      "category": "unknown",
+      "lat": "3.000000",
+      "lon": "3.000000"
+    },
+    {
+      "id": "21",
+      "label": "Classify Test",
+      "category": "time_signal",
+      "lat": "40.000000",
+      "lon": "-74.000000"
+    },
+    {
+      "id": "22",
+      "label": "CSV Import Test",
+      "category": "unknown",
+      "lat": "51.500000",
+      "lon": "-0.100000"
+    },
+    {
+      "id": "23",
+      "label": "KML Test",
+      "category": "unknown",
+      "lat": "48.856600",
+      "lon": "2.352200"
+    },
+    {
+      "id": "24",
+      "label": "Anomaly Check",
+      "category": "unknown",
+      "lat": "10.000000",
+      "lon": "10.000000"
+    },
+    {
+      "id": "25",
+      "label": "Shared Target",
+      "category": "unknown",
+      "lat": "30.000000",
+      "lon": "30.000000"
+    },
+    {
+      "id": "26",
+      "label": "Remove Me",
+      "category": "unknown",
+      "lat": "1.000000",
+      "lon": "1.000000"
+    },
+    {
+      "id": "35",
+      "label": "E2E Test Target",
+      "category": "unknown",
+      "lat": "48.856600",
+      "lon": "2.352200"
+    },
+    {
+      "id": "36",
+      "label": "Vis Test",
+      "category": "unknown",
+      "lat": "0.000000",
+      "lon": "0.000000"
+    },
+    {
+      "id": "37",
+      "label": "Updated Label",
+      "category": "unknown",
+      "lat": "10.000000",
+      "lon": "20.000000"
+    },
+    {
+      "id": "39",
+      "label": "History Test",
+      "category": "unknown",
+      "lat": "1.001000",
+      "lon": "1.001000"
+    },
+    {
+      "id": "40",
+      "label": "GetHist Test",
+      "category": "unknown",
+      "lat": "2.000000",
+      "lon": "2.000000"
+    },
+    {
+      "id": "41",
+      "label": "Predict Test",
+      "category": "unknown",
+      "lat": "3.000000",
+      "lon": "3.000000"
+    },
+    {
+      "id": "42",
+      "label": "Classify Test",
+      "category": "time_signal",
+      "lat": "40.000000",
+      "lon": "-74.000000"
+    },
+    {
+      "id": "43",
+      "label": "CSV Import Test",
+      "category": "unknown",
+      "lat": "51.500000",
+      "lon": "-0.100000"
+    },
+    {
+      "id": "44",
+      "label": "KML Test",
+      "category": "unknown",
+      "lat": "48.856600",
+      "lon": "2.352200"
+    },
+    {
+      "id": "45",
+      "label": "Anomaly Check",
+      "category": "unknown",
+      "lat": "10.000000",
+      "lon": "10.000000"
+    },
+    {
+      "id": "46",
+      "label": "Shared Target",
+      "category": "unknown",
+      "lat": "30.000000",
+      "lon": "30.000000"
+    },
+    {
+      "id": "47",
+      "label": "Remove Me",
+      "category": "unknown",
+      "lat": "1.000000",
+      "lon": "1.000000"
+    },
+    {
+      "id": "50",
+      "label": "E2E Test Target",
+      "category": "unknown",
+      "lat": "48.856600",
+      "lon": "2.352200"
+    },
+    {
+      "id": "51",
+      "label": "Vis Test",
+      "category": "unknown",
+      "lat": "0.000000",
+      "lon": "0.000000"
+    },
+    {
+      "id": "52",
+      "label": "Updated Label",
+      "category": "unknown",
+      "lat": "10.000000",
+      "lon": "20.000000"
+    },
+    {
+      "id": "54",
+      "label": "History Test",
+      "category": "unknown",
+      "lat": "1.001000",
+      "lon": "1.001000"
+    },
+    {
+      "id": "55",
+      "label": "GetHist Test",
+      "category": "unknown",
+      "lat": "2.000000",
+      "lon": "2.000000"
+    },
+    {
+      "id": "56",
+      "label": "Predict Test",
+      "category": "unknown",
+      "lat": "3.000000",
+      "lon": "3.000000"
+    },
+    {
+      "id": "57",
+      "label": "Classify Test",
+      "category": "time_signal",
+      "lat": "40.000000",
+      "lon": "-74.000000"
+    },
+    {
+      "id": "58",
+      "label": "CSV Import Test",
+      "category": "unknown",
+      "lat": "51.500000",
+      "lon": "-0.100000"
+    },
+    {
+      "id": "59",
+      "label": "KML Test",
+      "category": "unknown",
+      "lat": "48.856600",
+      "lon": "2.352200"
+    },
+    {
+      "id": "60",
+      "label": "Anomaly Check",
+      "category": "unknown",
+      "lat": "10.000000",
+      "lon": "10.000000"
+    },
+    {
+      "id": "61",
+      "label": "Shared Target",
+      "category": "unknown",
+      "lat": "30.000000",
+      "lon": "30.000000"
+    },
+    {
+      "id": "62",
+      "label": "Remove Me",
+      "category": "unknown",
+      "lat": "1.000000",
+      "lon": "1.000000"
+    },
+    {
+      "id": "68",
+      "label": "SE-Anomaly-Test",
+      "category": "military",
+      "lat": "40.020000",
+      "lon": "30.020000"
+    },
+    {
+      "id": "69",
+      "label": "SE-Geofence-Test",
+      "category": "military",
+      "lat": "33.500000",
+      "lon": "36.300000"
+    },
+    {
+      "id": "70",
+      "label": "SE-Inclusion-Test",
+      "category": "utility",
+      "lat": "48.000000",
+      "lon": "8.000000"
+    },
+    {
+      "id": "71",
+      "label": "SE-Conflict-Test",
+      "category": "military",
+      "lat": "36.200000",
+      "lon": "37.150000"
+    },
+    {
+      "id": "73",
+      "label": "SE-Share-Target-1",
+      "category": "utility",
+      "lat": "51.500000",
+      "lon": "-0.100000"
+    },
+    {
+      "id": "74",
+      "label": "SE-Share-Target-2",
+      "category": "broadcast",
+      "lat": "48.900000",
+      "lon": "2.300000"
+    },
+    {
+      "id": "75",
+      "label": "SE-FP-Match-1",
+      "category": "military",
+      "lat": "55.000000",
+      "lon": "37.000000"
+    },
+    {
+      "id": "76",
+      "label": "SE-FP-Match-2",
+      "category": "military",
+      "lat": "56.000000",
+      "lon": "38.000000"
+    },
+    {
+      "id": "78",
+      "label": "SE-Visibility-Test",
+      "category": "utility",
+      "lat": "35.000000",
+      "lon": "139.000000"
+    },
+    {
+      "id": "79",
+      "label": "SE-Batch-Inside",
+      "category": "military",
+      "lat": "21.000000",
+      "lon": "41.000000"
+    },
+    {
+      "id": "80",
+      "label": "SE-Batch-Outside",
+      "category": "utility",
+      "lat": "10.000000",
+      "lon": "10.000000"
+    },
+    {
+      "id": "81",
+      "label": "SE-Batch-Conflict",
+      "category": "military",
+      "lat": "15.000000",
+      "lon": "32.000000"
+    },
+    {
+      "id": "83",
+      "label": "SE-Anomaly-Test",
+      "category": "military",
+      "lat": "40.020000",
+      "lon": "30.020000"
+    },
+    {
+      "id": "84",
+      "label": "SE-Geofence-Test",
+      "category": "military",
+      "lat": "33.500000",
+      "lon": "36.300000"
+    },
+    {
+      "id": "85",
+      "label": "SE-Inclusion-Test",
+      "category": "utility",
+      "lat": "48.000000",
+      "lon": "8.000000"
+    },
+    {
+      "id": "86",
+      "label": "SE-Conflict-Test",
+      "category": "military",
+      "lat": "36.200000",
+      "lon": "37.150000"
+    },
+    {
+      "id": "88",
+      "label": "SE-Share-Target-1",
+      "category": "utility",
+      "lat": "51.500000",
+      "lon": "-0.100000"
+    },
+    {
+      "id": "89",
+      "label": "SE-Share-Target-2",
+      "category": "broadcast",
+      "lat": "48.900000",
+      "lon": "2.300000"
+    },
+    {
+      "id": "90",
+      "label": "SE-FP-Match-1",
+      "category": "military",
+      "lat": "55.000000",
+      "lon": "37.000000"
+    },
+    {
+      "id": "91",
+      "label": "SE-FP-Match-2",
+      "category": "military",
+      "lat": "56.000000",
+      "lon": "38.000000"
+    },
+    {
+      "id": "93",
+      "label": "SE-Visibility-Test",
+      "category": "utility",
+      "lat": "35.000000",
+      "lon": "139.000000"
+    },
+    {
+      "id": "94",
+      "label": "SE-Batch-Inside",
+      "category": "military",
+      "lat": "21.000000",
+      "lon": "41.000000"
+    },
+    {
+      "id": "95",
+      "label": "SE-Batch-Outside",
+      "category": "utility",
+      "lat": "10.000000",
+      "lon": "10.000000"
+    },
+    {
+      "id": "96",
+      "label": "SE-Batch-Conflict",
+      "category": "military",
+      "lat": "15.000000",
+      "lon": "32.000000"
+    },
+    {
+      "id": "98",
+      "label": "SE-Anomaly-Test",
+      "category": "military",
+      "lat": "40.020000",
+      "lon": "30.020000"
+    },
+    {
+      "id": "99",
+      "label": "SE-Geofence-Test",
+      "category": "military",
+      "lat": "33.500000",
+      "lon": "36.300000"
+    },
+    {
+      "id": "100",
+      "label": "SE-Inclusion-Test",
+      "category": "utility",
+      "lat": "48.000000",
+      "lon": "8.000000"
+    },
+    {
+      "id": "101",
+      "label": "SE-Conflict-Test",
+      "category": "military",
+      "lat": "36.200000",
+      "lon": "37.150000"
+    },
+    {
+      "id": "103",
+      "label": "SE-Share-Target-1",
+      "category": "utility",
+      "lat": "51.500000",
+      "lon": "-0.100000"
+    },
+    {
+      "id": "104",
+      "label": "SE-Share-Target-2",
+      "category": "broadcast",
+      "lat": "48.900000",
+      "lon": "2.300000"
+    },
+    {
+      "id": "105",
+      "label": "SE-FP-Match-1",
+      "category": "military",
+      "lat": "55.000000",
+      "lon": "37.000000"
+    },
+    {
+      "id": "106",
+      "label": "SE-FP-Match-2",
+      "category": "military",
+      "lat": "56.000000",
+      "lon": "38.000000"
+    },
+    {
+      "id": "108",
+      "label": "SE-Visibility-Test",
+      "category": "utility",
+      "lat": "35.000000",
+      "lon": "139.000000"
+    },
+    {
+      "id": "109",
+      "label": "SE-Batch-Inside",
+      "category": "military",
+      "lat": "21.000000",
+      "lon": "41.000000"
+    },
+    {
+      "id": "110",
+      "label": "SE-Batch-Outside",
+      "category": "utility",
+      "lat": "10.000000",
+      "lon": "10.000000"
+    },
+    {
+      "id": "111",
+      "label": "SE-Batch-Conflict",
+      "category": "military",
+      "lat": "15.000000",
+      "lon": "32.000000"
+    },
+    {
+      "id": "113",
+      "label": "SE-Anomaly-Test",
+      "category": "military",
+      "lat": "40.020000",
+      "lon": "30.020000"
+    },
+    {
+      "id": "116",
+      "label": "SE-Conflict-Test",
+      "category": "military",
+      "lat": "36.200000",
+      "lon": "37.150000"
+    },
+    {
+      "id": "118",
+      "label": "SE-Share-Target-1",
+      "category": "utility",
+      "lat": "51.500000",
+      "lon": "-0.100000"
+    },
+    {
+      "id": "119",
+      "label": "SE-Share-Target-2",
+      "category": "broadcast",
+      "lat": "48.900000",
+      "lon": "2.300000"
+    },
+    {
+      "id": "120",
+      "label": "SE-FP-Match-1",
+      "category": "military",
+      "lat": "55.000000",
+      "lon": "37.000000"
+    },
+    {
+      "id": "121",
+      "label": "SE-FP-Match-2",
+      "category": "military",
+      "lat": "56.000000",
+      "lon": "38.000000"
+    },
+    {
+      "id": "123",
+      "label": "SE-Visibility-Test",
+      "category": "utility",
+      "lat": "35.000000",
+      "lon": "139.000000"
+    },
+    {
+      "id": "124",
+      "label": "SE-Batch-Inside",
+      "category": "military",
+      "lat": "21.000000",
+      "lon": "41.000000"
+    },
+    {
+      "id": "125",
+      "label": "SE-Batch-Outside",
+      "category": "utility",
+      "lat": "10.000000",
+      "lon": "10.000000"
+    },
+    {
+      "id": "126",
+      "label": "SE-Batch-Conflict",
+      "category": "military",
+      "lat": "15.000000",
+      "lon": "32.000000"
+    },
+    {
+      "id": "128",
+      "label": "SE-Anomaly-Test",
+      "category": "military",
+      "lat": "40.020000",
+      "lon": "30.020000"
+    },
+    {
+      "id": "130",
+      "label": "SE-Inclusion-Test",
+      "category": "utility",
+      "lat": "48.000000",
+      "lon": "8.000000"
+    },
+    {
+      "id": "131",
+      "label": "SE-Conflict-Test",
+      "category": "military",
+      "lat": "36.200000",
+      "lon": "37.150000"
+    },
+    {
+      "id": "133",
+      "label": "SE-Share-Target-1",
+      "category": "utility",
+      "lat": "51.500000",
+      "lon": "-0.100000"
+    },
+    {
+      "id": "134",
+      "label": "SE-Share-Target-2",
+      "category": "broadcast",
+      "lat": "48.900000",
+      "lon": "2.300000"
+    },
+    {
+      "id": "135",
+      "label": "SE-FP-Match-1",
+      "category": "military",
+      "lat": "55.000000",
+      "lon": "37.000000"
+    },
+    {
+      "id": "136",
+      "label": "SE-FP-Match-2",
+      "category": "military",
+      "lat": "56.000000",
+      "lon": "38.000000"
+    },
+    {
+      "id": "138",
+      "label": "SE-Visibility-Test",
+      "category": "utility",
+      "lat": "35.000000",
+      "lon": "139.000000"
+    },
+    {
+      "id": "139",
+      "label": "SE-Batch-Inside",
+      "category": "military",
+      "lat": "21.000000",
+      "lon": "41.000000"
+    },
+    {
+      "id": "140",
+      "label": "SE-Batch-Outside",
+      "category": "utility",
+      "lat": "10.000000",
+      "lon": "10.000000"
+    },
+    {
+      "id": "141",
+      "label": "SE-Batch-Conflict",
+      "category": "military",
+      "lat": "15.000000",
+      "lon": "32.000000"
+    },
+    {
+      "id": "143",
+      "label": "SE-Anomaly-Test",
+      "category": "military",
+      "lat": "40.020000",
+      "lon": "30.020000"
+    },
+    {
+      "id": "145",
+      "label": "SE-Inclusion-Test",
+      "category": "utility",
+      "lat": "48.000000",
+      "lon": "8.000000"
+    },
+    {
+      "id": "146",
+      "label": "SE-Conflict-Test",
+      "category": "military",
+      "lat": "36.200000",
+      "lon": "37.150000"
+    },
+    {
+      "id": "148",
+      "label": "SE-Share-Target-1",
+      "category": "utility",
+      "lat": "51.500000",
+      "lon": "-0.100000"
+    },
+    {
+      "id": "149",
+      "label": "SE-Share-Target-2",
+      "category": "broadcast",
+      "lat": "48.900000",
+      "lon": "2.300000"
+    },
+    {
+      "id": "150",
+      "label": "SE-FP-Match-1",
+      "category": "military",
+      "lat": "55.000000",
+      "lon": "37.000000"
+    },
+    {
+      "id": "151",
+      "label": "SE-FP-Match-2",
+      "category": "military",
+      "lat": "56.000000",
+      "lon": "38.000000"
+    },
+    {
+      "id": "153",
+      "label": "SE-Visibility-Test",
+      "category": "utility",
+      "lat": "35.000000",
+      "lon": "139.000000"
+    },
+    {
+      "id": "154",
+      "label": "SE-Batch-Inside",
+      "category": "military",
+      "lat": "21.000000",
+      "lon": "41.000000"
+    },
+    {
+      "id": "155",
+      "label": "SE-Batch-Outside",
+      "category": "utility",
+      "lat": "10.000000",
+      "lon": "10.000000"
+    },
+    {
+      "id": "156",
+      "label": "SE-Batch-Conflict",
+      "category": "military",
+      "lat": "15.000000",
+      "lon": "32.000000"
+    },
+    {
+      "id": "160",
+      "label": "SE-Inclusion-Test",
+      "category": "utility",
+      "lat": "48.000000",
+      "lon": "8.000000"
+    },
+    {
+      "id": "161",
+      "label": "SE-Conflict-Test",
+      "category": "military",
+      "lat": "36.200000",
+      "lon": "37.150000"
+    },
+    {
+      "id": "165",
+      "label": "SE-FP-Match-1",
+      "category": "military",
+      "lat": "55.000000",
+      "lon": "37.000000"
+    },
+    {
+      "id": "166",
+      "label": "SE-FP-Match-2",
+      "category": "military",
+      "lat": "56.000000",
+      "lon": "38.000000"
+    },
+    {
+      "id": "169",
+      "label": "SE-Batch-Inside",
+      "category": "military",
+      "lat": "21.000000",
+      "lon": "41.000000"
+    },
+    {
+      "id": "170",
+      "label": "SE-Batch-Outside",
+      "category": "utility",
+      "lat": "10.000000",
+      "lon": "10.000000"
+    },
+    {
+      "id": "184",
+      "label": "SE-Batch-Inside",
+      "category": "military",
+      "lat": "21.000000",
+      "lon": "41.000000"
+    },
+    {
+      "id": "185",
+      "label": "SE-Batch-Outside",
+      "category": "utility",
+      "lat": "10.000000",
+      "lon": "10.000000"
+    },
+    {
+      "id": "189",
+      "label": "SE-Geofence-Test",
+      "category": "military",
+      "lat": "33.500000",
+      "lon": "36.300000"
+    },
+    {
+      "id": "213",
+      "label": "E2E Test Target",
+      "category": "unknown",
+      "lat": "48.856600",
+      "lon": "2.352200"
+    },
+    {
+      "id": "214",
+      "label": "Vis Test",
+      "category": "unknown",
+      "lat": "0.000000",
+      "lon": "0.000000"
+    },
+    {
+      "id": "215",
+      "label": "Updated Label",
+      "category": "unknown",
+      "lat": "10.000000",
+      "lon": "20.000000"
+    },
+    {
+      "id": "216",
+      "label": "SE-Analytics-Test",
+      "category": "military",
+      "lat": "33.000000",
+      "lon": "44.000000"
+    },
+    {
+      "id": "218",
+      "label": "History Test",
+      "category": "unknown",
+      "lat": "1.001000",
+      "lon": "1.001000"
+    },
+    {
+      "id": "220",
+      "label": "GetHist Test",
+      "category": "unknown",
+      "lat": "2.000000",
+      "lon": "2.000000"
+    },
+    {
+      "id": "221",
+      "label": "Predict Test",
+      "category": "unknown",
+      "lat": "3.000000",
+      "lon": "3.000000"
+    },
+    {
+      "id": "223",
+      "label": "Classify Test",
+      "category": "time_signal",
+      "lat": "40.000000",
+      "lon": "-74.000000"
+    },
+    {
+      "id": "227",
+      "label": "CSV Import Test",
+      "category": "unknown",
+      "lat": "51.500000",
+      "lon": "-0.100000"
+    },
+    {
+      "id": "228",
+      "label": "KML Test",
+      "category": "unknown",
+      "lat": "48.856600",
+      "lon": "2.352200"
+    },
+    {
+      "id": "229",
+      "label": "Anomaly Check",
+      "category": "unknown",
+      "lat": "10.000000",
+      "lon": "10.000000"
+    },
+    {
+      "id": "237",
+      "label": "Shared Target",
+      "category": "unknown",
+      "lat": "30.000000",
+      "lon": "30.000000"
+    },
+    {
+      "id": "238",
+      "label": "Remove Me",
+      "category": "unknown",
+      "lat": "1.000000",
+      "lon": "1.000000"
+    },
+    {
+      "id": "239",
+      "label": "E2E Test Target",
+      "category": "unknown",
+      "lat": "48.856600",
+      "lon": "2.352200"
+    },
+    {
+      "id": "240",
+      "label": "Vis Test",
+      "category": "unknown",
+      "lat": "0.000000",
+      "lon": "0.000000"
+    },
+    {
+      "id": "241",
+      "label": "Updated Label",
+      "category": "unknown",
+      "lat": "10.000000",
+      "lon": "20.000000"
+    },
+    {
+      "id": "243",
+      "label": "SE-Analytics-Test",
+      "category": "military",
+      "lat": "33.000000",
+      "lon": "44.000000"
+    },
+    {
+      "id": "244",
+      "label": "History Test",
+      "category": "unknown",
+      "lat": "1.001000",
+      "lon": "1.001000"
+    },
+    {
+      "id": "245",
+      "label": "GetHist Test",
+      "category": "unknown",
+      "lat": "2.000000",
+      "lon": "2.000000"
+    },
+    {
+      "id": "247",
+      "label": "Predict Test",
+      "category": "unknown",
+      "lat": "3.000000",
+      "lon": "3.000000"
+    },
+    {
+      "id": "249",
+      "label": "Classify Test",
+      "category": "time_signal",
+      "lat": "40.000000",
+      "lon": "-74.000000"
+    },
+    {
+      "id": "251",
+      "label": "CSV Import Test",
+      "category": "unknown",
+      "lat": "51.500000",
+      "lon": "-0.100000"
+    },
+    {
+      "id": "252",
+      "label": "KML Test",
+      "category": "unknown",
+      "lat": "48.856600",
+      "lon": "2.352200"
+    },
+    {
+      "id": "253",
+      "label": "Anomaly Check",
+      "category": "unknown",
+      "lat": "10.000000",
+      "lon": "10.000000"
+    },
+    {
+      "id": "263",
+      "label": "Shared Target",
+      "category": "unknown",
+      "lat": "30.000000",
+      "lon": "30.000000"
+    },
+    {
+      "id": "264",
+      "label": "Remove Me",
+      "category": "unknown",
+      "lat": "1.000000",
+      "lon": "1.000000"
+    },
+    {
+      "id": "267",
+      "label": "E2E Test Target",
+      "category": "unknown",
+      "lat": "48.856600",
+      "lon": "2.352200"
+    },
+    {
+      "id": "268",
+      "label": "Vis Test",
+      "category": "unknown",
+      "lat": "0.000000",
+      "lon": "0.000000"
+    },
+    {
+      "id": "269",
+      "label": "Updated Label",
+      "category": "unknown",
+      "lat": "10.000000",
+      "lon": "20.000000"
+    },
+    {
+      "id": "272",
+      "label": "History Test",
+      "category": "unknown",
+      "lat": "1.001000",
+      "lon": "1.001000"
+    },
+    {
+      "id": "273",
+      "label": "GetHist Test",
+      "category": "unknown",
+      "lat": "2.000000",
+      "lon": "2.000000"
+    },
+    {
+      "id": "274",
+      "label": "Predict Test",
+      "category": "unknown",
+      "lat": "3.000000",
+      "lon": "3.000000"
+    },
+    {
+      "id": "277",
+      "label": "Classify Test",
+      "category": "time_signal",
+      "lat": "40.000000",
+      "lon": "-74.000000"
+    },
+    {
+      "id": "279",
+      "label": "CSV Import Test",
+      "category": "unknown",
+      "lat": "51.500000",
+      "lon": "-0.100000"
+    },
+    {
+      "id": "280",
+      "label": "KML Test",
+      "category": "unknown",
+      "lat": "48.856600",
+      "lon": "2.352200"
+    },
+    {
+      "id": "281",
+      "label": "Anomaly Check",
+      "category": "unknown",
+      "lat": "10.000000",
+      "lon": "10.000000"
+    },
+    {
+      "id": "291",
+      "label": "Shared Target",
+      "category": "unknown",
+      "lat": "30.000000",
+      "lon": "30.000000"
+    },
+    {
+      "id": "292",
+      "label": "Remove Me",
+      "category": "unknown",
+      "lat": "1.000000",
+      "lon": "1.000000"
+    },
+    {
+      "id": "295",
+      "label": "E2E Test Target",
+      "category": "unknown",
+      "lat": "48.856600",
+      "lon": "2.352200"
+    },
+    {
+      "id": "296",
+      "label": "Vis Test",
+      "category": "unknown",
+      "lat": "0.000000",
+      "lon": "0.000000"
+    },
+    {
+      "id": "297",
+      "label": "Updated Label",
+      "category": "unknown",
+      "lat": "10.000000",
+      "lon": "20.000000"
+    },
+    {
+      "id": "300",
+      "label": "History Test",
+      "category": "unknown",
+      "lat": "1.001000",
+      "lon": "1.001000"
+    },
+    {
+      "id": "301",
+      "label": "GetHist Test",
+      "category": "unknown",
+      "lat": "2.000000",
+      "lon": "2.000000"
+    },
+    {
+      "id": "302",
+      "label": "Predict Test",
+      "category": "unknown",
+      "lat": "3.000000",
+      "lon": "3.000000"
+    },
+    {
+      "id": "305",
+      "label": "Classify Test",
+      "category": "time_signal",
+      "lat": "40.000000",
+      "lon": "-74.000000"
+    },
+    {
+      "id": "309",
+      "label": "CSV Import Test",
+      "category": "unknown",
+      "lat": "51.500000",
+      "lon": "-0.100000"
+    },
+    {
+      "id": "310",
+      "label": "KML Test",
+      "category": "unknown",
+      "lat": "48.856600",
+      "lon": "2.352200"
+    },
+    {
+      "id": "311",
+      "label": "Anomaly Check",
+      "category": "unknown",
+      "lat": "10.000000",
+      "lon": "10.000000"
+    },
+    {
+      "id": "319",
+      "label": "Shared Target",
+      "category": "unknown",
+      "lat": "30.000000",
+      "lon": "30.000000"
+    },
+    {
+      "id": "320",
+      "label": "Remove Me",
+      "category": "unknown",
+      "lat": "1.000000",
+      "lon": "1.000000"
+    },
+    {
+      "id": "323",
+      "label": "E2E Test Target",
+      "category": "unknown",
+      "lat": "48.856600",
+      "lon": "2.352200"
+    },
+    {
+      "id": "324",
+      "label": "Vis Test",
+      "category": "unknown",
+      "lat": "0.000000",
+      "lon": "0.000000"
+    },
+    {
+      "id": "325",
+      "label": "Updated Label",
+      "category": "unknown",
+      "lat": "10.000000",
+      "lon": "20.000000"
+    },
+    {
+      "id": "328",
+      "label": "History Test",
+      "category": "unknown",
+      "lat": "1.001000",
+      "lon": "1.001000"
+    },
+    {
+      "id": "329",
+      "label": "GetHist Test",
+      "category": "unknown",
+      "lat": "2.000000",
+      "lon": "2.000000"
+    },
+    {
+      "id": "330",
+      "label": "Predict Test",
+      "category": "unknown",
+      "lat": "3.000000",
+      "lon": "3.000000"
+    },
+    {
+      "id": "333",
+      "label": "Classify Test",
+      "category": "time_signal",
+      "lat": "40.000000",
+      "lon": "-74.000000"
+    },
+    {
+      "id": "337",
+      "label": "CSV Import Test",
+      "category": "unknown",
+      "lat": "51.500000",
+      "lon": "-0.100000"
+    },
+    {
+      "id": "338",
+      "label": "KML Test",
+      "category": "unknown",
+      "lat": "48.856600",
+      "lon": "2.352200"
+    },
+    {
+      "id": "339",
+      "label": "Anomaly Check",
+      "category": "unknown",
+      "lat": "10.000000",
+      "lon": "10.000000"
+    },
+    {
+      "id": "347",
+      "label": "Shared Target",
+      "category": "unknown",
+      "lat": "30.000000",
+      "lon": "30.000000"
+    },
+    {
+      "id": "348",
+      "label": "Remove Me",
+      "category": "unknown",
+      "lat": "1.000000",
+      "lon": "1.000000"
+    },
+    {
+      "id": "30001",
+      "label": "E2E Test Target",
+      "category": "unknown",
+      "lat": "48.856600",
+      "lon": "2.352200"
+    },
+    {
+      "id": "30002",
+      "label": "Vis Test",
+      "category": "unknown",
+      "lat": "0.000000",
+      "lon": "0.000000"
+    },
+    {
+      "id": "30003",
+      "label": "Updated Label",
+      "category": "unknown",
+      "lat": "10.000000",
+      "lon": "20.000000"
+    },
+    {
+      "id": "30006",
+      "label": "History Test",
+      "category": "unknown",
+      "lat": "1.001000",
+      "lon": "1.001000"
+    },
+    {
+      "id": "30007",
+      "label": "GetHist Test",
+      "category": "unknown",
+      "lat": "2.000000",
+      "lon": "2.000000"
+    },
+    {
+      "id": "30009",
+      "label": "Predict Test",
+      "category": "unknown",
+      "lat": "3.000000",
+      "lon": "3.000000"
+    },
+    {
+      "id": "30011",
+      "label": "Classify Test",
+      "category": "time_signal",
+      "lat": "40.000000",
+      "lon": "-74.000000"
+    },
+    {
+      "id": "30015",
+      "label": "CSV Import Test",
+      "category": "unknown",
+      "lat": "51.500000",
+      "lon": "-0.100000"
+    },
+    {
+      "id": "30016",
+      "label": "KML Test",
+      "category": "unknown",
+      "lat": "48.856600",
+      "lon": "2.352200"
+    },
+    {
+      "id": "30017",
+      "label": "Anomaly Check",
+      "category": "unknown",
+      "lat": "10.000000",
+      "lon": "10.000000"
+    },
+    {
+      "id": "30025",
+      "label": "Shared Target",
+      "category": "unknown",
+      "lat": "30.000000",
+      "lon": "30.000000"
+    },
+    {
+      "id": "30026",
+      "label": "Remove Me",
+      "category": "unknown",
+      "lat": "1.000000",
+      "lon": "1.000000"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tlabel\tcategory\tlat\tlon\n1\tE2E Test Target\tunknown\t48.856600\t2.352200\n2\tVis Test\tunknown\t0.000000\t0.000000\n3\tUpdated Label\tunknown\t10.000000\t20.000000\n5\tHistory Test\tunknown\t1.001000\t1.001000\n6\tGetHist Test\tunknown\t2.000000\t2.000000\n7\tPredict Test\tunknown\t3.000000\t3.000000\n8\tClassify Test\tunknown\t40.000000\t-74.000000\n9\tCSV Import Test\tunknown\t51.500000\t-0.100000\n10\tKML Test\tunknown\t48.856600\t2.352200\n11\tAnomaly Check\tunknown\t10.000000\t10.000000\n12\tShared Target\tunknown\t30.000000\t30.000000\n13\tRemove Me\tunknown\t1.000000\t1.000000\n14\tE2E Test Target\tunknown\t48.856600\t2.352200\n15\tVis Test\tunknown\t0.000000\t0.000000\n16\tUpdated Label\tunknown\t10.000000\t20.000000\n18\tHistory Test\tunknown\t1.001000\t1.001000\n19\tGetHist Test\tunknown\t2.000000\t2.000000\n20\tPredict Test\tunknown\t3.000000\t3.000000\n21\tClassify Test\ttime_signal\t40.000000\t-74.000000\n22\tCSV Import Test\tunknown\t51.500000\t-0.100000\n23\tKML Test\tunknown\t48.856600\t2.352200\n24\tAnomaly Check\tunknown\t10.000000\t10.000000\n25\tShared Target\tunknown\t30.000000\t30.000000\n26\tRemove Me\tunknown\t1.000000\t1.000000\n35\tE2E Test Target\tunknown\t48.856600\t2.352200\n36\tVis Test\tunknown\t0.000000\t0.000000\n37\tUpdated Label\tunknown\t10.000000\t20.000000\n39\tHistory Test\tunknown\t1.001000\t1.001000\n40\tGetHist Test\tunknown\t2.000000\t2.000000\n41\tPredict Test\tunknown\t3.000000\t3.000000\n42\tClassify Test\ttime_signal\t40.000000\t-74.000000\n43\tCSV Import Test\tunknown\t51.500000\t-0.100000\n44\tKML Test\tunknown\t48.856600\t2.352200\n45\tAnomaly Check\tunknown\t10.000000\t10.000000\n46\tShared Target\tunknown\t30.000000\t30.000000\n47\tRemove Me\tunknown\t1.000000\t1.000000\n50\tE2E Test Target\tunknown\t48.856600\t2.352200\n51\tVis Test\tunknown\t0.000000\t0.000000\n52\tUpdated Label\tunknown\t10.000000\t20.000000\n54\tHistory Test\tunknown\t1.001000\t1.001000\n55\tGetHist Test\tunknown\t2.000000\t2.000000\n56\tPredict Test\tunknown\t3.000000\t3.000000\n57\tClassify Test\ttime_signal\t40.000000\t-74.000000\n58\tCSV Import Test\tunknown\t51.500000\t-0.100000\n59\tKML Test\tunknown\t48.856600\t2.352200\n60\tAnomaly Check\tunknown\t10.000000\t10.000000\n61\tShared Target\tunknown\t30.000000\t30.000000\n62\tRemove Me\tunknown\t1.000000\t1.000000\n68\tSE-Anomaly-Test\tmilitary\t40.020000\t30.020000\n69\tSE-Geofence-Test\tmilitary\t33.500000\t36.300000\n70\tSE-Inclusion-Test\tutility\t48.000000\t8.000000\n71\tSE-Conflict-Test\tmilitary\t36.200000\t37.150000\n73\tSE-Share-Target-1\tutility\t51.500000\t-0.100000\n74\tSE-Share-Target-2\tbroadcast\t48.900000\t2.300000\n75\tSE-FP-Match-1\tmilitary\t55.000000\t37.000000\n76\tSE-FP-Match-2\tmilitary\t56.000000\t38.000000\n78\tSE-Visibility-Test\tutility\t35.000000\t139.000000\n79\tSE-Batch-Inside\tmilitary\t21.000000\t41.000000\n80\tSE-Batch-Outside\tutility\t10.000000\t10.000000\n81\tSE-Batch-Conflict\tmilitary\t15.000000\t32.000000\n83\tSE-Anomaly-Test\tmilitary\t40.020000\t30.020000\n84\tSE-Geofence-Test\tmilitary\t33.500000\t36.300000\n85\tSE-Inclusion-Test\tutility\t48.000000\t8.000000\n86\tSE-Conflict-Test\tmilitary\t36.200000\t37.150000\n88\tSE-Share-Target-1\tutility\t51.500000\t-0.100000\n89\tSE-Share-Target-2\tbroadcast\t48.900000\t2.300000\n90\tSE-FP-Match-1\tmilitary\t55.000000\t37.000000\n91\tSE-FP-Match-2\tmilitary\t56.000000\t38.000000\n93\tSE-Visibility-Test\tutility\t35.000000\t139.000000\n94\tSE-Batch-Inside\tmilitary\t21.000000\t41.000000\n95\tSE-Batch-Outside\tutility\t10.000000\t10.000000\n96\tSE-Batch-Conflict\tmilitary\t15.000000\t32.000000\n98\tSE-Anomaly-Test\tmilitary\t40.020000\t30.020000\n99\tSE-Geofence-Test\tmilitary\t33.500000\t36.300000\n100\tSE-Inclusion-Test\tutility\t48.000000\t8.000000\n101\tSE-Conflict-Test\tmilitary\t36.200000\t37.150000\n103\tSE-Share-Target-1\tutility\t51.500000\t-0.100000\n104\tSE-Share-Target-2\tbroadcast\t48.900000\t2.300000\n105\tSE-FP-Match-1\tmilitary\t55.000000\t37.000000\n106\tSE-FP-Match-2\tmilitary\t56.000000\t38.000000\n108\tSE-Visibility-Test\tutility\t35.000000\t139.000000\n109\tSE-Batch-Inside\tmilitary\t21.000000\t41.000000\n110\tSE-Batch-Outside\tutility\t10.000000\t10.000000\n111\tSE-Batch-Conflict\tmilitary\t15.000000\t32.000000\n113\tSE-Anomaly-Test\tmilitary\t40.020000\t30.020000\n116\tSE-Conflict-Test\tmilitary\t36.200000\t37.150000\n118\tSE-Share-Target-1\tutility\t51.500000\t-0.100000\n119\tSE-Share-Target-2\tbroadcast\t48.900000\t2.300000\n120\tSE-FP-Match-1\tmilitary\t55.000000\t37.000000\n121\tSE-FP-Match-2\tmilitary\t56.000000\t38.000000\n123\tSE-Visibility-Test\tutility\t35.000000\t139.000000\n124\tSE-Batch-Inside\tmilitary\t21.000000\t41.000000\n125\tSE-Batch-Outside\tutility\t10.000000\t10.000000\n126\tSE-Batch-Conflict\tmilitary\t15.000000\t32.000000\n128\tSE-Anomaly-Test\tmilitary\t40.020000\t30.020000\n130\tSE-Inclusion-Test\tutility\t48.000000\t8.000000\n131\tSE-Conflict-Test\tmilitary\t36.200000\t37.150000\n133\tSE-Share-Target-1\tutility\t51.500000\t-0.100000\n134\tSE-Share-Target-2\tbroadcast\t48.900000\t2.300000\n135\tSE-FP-Match-1\tmilitary\t55.000000\t37.000000\n136\tSE-FP-Match-2\tmilitary\t56.000000\t38.000000\n138\tSE-Visibility-Test\tutility\t35.000000\t139.000000\n139\tSE-Batch-Inside\tmilitary\t21.000000\t41.000000\n140\tSE-Batch-Outside\tutility\t10.000000\t10.000000\n141\tSE-Batch-Conflict\tmilitary\t15.000000\t32.000000\n143\tSE-Anomaly-Test\tmilitary\t40.020000\t30.020000\n145\tSE-Inclusion-Test\tutility\t48.000000\t8.000000\n146\tSE-Conflict-Test\tmilitary\t36.200000\t37.150000\n148\tSE-Share-Target-1\tutility\t51.500000\t-0.100000\n149\tSE-Share-Target-2\tbroadcast\t48.900000\t2.300000\n150\tSE-FP-Match-1\tmilitary\t55.000000\t37.000000\n151\tSE-FP-Match-2\tmilitary\t56.000000\t38.000000\n153\tSE-Visibility-Test\tutility\t35.000000\t139.000000\n154\tSE-Batch-Inside\tmilitary\t21.000000\t41.000000\n155\tSE-Batch-Outside\tutility\t10.000000\t10.000000\n156\tSE-Batch-Conflict\tmilitary\t15.000000\t32.000000\n160\tSE-Inclusion-Test\tutility\t48.000000\t8.000000\n161\tSE-Conflict-Test\tmilitary\t36.200000\t37.150000\n165\tSE-FP-Match-1\tmilitary\t55.000000\t37.000000\n166\tSE-FP-Match-2\tmilitary\t56.000000\t38.000000\n169\tSE-Batch-Inside\tmilitary\t21.000000\t41.000000\n170\tSE-Batch-Outside\tutility\t10.000000\t10.000000\n184\tSE-Batch-Inside\tmilitary\t21.000000\t41.000000\n185\tSE-Batch-Outside\tutility\t10.000000\t10.000000\n189\tSE-Geofence-Test\tmilitary\t33.500000\t36.300000\n213\tE2E Test Target\tunknown\t48.856600\t2.352200\n214\tVis Test\tunknown\t0.000000\t0.000000\n215\tUpdated Label\tunknown\t10.000000\t20.000000\n216\tSE-Analytics-Test\tmilitary\t33.000000\t44.000000\n218\tHistory Test\tunknown\t1.001000\t1.001000\n220\tGetHist Test\tunknown\t2.000000\t2.000000\n221\tPredict Test\tunknown\t3.000000\t3.000000\n223\tClassify Test\ttime_signal\t40.000000\t-74.000000\n227\tCSV Import Test\tunknown\t51.500000\t-0.100000\n228\tKML Test\tunknown\t48.856600\t2.352200\n229\tAnomaly Check\tunknown\t10.000000\t10.000000\n237\tShared Target\tunknown\t30.000000\t30.000000\n238\tRemove Me\tunknown\t1.000000\t1.000000\n239\tE2E Test Target\tunknown\t48.856600\t2.352200\n240\tVis Test\tunknown\t0.000000\t0.000000\n241\tUpdated Label\tunknown\t10.000000\t20.000000\n243\tSE-Analytics-Test\tmilitary\t33.000000\t44.000000\n244\tHistory Test\tunknown\t1.001000\t1.001000\n245\tGetHist Test\tunknown\t2.000000\t2.000000\n247\tPredict Test\tunknown\t3.000000\t3.000000\n249\tClassify Test\ttime_signal\t40.000000\t-74.000000\n251\tCSV Import Test\tunknown\t51.500000\t-0.100000\n252\tKML Test\tunknown\t48.856600\t2.352200\n253\tAnomaly Check\tunknown\t10.000000\t10.000000\n263\tShared Target\tunknown\t30.000000\t30.000000\n264\tRemove Me\tunknown\t1.000000\t1.000000\n267\tE2E Test Target\tunknown\t48.856600\t2.352200\n268\tVis Test\tunknown\t0.000000\t0.000000\n269\tUpdated Label\tunknown\t10.000000\t20.000000\n272\tHistory Test\tunknown\t1.001000\t1.001000\n273\tGetHist Test\tunknown\t2.000000\t2.000000\n274\tPredict Test\tunknown\t3.000000\t3.000000\n277\tClassify Test\ttime_signal\t40.000000\t-74.000000\n279\tCSV Import Test\tunknown\t51.500000\t-0.100000\n280\tKML Test\tunknown\t48.856600\t2.352200\n281\tAnomaly Check\tunknown\t10.000000\t10.000000\n291\tShared Target\tunknown\t30.000000\t30.000000\n292\tRemove Me\tunknown\t1.000000\t1.000000\n295\tE2E Test Target\tunknown\t48.856600\t2.352200\n296\tVis Test\tunknown\t0.000000\t0.000000\n297\tUpdated Label\tunknown\t10.000000\t20.000000\n300\tHistory Test\tunknown\t1.001000\t1.001000\n301\tGetHist Test\tunknown\t2.000000\t2.000000\n302\tPredict Test\tunknown\t3.000000\t3.000000\n305\tClassify Test\ttime_signal\t40.000000\t-74.000000\n309\tCSV Import Test\tunknown\t51.500000\t-0.100000\n310\tKML Test\tunknown\t48.856600\t2.352200\n311\tAnomaly Check\tunknown\t10.000000\t10.000000\n319\tShared Target\tunknown\t30.000000\t30.000000\n320\tRemove Me\tunknown\t1.000000\t1.000000\n323\tE2E Test Target\tunknown\t48.856600\t2.352200\n324\tVis Test\tunknown\t0.000000\t0.000000\n325\tUpdated Label\tunknown\t10.000000\t20.000000\n328\tHistory Test\tunknown\t1.001000\t1.001000\n329\tGetHist Test\tunknown\t2.000000\t2.000000\n330\tPredict Test\tunknown\t3.000000\t3.000000\n333\tClassify Test\ttime_signal\t40.000000\t-74.000000\n337\tCSV Import Test\tunknown\t51.500000\t-0.100000\n338\tKML Test\tunknown\t48.856600\t2.352200\n339\tAnomaly Check\tunknown\t10.000000\t10.000000\n347\tShared Target\tunknown\t30.000000\t30.000000\n348\tRemove Me\tunknown\t1.000000\t1.000000\n30001\tE2E Test Target\tunknown\t48.856600\t2.352200\n30002\tVis Test\tunknown\t0.000000\t0.000000\n30003\tUpdated Label\tunknown\t10.000000\t20.000000\n30006\tHistory Test\tunknown\t1.001000\t1.001000\n30007\tGetHist Test\tunknown\t2.000000\t2.000000\n30009\tPredict Test\tunknown\t3.000000\t3.000000\n30011\tClassify Test\ttime_signal\t40.000000\t-74.000000\n30015\tCSV Import Test\tunknown\t51.500000\t-0.100000\n30016\tKML Test\tunknown\t48.856600\t2.352200\n30017\tAnomaly Check\tunknown\t10.000000\t10.000000\n30025\tShared Target\tunknown\t30.000000\t30.000000\n30026\tRemove Me\tunknown\t1.000000\t1.000000\n",
+  "stderr": "",
+  "execution_time_ms": 51
+}

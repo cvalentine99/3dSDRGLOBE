@@ -1,0 +1,70 @@
+{
+  "query": "SHOW TABLES;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3xenzgJ3NGNThF2.2d7d812ed0e5 --database 8ixynDjhKaWGr2C97gbZUT --execute SHOW TABLES;",
+  "rows": [
+    {
+      "Tables_in_8ixynDjhKaWGr2C97gbZUT": "__drizzle_migrations"
+    },
+    {
+      "Tables_in_8ixynDjhKaWGr2C97gbZUT": "anomaly_alerts"
+    },
+    {
+      "Tables_in_8ixynDjhKaWGr2C97gbZUT": "briefings"
+    },
+    {
+      "Tables_in_8ixynDjhKaWGr2C97gbZUT": "chat_messages"
+    },
+    {
+      "Tables_in_8ixynDjhKaWGr2C97gbZUT": "conflict_sweep_history"
+    },
+    {
+      "Tables_in_8ixynDjhKaWGr2C97gbZUT": "geofence_alerts"
+    },
+    {
+      "Tables_in_8ixynDjhKaWGr2C97gbZUT": "geofence_zones"
+    },
+    {
+      "Tables_in_8ixynDjhKaWGr2C97gbZUT": "receiver_status_history"
+    },
+    {
+      "Tables_in_8ixynDjhKaWGr2C97gbZUT": "receivers"
+    },
+    {
+      "Tables_in_8ixynDjhKaWGr2C97gbZUT": "saved_queries"
+    },
+    {
+      "Tables_in_8ixynDjhKaWGr2C97gbZUT": "scan_cycles"
+    },
+    {
+      "Tables_in_8ixynDjhKaWGr2C97gbZUT": "shared_list_members"
+    },
+    {
+      "Tables_in_8ixynDjhKaWGr2C97gbZUT": "shared_list_targets"
+    },
+    {
+      "Tables_in_8ixynDjhKaWGr2C97gbZUT": "shared_target_lists"
+    },
+    {
+      "Tables_in_8ixynDjhKaWGr2C97gbZUT": "signal_fingerprints"
+    },
+    {
+      "Tables_in_8ixynDjhKaWGr2C97gbZUT": "tdoa_jobs"
+    },
+    {
+      "Tables_in_8ixynDjhKaWGr2C97gbZUT": "tdoa_recordings"
+    },
+    {
+      "Tables_in_8ixynDjhKaWGr2C97gbZUT": "tdoa_target_history"
+    },
+    {
+      "Tables_in_8ixynDjhKaWGr2C97gbZUT": "tdoa_targets"
+    },
+    {
+      "Tables_in_8ixynDjhKaWGr2C97gbZUT": "users"
+    }
+  ],
+  "messages": [],
+  "stdout": "Tables_in_8ixynDjhKaWGr2C97gbZUT\n__drizzle_migrations\nanomaly_alerts\nbriefings\nchat_messages\nconflict_sweep_history\ngeofence_alerts\ngeofence_zones\nreceiver_status_history\nreceivers\nsaved_queries\nscan_cycles\nshared_list_members\nshared_list_targets\nshared_target_lists\nsignal_fingerprints\ntdoa_jobs\ntdoa_recordings\ntdoa_target_history\ntdoa_targets\nusers\n",
+  "stderr": "",
+  "execution_time_ms": 62
+}

@@ -1,0 +1,26 @@
+{
+  "query": "SELECT 'tdoa_targets' as tbl, COUNT(*) as cnt FROM tdoa_targets UNION ALL SELECT 'geofence_zones', COUNT(*) FROM geofence_zones UNION ALL SELECT 'anomaly_alerts', COUNT(*) FROM anomaly_alerts UNION ALL SELECT 'geofence_alerts', COUNT(*) FROM geofence_alerts;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3xenzgJ3NGNThF2.2d7d812ed0e5 --database 8ixynDjhKaWGr2C97gbZUT --execute SELECT 'tdoa_targets' as tbl, COUNT(*) as cnt FROM tdoa_targets UNION ALL SELECT 'geofence_zones', COUNT(*) FROM geofence_zones UNION ALL SELECT 'anomaly_alerts', COUNT(*) FROM anomaly_alerts UNION ALL SELECT 'geofence_alerts', COUNT(*) FROM geofence_alerts;",
+  "rows": [
+    {
+      "tbl": "geofence_zones",
+      "cnt": "0"
+    },
+    {
+      "tbl": "anomaly_alerts",
+      "cnt": "0"
+    },
+    {
+      "tbl": "tdoa_targets",
+      "cnt": "0"
+    },
+    {
+      "tbl": "geofence_alerts",
+      "cnt": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "tbl\tcnt\ngeofence_zones\t0\nanomaly_alerts\t0\ntdoa_targets\t0\ngeofence_alerts\t0\n",
+  "stderr": "",
+  "execution_time_ms": 61
+}
