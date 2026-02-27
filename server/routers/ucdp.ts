@@ -5,8 +5,29 @@ import { updateConflictEventCache } from "../conflictZoneChecker";
 // ── HDX HAPI Configuration (free, no auth required) ────────────────
 const HAPI_BASE = "https://hapi.humdata.org/api/v2";
 const APP_ID = Buffer.from("radio-globe:radioglobe@manus.im").toString("base64");
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour cache
+const CACHE_TTL_MS = 20 * 60 * 1000; // 20 minute cache (was 1 hour)
 const MAX_LIMIT = 10000; // HDX HAPI max records per request
+
+// ── Rate limiting for HDX HAPI (fair-use protection) ─────────────
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute window
+const RATE_LIMIT_MAX_REQUESTS = 10; // max 10 external API calls per minute
+const rateLimitLog: number[] = []; // timestamps of recent HAPI requests
+
+function checkRateLimit(): boolean {
+  const now = Date.now();
+  // Prune old entries
+  while (rateLimitLog.length > 0 && rateLimitLog[0] < now - RATE_LIMIT_WINDOW_MS) {
+    rateLimitLog.shift();
+  }
+  return rateLimitLog.length < RATE_LIMIT_MAX_REQUESTS;
+}
+
+function recordRequest(): void {
+  rateLimitLog.push(Date.now());
+}
+
+// ── Request deduplication (prevent concurrent identical fetches) ───
+const inflightRequests = new Map<string, Promise<any>>();
 
 // ── HDX event type → UCDP violence type mapping ───────────────────
 // HDX HAPI event_type: "political_violence" | "civilian_targeting" | "demonstration"
@@ -187,7 +208,7 @@ interface HapiResponse<T> {
   data: T[];
 }
 
-// ── In-memory cache ─────────────────────────────────────────────────
+// ── In-memory cache with TTL and stats ───────────────────────────
 interface CacheEntry<T = UcdpEvent[]> {
   data: T;
   totalCount: number;
@@ -195,6 +216,9 @@ interface CacheEntry<T = UcdpEvent[]> {
 }
 
 const cache = new Map<string, CacheEntry<any>>();
+let cacheHits = 0;
+let cacheMisses = 0;
+let dedupHits = 0;
 
 function getCacheKey(params: Record<string, any>): string {
   return JSON.stringify(params);
@@ -202,12 +226,36 @@ function getCacheKey(params: Record<string, any>): string {
 
 function getCached<T>(key: string): CacheEntry<T> | null {
   const entry = cache.get(key);
-  if (!entry) return null;
-  if (Date.now() - entry.fetchedAt > CACHE_TTL_MS) {
-    cache.delete(key);
+  if (!entry) {
+    cacheMisses++;
     return null;
   }
+  if (Date.now() - entry.fetchedAt > CACHE_TTL_MS) {
+    cache.delete(key);
+    cacheMisses++;
+    return null;
+  }
+  cacheHits++;
   return entry as CacheEntry<T>;
+}
+
+/** Get cache statistics for monitoring */
+export function getCacheStats() {
+  const entries = Array.from(cache.entries());
+  const now = Date.now();
+  const validEntries = entries.filter(([, v]) => now - v.fetchedAt <= CACHE_TTL_MS);
+  return {
+    totalEntries: cache.size,
+    validEntries: validEntries.length,
+    cacheHits,
+    cacheMisses,
+    dedupHits,
+    hitRate: cacheHits + cacheMisses > 0
+      ? Math.round((cacheHits / (cacheHits + cacheMisses)) * 100)
+      : 0,
+    rateLimitRemaining: RATE_LIMIT_MAX_REQUESTS - rateLimitLog.filter(t => t > now - RATE_LIMIT_WINDOW_MS).length,
+    cacheTtlMinutes: CACHE_TTL_MS / 60000,
+  };
 }
 
 // ── Determine region from ISO3 country code ────────────────────────
@@ -218,9 +266,87 @@ function getRegionForCountry(code: string): string {
   return "Other";
 }
 
-// ── Add jitter to coordinates so markers don't stack ───────────────
-function jitter(base: number, range: number): number {
-  return base + (Math.random() - 0.5) * range;
+// ── Approximate country geographic extent (degrees) ──────────────
+// Maps ISO3 → [latSpread, lngSpread] representing the approximate
+// geographic extent of each country in degrees. Used to scale jitter
+// so markers spread proportionally to country size.
+const COUNTRY_EXTENT: Record<string, [number, number]> = {
+  RUS: [30, 80], CAN: [25, 60], USA: [20, 50], CHN: [20, 40], BRA: [25, 25],
+  AUS: [20, 30], IND: [15, 15], ARG: [20, 15], DZA: [12, 10], COD: [10, 12],
+  SAU: [10, 15], MEX: [12, 18], IDN: [10, 25], SDN: [10, 10], LBY: [10, 12],
+  IRN: [10, 12], MNG: [8, 15], PER: [10, 8], TCD: [10, 10], NER: [8, 10],
+  AGO: [8, 8], MLI: [8, 8], ZAF: [8, 8], ETH: [8, 8], BOL: [8, 8],
+  MRT: [8, 8], EGY: [8, 6], TZA: [8, 6], NGA: [6, 6], VEN: [6, 8],
+  PAK: [6, 8], NAM: [8, 6], MOZ: [10, 6], TUR: [5, 12], CHL: [20, 4],
+  ZMB: [6, 6], MMR: [8, 6], AFG: [5, 6], SOM: [8, 5], CAF: [5, 8],
+  SSD: [4, 6], UKR: [5, 10], MDG: [8, 4], BWA: [5, 5], KEN: [5, 5],
+  FRA: [5, 5], YEM: [4, 6], THA: [8, 4], ESP: [4, 6], TKM: [4, 8],
+  CMR: [6, 4], PNG: [4, 6], SWE: [8, 4], UZB: [3, 6], MAR: [4, 5],
+  IRQ: [4, 5], PRY: [4, 4], ZWE: [4, 4], JPN: [8, 5], DEU: [4, 4],
+  COG: [5, 4], FIN: [6, 4], VNM: [8, 3], MYS: [4, 8], NOR: [10, 4],
+  CIV: [3, 4], POL: [3, 5], OMN: [4, 4], ITA: [5, 3], PHL: [6, 4],
+  ECU: [3, 4], BFA: [3, 3], NZL: [6, 3], GAB: [3, 3], GNQ: [2, 2],
+  GBR: [4, 3], GHA: [3, 2], ROU: [3, 4], LAO: [4, 3], GUY: [3, 3],
+  BLR: [3, 4], KGZ: [2, 4], SEN: [2, 3], SYR: [3, 3], KHM: [3, 3],
+  URY: [3, 3], SUR: [3, 3], TUN: [3, 3], BGD: [3, 2], NPL: [2, 5],
+  TJK: [2, 4], GRC: [3, 3], NIC: [3, 3], PRK: [3, 3], MWI: [4, 2],
+  ERI: [3, 3], BEN: [3, 2], HND: [2, 3], LBR: [2, 2], BGR: [2, 3],
+  CUB: [2, 5], GTM: [2, 3], ISL: [2, 4], KOR: [3, 2], HUN: [2, 3],
+  PRT: [2, 3], JOR: [2, 2], SRB: [2, 3], AZE: [2, 3], AUT: [2, 3],
+  ARE: [2, 3], CZE: [2, 3], PAN: [2, 3], SLE: [2, 2], IRL: [2, 2],
+  GEO: [2, 3], LKA: [2, 2], BIH: [2, 2], HRV: [2, 3], TGO: [3, 1],
+  CRI: [2, 2], SVK: [2, 2], DOM: [2, 2], BTN: [1, 2], EST: [2, 2],
+  DNK: [2, 2], NLD: [2, 2], CHE: [1, 2], MDV: [2, 1], BHS: [2, 2],
+  MNE: [1, 2], TWN: [2, 1], JAM: [1, 1], XKX: [1, 1], LBN: [1, 1],
+  ALB: [1, 1], ARM: [1, 1], QAT: [1, 1], MKD: [1, 1], RWA: [1, 1],
+  SLV: [1, 1], BDI: [1, 1], BEL: [1, 1], HTI: [1, 1], ISR: [1, 1],
+  PSE: [1, 1], SWZ: [1, 1], TLS: [1, 1], TTO: [1, 1], MUS: [1, 1],
+  COM: [1, 1], LUX: [0.5, 0.5], MLT: [0.3, 0.3], BRB: [0.3, 0.3],
+  SYC: [0.5, 0.5], AND: [0.2, 0.2], BLZ: [2, 1], KWT: [1, 1],
+  DJI: [1, 1], LSO: [1, 1], SVN: [1, 1], LVA: [2, 2], LTU: [2, 2],
+  MDA: [2, 2], GNB: [1, 1], GIN: [3, 3], STP: [0.5, 0.5], CPV: [1, 1],
+  KAZ: [10, 20], COL: [6, 5], BRN: [1, 1], BHR: [0.3, 0.3],
+  PRI: [0.5, 1],
+};
+
+// Default extent for countries not in the map
+const DEFAULT_EXTENT: [number, number] = [3, 3];
+
+// ── Seeded pseudo-random number generator (mulberry32) ───────────
+// Produces deterministic sequences so markers stay in the same place
+// across re-renders and page loads.
+function mulberry32(seed: number): () => number {
+  return function () {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// ── Gaussian random using Box-Muller transform ───────────────────
+function gaussianRandom(rng: () => number): number {
+  const u1 = rng();
+  const u2 = rng();
+  return Math.sqrt(-2 * Math.log(Math.max(u1, 1e-10))) * Math.cos(2 * Math.PI * u2);
+}
+
+// ── Golden-angle spiral distribution ─────────────────────────────
+// Distributes N points in a disc using Vogel's spiral (sunflower pattern).
+// Produces visually even spacing without clustering.
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5)); // ~2.3999 radians
+
+function spiralPoint(
+  index: number,
+  total: number,
+  rng: () => number
+): [number, number] {
+  // Radius: sqrt distribution for uniform area density
+  const r = Math.sqrt((index + 0.5) / total);
+  // Angle: golden-angle spiral + small random perturbation
+  const theta = index * GOLDEN_ANGLE + rng() * 0.3;
+  return [r * Math.cos(theta), r * Math.sin(theta)];
 }
 
 // ── Convert HDX HAPI aggregated records to UcdpEvent format ────────
@@ -241,12 +367,31 @@ function hapiToUcdpEvents(records: HapiConflictEvent[]): UcdpEvent[] {
     const dateStart = rec.reference_period_start?.split("T")[0] ?? "";
     const year = dateStart ? parseInt(dateStart.substring(0, 4), 10) : new Date().getFullYear();
 
+    // Country-size-aware jitter: scale spread to country extent
+    const extent = COUNTRY_EXTENT[rec.location_code] ?? DEFAULT_EXTENT;
+    const latSpread = extent[0] * 0.4; // Use 40% of country extent
+    const lngSpread = extent[1] * 0.4;
+
+    // Create a seeded RNG for this record so positions are deterministic
+    const seedVal = hashCode(`${rec.location_code}-${rec.event_type}-${dateStart}`);
+    const rng = mulberry32(seedVal);
+
     // For each aggregated record, create individual synthetic events
-    // Spread them across the country with jitter for visual diversity
+    // Use golden-angle spiral + Gaussian perturbation for natural spread
     const eventCount = Math.min(rec.events, 50); // Cap at 50 markers per record
+    const total = Math.max(1, eventCount);
     const fatalitiesPerEvent = eventCount > 0 ? Math.round(rec.fatalities / eventCount) : rec.fatalities;
 
-    for (let i = 0; i < Math.max(1, eventCount); i++) {
+    for (let i = 0; i < total; i++) {
+      // Golden-angle spiral for base distribution
+      const [sx, sy] = spiralPoint(i, total, rng);
+      // Add Gaussian perturbation for organic look
+      const gx = gaussianRandom(rng) * 0.15;
+      const gy = gaussianRandom(rng) * 0.15;
+      // Final offset: spiral + Gaussian, scaled to country extent
+      const latOffset = (sx + gx) * latSpread;
+      const lngOffset = (sy + gy) * lngSpread;
+
       events.push({
         id: syntheticId++,
         relid: `HAPI-${rec.location_code}-${rec.event_type}-${dateStart}-${i}`,
@@ -256,8 +401,8 @@ function hapiToUcdpEvents(records: HapiConflictEvent[]): UcdpEvent[] {
         dyad_name: `${rec.location_name} conflict`,
         side_a: rec.location_name,
         side_b: "",
-        latitude: jitter(centroid[0], 3), // ±1.5 degrees jitter
-        longitude: jitter(centroid[1], 3),
+        latitude: centroid[0] + latOffset,
+        longitude: centroid[1] + lngOffset,
         country: rec.location_name,
         country_id: 0,
         region,
@@ -268,8 +413,8 @@ function hapiToUcdpEvents(records: HapiConflictEvent[]): UcdpEvent[] {
         low: Math.round((i === 0 ? fatalitiesPerEvent + (rec.fatalities % Math.max(1, eventCount)) : fatalitiesPerEvent) * 0.8),
         deaths_a: 0,
         deaths_b: 0,
-        deaths_civilians: violenceType === 3 ? (i === 0 ? fatalitiesPerEvent : fatalitiesPerEvent) : 0,
-        deaths_unknown: violenceType !== 3 ? (i === 0 ? fatalitiesPerEvent : fatalitiesPerEvent) : 0,
+        deaths_civilians: violenceType === 3 ? fatalitiesPerEvent : 0,
+        deaths_unknown: violenceType !== 3 ? fatalitiesPerEvent : 0,
         where_description: rec.admin1_name || rec.location_name,
         adm_1: rec.admin1_name || "",
         adm_2: rec.admin2_name || "",
@@ -281,6 +426,16 @@ function hapiToUcdpEvents(records: HapiConflictEvent[]): UcdpEvent[] {
   }
 
   return events;
+}
+
+// Simple string hash for seeding the PRNG
+function hashCode(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    hash = ((hash << 5) - hash + ch) | 0;
+  }
+  return hash >>> 0;
 }
 
 // ── Fetch conflict events from HDX HAPI ────────────────────────────
@@ -298,6 +453,38 @@ export async function fetchUcdpEvents(params: {
     return { events: cached.data, totalCount: cached.totalCount };
   }
 
+  // Request deduplication: if an identical fetch is already in-flight, await it
+  const inflight = inflightRequests.get(cacheKey);
+  if (inflight) {
+    dedupHits++;
+    return inflight;
+  }
+
+  // Rate limiting: check before making external API call
+  if (!checkRateLimit()) {
+    console.warn("[HDX HAPI] Rate limit reached, returning empty result");
+    return { events: [], totalCount: 0 };
+  }
+
+  const fetchPromise = (async () => {
+    try {
+      return await _fetchConflictEventsInternal(params, cacheKey);
+    } finally {
+      inflightRequests.delete(cacheKey);
+    }
+  })();
+  inflightRequests.set(cacheKey, fetchPromise);
+  return fetchPromise;
+}
+
+async function _fetchConflictEventsInternal(params: {
+  startDate?: string;
+  endDate?: string;
+  region?: string;
+  typeOfViolence?: string;
+  country?: string;
+  maxPages?: number;
+}, cacheKey: string): Promise<{ events: UcdpEvent[]; totalCount: number }> {
   // Build HDX HAPI query URL
   const url = new URL(`${HAPI_BASE}/coordination-context/conflict-events`);
   url.searchParams.set("app_identifier", APP_ID);
@@ -341,6 +528,7 @@ export async function fetchUcdpEvents(params: {
   const regionFilter = params.region;
 
   try {
+    recordRequest(); // Track this external API call for rate limiting
     const res = await fetch(url.toString(), {
       headers: { Accept: "application/json" },
       signal: AbortSignal.timeout(30_000),
@@ -394,7 +582,7 @@ export async function fetchUcdpEvents(params: {
   }
 }
 
-// ── Fetch national risk data from HDX HAPI ─────────────────────────
+//// ── Fetch national risk data from HDX HAPI ─────────────────────
 async function fetchNationalRisk(params?: {
   country?: string;
 }): Promise<HapiNationalRisk[]> {
@@ -402,6 +590,31 @@ async function fetchNationalRisk(params?: {
   const cached = getCached<HapiNationalRisk[]>(cacheKey);
   if (cached) return cached.data;
 
+  // Request deduplication
+  const inflight = inflightRequests.get(cacheKey);
+  if (inflight) {
+    dedupHits++;
+    return inflight;
+  }
+
+  // Rate limiting
+  if (!checkRateLimit()) {
+    console.warn("[HDX HAPI] Rate limit reached for risk data, returning empty");
+    return [];
+  }
+
+  const fetchPromise = (async () => {
+    try {
+      return await _fetchNationalRiskInternal(params, cacheKey);
+    } finally {
+      inflightRequests.delete(cacheKey);
+    }
+  })();
+  inflightRequests.set(cacheKey, fetchPromise);
+  return fetchPromise;
+}
+
+async function _fetchNationalRiskInternal(params: { country?: string } | undefined, cacheKey: string): Promise<HapiNationalRisk[]> {
   const url = new URL(`${HAPI_BASE}/coordination-context/national-risk`);
   url.searchParams.set("app_identifier", APP_ID);
   url.searchParams.set("limit", String(MAX_LIMIT));
@@ -414,6 +627,7 @@ async function fetchNationalRisk(params?: {
     }
   }
 
+  recordRequest(); // Track for rate limiting
   const res = await fetch(url.toString(), {
     headers: { Accept: "application/json" },
     signal: AbortSignal.timeout(30_000),
@@ -654,5 +868,12 @@ export const ucdpRouter = router({
   clearCache: publicProcedure.mutation(() => {
     cache.clear();
     return { cleared: true };
+  }),
+
+  /**
+   * Get cache and rate limit statistics for monitoring.
+   */
+  getCacheStats: publicProcedure.query(() => {
+    return getCacheStats();
   }),
 });

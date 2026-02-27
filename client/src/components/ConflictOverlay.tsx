@@ -584,8 +584,9 @@ export default function ConflictOverlay({
               <div className="flex items-start gap-1.5 pt-2 border-t border-border">
                 <Info className="w-3 h-3 text-muted-foreground mt-0.5 shrink-0" />
                 <p className="text-[9px] text-muted-foreground leading-relaxed">
-                  Data: Uppsala Conflict Data Program (UCDP) GED v25.1.
-                  Free for academic and non-commercial use.
+                  Data: HDX Humanitarian API (ACLED conflict events).
+                  Free access, 219 countries. Markers use country-scaled
+                  spiral distribution for visual clarity.
                 </p>
               </div>
             </div>

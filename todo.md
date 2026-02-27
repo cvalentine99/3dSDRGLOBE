@@ -336,3 +336,11 @@
 - [x] Replace UCDP API: Implement HDX HAPI in the conflict data router (219 countries, 3 event types, national risk scores)
 - [x] Replace UCDP API: Update E2E tests for HDX HAPI — 12 tests covering getEvents, getSummary, getNationalRisk, getRegions, clearCache
 - [x] Replace UCDP API: Verify all conflict data endpoints work with new source — all passing with real data
+- [x] Conflict overlay visual improvement: add coordinate jitter for clustered centroid markers
+- [x] Conflict overlay visual improvement: add heatmap rendering mode for dense conflict data
+- [x] HDX HAPI rate limiting: add server-side cache TTL (15-30 min) for all HDX HAPI responses
+- [x] HDX HAPI rate limiting: add request deduplication to prevent concurrent identical fetches
+- [x] GitHub Actions CI: create workflow file for automated testing on push/PR
+- [x] GitHub Actions CI: configure Node.js, pnpm, and database setup in CI environment
+- [x] GitHub Actions CI: run pnpm test with proper environment variables
+- [x] All 1021 tests passing across 28 test files, zero TypeScript errors
