@@ -354,7 +354,12 @@
 - [x] All 1021 tests passing across 27 test files, zero TypeScript errors, zero DB leaks
 - [x] Push code to cvalentine99/3dSDRGLOBE GitHub repository
 - [ ] Verify .github/workflows/ci.yml is added via GitHub UI (workflow permission required)
+- [x] Push latest code (RAG fix, chat reposition, test improvements) to GitHub
 - [x] Move chat button/panel from lower right to lower left corner
 - [x] BUG FIX: IntelChat anomaly alerts query — anomaly_alerts table is empty (correct behavior, no targets tracked yet)
 - [x] BUG FIX: IntelChat RAG search_receivers tool — fixed createToolPreview using wrong field names (returned vs totalReceivers, onlineCount vs onlineReceivers)
 - [x] BUG FIX: IntelChat RAG tools — fixed preview field mismatches and added proper anomaly_alerts preview handler
+- [x] Security: Review and fix 4 Dependabot alerts (1 high, 2 moderate, 1 low)
+- [x] Security: Update vulnerable dependencies (vitest 4.0.18, AWS SDK 3.1000.0, pnpm overrides for rollup/esbuild/fast-xml-parser)
+- [x] Security: Verify tests pass after dependency updates (1021/1021)
+- [ ] Security: Push fixes to GitHub

@@ -410,11 +410,13 @@ describe("mutation side-effects", () => {
         lon: 25.4,
       });
 
-      // Wait for async side-effects
-      await new Promise((r) => setTimeout(r, 500));
-
-      // Step 5: Verify history was recorded
-      const history = await caller.targets.getHistory({ targetId: target.id });
+      // Wait for async side-effects and retry history check
+      let history: any[] = [];
+      for (let attempt = 0; attempt < 5; attempt++) {
+        await new Promise((r) => setTimeout(r, 500));
+        history = await caller.targets.getHistory({ targetId: target.id });
+        if (history.length >= 1) break;
+      }
       expect(history.length).toBeGreaterThanOrEqual(1);
 
       // Step 6: Check anomaly detection works with prediction model
