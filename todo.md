@@ -319,3 +319,6 @@
 - [x] Briefing Mode: tRPC endpoints (generate, list, getLatest, markRead, unreadCount)
 - [x] Briefing Mode: Briefing panel UI accessible from IntelChat header with Quick/Daily/Weekly generation
 - [x] Briefing Mode: Past briefings history with read/unread tracking and Markdown export
+- [x] E2E Testing: Catalog all tRPC endpoints and API routes
+- [x] E2E Testing: Write comprehensive e2e tests for every endpoint (154 tests across 3 files)
+- [x] E2E Testing: Run all tests and fix any failures — 154/154 passing across all 17 routers
