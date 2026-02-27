@@ -4,9 +4,14 @@
  * Part 2: Targets, Fingerprints, Anomalies, Uptime, Sharing routers
  * Tests every procedure with correct input schemas via createCaller.
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
+import { dbCleaner } from "./testDbCleaner";
+
+// ── Per-file DB cleanup ─────────────────────────────────────────
+beforeAll(() => dbCleaner.snapshot());
+afterAll(() => dbCleaner.cleanup());
 
 // ── Test Helpers ──────────────────────────────────────────────────
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;

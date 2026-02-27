@@ -15,5 +15,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["server/**/*.test.ts", "server/**/*.spec.ts"],
+    globalSetup: ["server/vitest.globalSetup.ts"],
+    testTimeout: 30_000,
   },
 });

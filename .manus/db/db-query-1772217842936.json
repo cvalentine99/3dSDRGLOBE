@@ -1,0 +1,30 @@
+{
+  "query": "SELECT 'tdoa_targets' as tbl, CAST(COUNT(*) AS CHAR) as cnt FROM tdoa_targets UNION ALL SELECT 'geofence_zones', CAST(COUNT(*) AS CHAR) FROM geofence_zones UNION ALL SELECT 'anomaly_alerts', CAST(COUNT(*) AS CHAR) FROM anomaly_alerts UNION ALL SELECT 'saved_queries', CAST(COUNT(*) AS CHAR) FROM saved_queries UNION ALL SELECT 'chat_messages', CAST(COUNT(*) AS CHAR) FROM chat_messages;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3xenzgJ3NGNThF2.2d7d812ed0e5 --database 8ixynDjhKaWGr2C97gbZUT --execute SELECT 'tdoa_targets' as tbl, CAST(COUNT(*) AS CHAR) as cnt FROM tdoa_targets UNION ALL SELECT 'geofence_zones', CAST(COUNT(*) AS CHAR) FROM geofence_zones UNION ALL SELECT 'anomaly_alerts', CAST(COUNT(*) AS CHAR) FROM anomaly_alerts UNION ALL SELECT 'saved_queries', CAST(COUNT(*) AS CHAR) FROM saved_queries UNION ALL SELECT 'chat_messages', CAST(COUNT(*) AS CHAR) FROM chat_messages;",
+  "rows": [
+    {
+      "tbl": "chat_messages",
+      "cnt": "0"
+    },
+    {
+      "tbl": "tdoa_targets",
+      "cnt": "0"
+    },
+    {
+      "tbl": "saved_queries",
+      "cnt": "0"
+    },
+    {
+      "tbl": "anomaly_alerts",
+      "cnt": "0"
+    },
+    {
+      "tbl": "geofence_zones",
+      "cnt": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "tbl\tcnt\nchat_messages\t0\ntdoa_targets\t0\nsaved_queries\t0\nanomaly_alerts\t0\ngeofence_zones\t0\n",
+  "stderr": "",
+  "execution_time_ms": 58
+}

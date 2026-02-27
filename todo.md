@@ -346,3 +346,9 @@
 - [x] All 1021 tests passing across 28 test files, zero TypeScript errors
 - [x] Remove ugly black target label tags from globe visualization
 - [x] Clean up test target data from database if present
+- [x] Test isolation: Create vitest global setup/teardown for automatic DB cleanup
+- [x] Test isolation: Build TestDbCleaner with max-ID snapshot and per-suite cleanup
+- [x] Test isolation: Update all 4 DB-touching test files with beforeAll/afterAll hooks
+- [x] Test isolation: Verify zero test data leaks after full test run (all tables at 0 rows)
+- [x] Test isolation: Fix 3 flaky test assertions (race conditions in side-effects and chat tests)
+- [x] All 1021 tests passing across 27 test files, zero TypeScript errors, zero DB leaks

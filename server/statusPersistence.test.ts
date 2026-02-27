@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeAll } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   persistScanResults,
   getAllReceiverStatuses,
@@ -10,6 +10,11 @@ import {
 import { getDb } from "./db";
 import { receivers, scanCycles, receiverStatusHistory } from "../drizzle/schema";
 import { eq, sql } from "drizzle-orm";
+import { dbCleaner } from "./testDbCleaner";
+
+// ── Per-file DB cleanup ─────────────────────────────────────────
+beforeAll(async () => { await dbCleaner.snapshot(); });
+afterAll(async () => { await dbCleaner.cleanup(); });
 
 /**
  * These tests require a live database connection (DATABASE_URL env var).

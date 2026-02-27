@@ -1,0 +1,50 @@
+{
+  "query": "SELECT 'tdoa_targets' as tbl, COUNT(*) as cnt FROM tdoa_targets UNION ALL SELECT 'tdoa_target_history', COUNT(*) FROM tdoa_target_history UNION ALL SELECT 'anomaly_alerts', COUNT(*) FROM anomaly_alerts UNION ALL SELECT 'geofence_alerts', COUNT(*) FROM geofence_alerts UNION ALL SELECT 'geofence_zones', COUNT(*) FROM geofence_zones UNION ALL SELECT 'signal_fingerprints', COUNT(*) FROM signal_fingerprints UNION ALL SELECT 'shared_target_lists', COUNT(*) FROM shared_target_lists UNION ALL SELECT 'chat_messages', COUNT(*) FROM chat_messages UNION ALL SELECT 'saved_queries', COUNT(*) FROM saved_queries UNION ALL SELECT 'briefings', COUNT(*) FROM briefings;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3xenzgJ3NGNThF2.2d7d812ed0e5 --database 8ixynDjhKaWGr2C97gbZUT --execute SELECT 'tdoa_targets' as tbl, COUNT(*) as cnt FROM tdoa_targets UNION ALL SELECT 'tdoa_target_history', COUNT(*) FROM tdoa_target_history UNION ALL SELECT 'anomaly_alerts', COUNT(*) FROM anomaly_alerts UNION ALL SELECT 'geofence_alerts', COUNT(*) FROM geofence_alerts UNION ALL SELECT 'geofence_zones', COUNT(*) FROM geofence_zones UNION ALL SELECT 'signal_fingerprints', COUNT(*) FROM signal_fingerprints UNION ALL SELECT 'shared_target_lists', COUNT(*) FROM shared_target_lists UNION ALL SELECT 'chat_messages', COUNT(*) FROM chat_messages UNION ALL SELECT 'saved_queries', COUNT(*) FROM saved_queries UNION ALL SELECT 'briefings', COUNT(*) FROM briefings;",
+  "rows": [
+    {
+      "tbl": "tdoa_target_history",
+      "cnt": "0"
+    },
+    {
+      "tbl": "geofence_zones",
+      "cnt": "0"
+    },
+    {
+      "tbl": "tdoa_targets",
+      "cnt": "0"
+    },
+    {
+      "tbl": "signal_fingerprints",
+      "cnt": "0"
+    },
+    {
+      "tbl": "geofence_alerts",
+      "cnt": "0"
+    },
+    {
+      "tbl": "anomaly_alerts",
+      "cnt": "0"
+    },
+    {
+      "tbl": "chat_messages",
+      "cnt": "0"
+    },
+    {
+      "tbl": "shared_target_lists",
+      "cnt": "0"
+    },
+    {
+      "tbl": "saved_queries",
+      "cnt": "0"
+    },
+    {
+      "tbl": "briefings",
+      "cnt": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "tbl\tcnt\ntdoa_target_history\t0\ngeofence_zones\t0\ntdoa_targets\t0\nsignal_fingerprints\t0\ngeofence_alerts\t0\nanomaly_alerts\t0\nchat_messages\t0\nshared_target_lists\t0\nsaved_queries\t0\nbriefings\t0\n",
+  "stderr": "",
+  "execution_time_ms": 70
+}
