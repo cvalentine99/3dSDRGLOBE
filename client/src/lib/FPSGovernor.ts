@@ -86,7 +86,17 @@ export interface FPSGovernorCallbacks {
 export class FPSGovernor {
   private frameTimes: number[] = [];
   private lastFrameTime = 0;
-  private currentLevel: QualityLevel = "QUALITY_HIGH";
+  private currentLevel: QualityLevel;
+  private static detectInitialLevel(): QualityLevel {
+    // Start at MED on mobile, low-core, or low-memory devices to avoid initial frame drops
+    if (typeof navigator !== "undefined") {
+      const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+      const lowCores = (navigator.hardwareConcurrency || 4) <= 4;
+      const lowMemory = (navigator as any).deviceMemory !== undefined && (navigator as any).deviceMemory <= 4;
+      if (isMobile || (lowCores && lowMemory)) return "QUALITY_MED";
+    }
+    return "QUALITY_HIGH";
+  }
   private callbacks: FPSGovernorCallbacks;
   private aboveRestoredSince = 0;
   private lastUpgradeTime = 0;
@@ -98,6 +108,7 @@ export class FPSGovernor {
 
   constructor(callbacks: FPSGovernorCallbacks) {
     this.callbacks = callbacks;
+    this.currentLevel = FPSGovernor.detectInitialLevel();
     this.lastFrameTime = performance.now();
 
     // Check for debug HUD activation via ?debug=perf or localStorage

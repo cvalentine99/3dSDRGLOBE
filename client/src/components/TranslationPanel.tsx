@@ -1,26 +1,28 @@
 /**
  * TranslationPanel.tsx — Live radio translation overlay
- * Captures audio from the browser tab, sends chunks to the Whisper API,
- * and displays rolling English subtitles.
+ *
+ * Server-side architecture:
+ *   1. User clicks Start → frontend calls POST /api/translate/start with receiver host/port/freq
+ *   2. Server connects directly to KiwiSDR WebSocket, captures PCM audio
+ *   3. Every 15s, server sends audio chunk to Whisper API
+ *   4. Results stream back to frontend via SSE (Server-Sent Events)
+ *   5. No browser audio permissions needed — all audio capture is server-side
  *
  * Modes:
+ *   - Dual: Side-by-side original transcription + English translation
  *   - Translate: Foreign audio → English text only
  *   - Transcribe: Audio → same-language text only
- *   - Dual: Side-by-side original transcription + English translation
- *
- * Double-buffer approach (mirrors translate.py):
- *   Records chunk N+1 while the server translates chunk N.
  *
  * Design: "Ether" — frosted glass with monospace transcript
  */
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Languages, Mic, Square, Settings2,
-  ChevronDown, Clock, Loader2, AlertCircle,
+  Languages, Radio, Square, Settings2,
+  ChevronDown, Loader2, AlertCircle,
   Copy, Check, Trash2, Columns2, AlignLeft,
+  Wifi, WifiOff,
 } from "lucide-react";
-import { trpc } from "@/lib/trpc";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 interface TranslationEntry {
@@ -32,16 +34,12 @@ interface TranslationEntry {
   duration: number;
   processingTimeMs: number;
   timestamp: number;                // wall-clock ms
-  segments: { start: number; end: number; text: string }[];
-  originalSegments?: { start: number; end: number; text: string }[] | null;
-  task: string;
   isEnglishSource?: boolean;
 }
 
-type TranslationMode = "translate" | "transcribe" | "dual";
+type TranslationMode = "dual" | "translate" | "transcribe";
 
 // ── Constants ───────────────────────────────────────────────────────────────
-const CHUNK_DURATION_MS = 20_000; // 20 seconds per chunk
 const MAX_HISTORY = 100;
 
 // Language name lookup
@@ -58,238 +56,222 @@ const LANG_NAMES: Record<string, string> = {
 // ── Component ───────────────────────────────────────────────────────────────
 interface TranslationPanelProps {
   stationLabel?: string;
+  receiverUrl?: string;        // e.g. "http://kiwisdr.example.com:8073"
+  frequencyKhz?: number;       // current tuned frequency
+  sdrMode?: string;            // current modulation mode
   isVisible: boolean;
   onClose: () => void;
 }
 
-export default function TranslationPanel({ stationLabel, isVisible, onClose }: TranslationPanelProps) {
+export default function TranslationPanel({
+  stationLabel,
+  receiverUrl,
+  frequencyKhz,
+  sdrMode,
+  isVisible,
+  onClose,
+}: TranslationPanelProps) {
   // State
-  const [isRecording, setIsRecording] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [mode, setMode] = useState<TranslationMode>("dual");
-  const [sourceLanguage, setSourceLanguage] = useState<string>(""); // empty = auto-detect
+  const [sourceLanguage, setSourceLanguage] = useState<string>("");
   const [history, setHistory] = useState<TranslationEntry[]>([]);
-  const [currentText, setCurrentText] = useState<string>("");
+  const [statusText, setStatusText] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [chunkCount, setChunkCount] = useState(0);
 
   // Refs
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const chunkIndexRef = useRef(0);
-  const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-
-  // tRPC mutations
-  const translateMutation = trpc.translation.translateChunk.useMutation();
-  const transcribeMutation = trpc.translation.transcribeChunk.useMutation();
-  const dualMutation = trpc.translation.dualTranslateChunk.useMutation();
 
   // Auto-scroll to bottom when new entries arrive
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [history, currentText]);
+  }, [history, statusText]);
 
   // Clean up on unmount
   useEffect(() => {
     return () => {
-      stopRecording();
+      stopTranslation();
     };
   }, []);
 
-  // ── Audio capture ─────────────────────────────────────────────────────────
-  const startRecording = useCallback(async () => {
+  // ── Extract host/port from receiver URL ──────────────────────────────────
+  function parseReceiverUrl(url: string): { host: string; port: number } | null {
     try {
-      setError(null);
+      const parsed = new URL(url);
+      const host = parsed.hostname;
+      const port = parsed.port ? parseInt(parsed.port) : 8073; // KiwiSDR default
+      return { host, port };
+    } catch {
+      return null;
+    }
+  }
 
-      // Use getDisplayMedia to capture tab audio (the radio stream)
-      let stream: MediaStream;
-      try {
-        stream = await navigator.mediaDevices.getDisplayMedia({
-          audio: true,
-          video: false,
-        });
-      } catch {
-        // Fallback: microphone
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: false,
-              noiseSuppression: false,
-              autoGainControl: false,
-            },
-          });
-          setError("Using microphone input — for best results, share your browser tab audio.");
-        } catch {
-          setError("No audio source available. Please allow microphone or tab audio sharing.");
-          return;
-        }
-      }
+  // ── Start server-side translation ────────────────────────────────────────
+  const startTranslation = useCallback(async () => {
+    if (!receiverUrl) {
+      setError("No receiver URL available. Select a KiwiSDR station first.");
+      return;
+    }
 
-      streamRef.current = stream;
+    const parsed = parseReceiverUrl(receiverUrl);
+    if (!parsed) {
+      setError("Invalid receiver URL. Cannot extract host/port.");
+      return;
+    }
 
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : MediaRecorder.isTypeSupported("audio/webm")
-          ? "audio/webm"
-          : "audio/ogg";
+    setError(null);
+    setIsConnecting(true);
+    setStatusText("Connecting to server...");
 
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType,
-        audioBitsPerSecond: 64000,
+    // Abort any existing connection
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    try {
+      const response = await fetch("/api/translate/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          host: parsed.host,
+          port: parsed.port,
+          frequencyKhz: frequencyKhz || 7200,
+          mode: sdrMode || "am",
+          language: sourceLanguage || undefined,
+          dualMode: mode === "dual",
+        }),
+        signal: abortController.signal,
       });
 
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-      chunkIndexRef.current = 0;
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errData.error || `Server error ${response.status}`);
+      }
 
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
+      setIsConnected(true);
+      setIsConnecting(false);
 
-      mediaRecorder.start(1000);
-      setIsRecording(true);
-      setChunkCount(0);
+      // Read SSE stream
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No response stream");
 
-      recordingIntervalRef.current = setInterval(() => {
-        processCurrentChunk();
-      }, CHUNK_DURATION_MS);
+      const decoder = new TextDecoder();
+      let buffer = "";
 
-    } catch (err) {
-      console.error("[Translation] Failed to start recording:", err);
-      setError(`Failed to start audio capture: ${err instanceof Error ? err.message : "Unknown error"}`);
-    }
-  }, [mode, sourceLanguage]);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-    }
-    mediaRecorderRef.current = null;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || ""; // Keep incomplete line in buffer
 
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (!jsonStr) continue;
 
-    if (recordingIntervalRef.current) {
-      clearInterval(recordingIntervalRef.current);
-      recordingIntervalRef.current = null;
-    }
-
-    if (audioChunksRef.current.length > 0) {
-      processCurrentChunk();
-    }
-
-    setIsRecording(false);
-  }, []);
-
-  const processCurrentChunk = useCallback(async () => {
-    const chunks = audioChunksRef.current;
-    audioChunksRef.current = [];
-
-    if (chunks.length === 0) return;
-
-    const blob = new Blob(chunks, { type: chunks[0].type });
-    if (blob.size < 1000) return;
-
-    const chunkIdx = chunkIndexRef.current++;
-    setChunkCount((c) => c + 1);
-    setIsProcessing(true);
-    setCurrentText(mode === "dual" ? "Transcribing & translating..." : "Processing...");
-
-    try {
-      const arrayBuffer = await blob.arrayBuffer();
-      const base64 = btoa(
-        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), ""),
-      );
-      const mimeType = blob.type || "audio/webm";
-
-      if (mode === "dual") {
-        // Dual mode: parallel transcription + translation
-        const result = await dualMutation.mutateAsync({
-          audioBase64: base64,
-          mimeType,
-          language: sourceLanguage || undefined,
-          chunkIndex: chunkIdx,
-          stationLabel,
-        });
-
-        const hasContent =
-          (result.original?.text && result.original.text.trim()) ||
-          (result.translated?.text && result.translated.text.trim());
-
-        if (hasContent) {
-          const entry: TranslationEntry = {
-            id: `${Date.now()}-${chunkIdx}`,
-            chunkIndex: result.chunkIndex,
-            text: result.translated?.text || result.original?.text || "",
-            originalText: result.original?.text || null,
-            detectedLanguage: result.detectedLanguage,
-            duration: result.duration,
-            processingTimeMs: result.processingTimeMs,
-            timestamp: Date.now(),
-            segments: result.translated?.segments || [],
-            originalSegments: result.original?.segments || null,
-            task: result.translated?.task || "dual",
-            isEnglishSource: result.isEnglishSource,
-          };
-
-          setHistory((prev) => [...prev, entry].slice(-MAX_HISTORY));
-          setCurrentText("");
-        } else {
-          setCurrentText("(no speech detected)");
-          setTimeout(() => setCurrentText(""), 2000);
-        }
-      } else {
-        // Single mode: translate or transcribe
-        const mutation = mode === "translate" ? translateMutation : transcribeMutation;
-        const result = await mutation.mutateAsync({
-          audioBase64: base64,
-          mimeType,
-          language: sourceLanguage || undefined,
-          chunkIndex: chunkIdx,
-          ...(mode === "translate" ? { stationLabel } : {}),
-        });
-
-        if (result.text && result.text.trim()) {
-          const entry: TranslationEntry = {
-            id: `${Date.now()}-${chunkIdx}`,
-            chunkIndex: result.chunkIndex,
-            text: result.text,
-            originalText: null,
-            detectedLanguage: result.detectedLanguage,
-            duration: result.duration,
-            processingTimeMs: result.processingTimeMs,
-            timestamp: Date.now(),
-            segments: result.segments,
-            originalSegments: null,
-            task: result.task,
-          };
-
-          setHistory((prev) => [...prev, entry].slice(-MAX_HISTORY));
-          setCurrentText("");
-        } else {
-          setCurrentText("(no speech detected)");
-          setTimeout(() => setCurrentText(""), 2000);
+          try {
+            const event = JSON.parse(jsonStr);
+            handleSSEEvent(event);
+          } catch {
+            // Ignore malformed events
+          }
         }
       }
-    } catch (err) {
-      console.error("[Translation] Chunk processing failed:", err);
-      setCurrentText("");
-      setError(`Translation failed: ${err instanceof Error ? err.message : "Unknown error"}`);
-      setTimeout(() => setError(null), 5000);
-    } finally {
-      setIsProcessing(false);
+
+      // Stream ended
+      setIsConnected(false);
+      setStatusText("");
+    } catch (err: any) {
+      if (err.name === "AbortError") return; // User stopped
+      console.error("[TranslationPanel] Connection error:", err);
+      setError(err.message || "Connection failed");
+      setIsConnected(false);
+      setIsConnecting(false);
+      setStatusText("");
     }
-  }, [mode, sourceLanguage, stationLabel, translateMutation, transcribeMutation, dualMutation]);
+  }, [receiverUrl, frequencyKhz, sdrMode, mode, sourceLanguage]);
+
+  // ── Handle SSE events ────────────────────────────────────────────────────
+  const handleSSEEvent = useCallback((event: { type: string; data: any }) => {
+    switch (event.type) {
+      case "status":
+        setStatusText(typeof event.data === "string" ? event.data : "");
+        break;
+
+      case "translation": {
+        const chunk = event.data;
+        setChunkCount((c) => c + 1);
+        setStatusText("");
+
+        const originalText = chunk.original?.text || null;
+        const translatedText = chunk.translated?.text || null;
+        const primaryText = translatedText || originalText || "";
+
+        if (!primaryText.trim()) {
+          setStatusText("(no speech detected)");
+          setTimeout(() => setStatusText(""), 2000);
+          break;
+        }
+
+        const entry: TranslationEntry = {
+          id: `${Date.now()}-${chunk.chunkIndex}`,
+          chunkIndex: chunk.chunkIndex,
+          text: primaryText,
+          originalText: originalText,
+          detectedLanguage: chunk.detectedLanguage || "unknown",
+          duration: chunk.duration || 0,
+          processingTimeMs: chunk.processingTimeMs || 0,
+          timestamp: Date.now(),
+          isEnglishSource: chunk.isEnglishSource,
+        };
+
+        setHistory((prev) => [...prev, entry].slice(-MAX_HISTORY));
+        break;
+      }
+
+      case "error":
+        setError(typeof event.data === "string" ? event.data : "Translation error");
+        setTimeout(() => setError(null), 8000);
+        break;
+
+      case "done":
+        setIsConnected(false);
+        setStatusText("Session ended");
+        setTimeout(() => setStatusText(""), 3000);
+        break;
+    }
+  }, []);
+
+  // ── Stop translation ─────────────────────────────────────────────────────
+  const stopTranslation = useCallback(async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
+    setIsConnected(false);
+    setIsConnecting(false);
+    setStatusText("");
+
+    // Also tell the server to stop
+    try {
+      await fetch("/api/translate/stop", { method: "POST" });
+    } catch {
+      // Ignore — server may already be stopped
+    }
+  }, []);
 
   // Copy text to clipboard
   const copyText = useCallback((id: string, text: string) => {
@@ -318,7 +300,6 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
   // Clear history
   const clearHistory = useCallback(() => {
     setHistory([]);
-    setCurrentText("");
     setChunkCount(0);
   }, []);
 
@@ -328,6 +309,10 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
 
   // Panel width: wider in dual mode for side-by-side
   const panelWidth = mode === "dual" ? "w-[620px]" : "w-[420px]";
+
+  // Parse receiver info for display
+  const receiverInfo = receiverUrl ? parseReceiverUrl(receiverUrl) : null;
+  const isKiwiSDR = receiverUrl?.includes("8073") || receiverUrl?.toLowerCase().includes("kiwi");
 
   return (
     <AnimatePresence>
@@ -345,13 +330,13 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
             <span className="text-sm font-medium text-foreground">
               {mode === "dual" ? "Dual Translation" : mode === "translate" ? "Live Translation" : "Transcription"}
             </span>
-            {isRecording && (
+            {isConnected && (
               <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-[10px] font-mono text-red-400">LIVE</span>
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-[10px] font-mono text-green-400">LIVE</span>
               </span>
             )}
-            {isProcessing && (
+            {isConnecting && (
               <Loader2 className="w-3 h-3 text-cyan-400 animate-spin" />
             )}
           </div>
@@ -409,32 +394,35 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
                   <div className="flex rounded-lg overflow-hidden border border-border">
                     <button
                       onClick={() => setMode("dual")}
+                      disabled={isConnected}
                       className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono transition-all ${
                         mode === "dual"
                           ? "bg-primary/20 text-primary"
                           : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
-                      }`}
+                      } ${isConnected ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       <Columns2 className="w-3 h-3" />
                       Dual
                     </button>
                     <button
                       onClick={() => setMode("translate")}
+                      disabled={isConnected}
                       className={`px-3 py-1.5 text-xs font-mono transition-all ${
                         mode === "translate"
                           ? "bg-primary/20 text-primary"
                           : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
-                      }`}
+                      } ${isConnected ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       Translate → EN
                     </button>
                     <button
                       onClick={() => setMode("transcribe")}
+                      disabled={isConnected}
                       className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono transition-all ${
                         mode === "transcribe"
                           ? "bg-primary/20 text-primary"
                           : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
-                      }`}
+                      } ${isConnected ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       <AlignLeft className="w-3 h-3" />
                       Transcribe
@@ -448,7 +436,8 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
                   <select
                     value={sourceLanguage}
                     onChange={(e) => setSourceLanguage(e.target.value)}
-                    className="flex-1 px-3 py-1.5 text-xs font-mono bg-foreground/5 border border-border rounded-lg text-foreground appearance-none cursor-pointer"
+                    disabled={isConnected}
+                    className="flex-1 px-3 py-1.5 text-xs font-mono bg-foreground/5 border border-border rounded-lg text-foreground appearance-none cursor-pointer disabled:opacity-50"
                   >
                     <option value="">Auto-detect</option>
                     {Object.entries(LANG_NAMES).map(([code, name]) => (
@@ -457,11 +446,15 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
                   </select>
                 </div>
 
-                {/* Info */}
-                <p className="text-[10px] text-muted-foreground/60 font-mono">
-                  Chunks: {CHUNK_DURATION_MS / 1000}s • Processed: {chunkCount} • Buffer: double
-                  {mode === "dual" && " • Parallel: transcribe + translate"}
-                </p>
+                {/* Connection info */}
+                <div className="text-[10px] text-muted-foreground/60 font-mono space-y-0.5">
+                  <p>
+                    Server-side audio capture via KiwiSDR WebSocket
+                    {receiverInfo && ` → ${receiverInfo.host}:${receiverInfo.port}`}
+                  </p>
+                  <p>Chunks: 15s • Processed: {chunkCount} • Max session: 10 min</p>
+                  {mode === "dual" && <p>Parallel: transcribe + translate (Whisper API)</p>}
+                </div>
               </div>
             </motion.div>
           )}
@@ -473,7 +466,7 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
           className="flex-1 overflow-y-auto min-h-[120px] max-h-[40vh] px-4 py-3 space-y-3"
         >
           {/* Empty state */}
-          {history.length === 0 && !currentText && !isRecording && (
+          {history.length === 0 && !statusText && !isConnected && !isConnecting && (
             <div className="flex flex-col items-center justify-center h-full gap-3 py-8">
               <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
                 {mode === "dual" ? (
@@ -491,18 +484,38 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
                       : "Transcribe radio audio to text"}
                 </p>
                 <p className="text-[10px] text-muted-foreground/50 mt-1 font-mono">
-                  Press the microphone button to start capturing audio
+                  {!receiverUrl
+                    ? "Select a KiwiSDR station to enable translation"
+                    : !isKiwiSDR
+                      ? "Translation works best with KiwiSDR receivers"
+                      : `Ready to translate from ${receiverInfo?.host || "receiver"}`}
+                </p>
+                <p className="text-[10px] text-muted-foreground/30 mt-1 font-mono">
+                  Audio captured server-side — no microphone needed
                 </p>
               </div>
             </div>
           )}
 
-          {/* Recording waiting state */}
-          {history.length === 0 && !currentText && isRecording && (
+          {/* Connecting state */}
+          {isConnecting && history.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full gap-3 py-8">
               <Loader2 className="w-8 h-8 text-primary/50 animate-spin" />
               <p className="text-xs text-muted-foreground font-mono">
-                Recording... first {mode === "dual" ? "dual translation" : "result"} in ~{CHUNK_DURATION_MS / 1000}s
+                {statusText || "Connecting to KiwiSDR..."}
+              </p>
+            </div>
+          )}
+
+          {/* Recording waiting state */}
+          {isConnected && history.length === 0 && !statusText && (
+            <div className="flex flex-col items-center justify-center h-full gap-3 py-8">
+              <div className="relative">
+                <Wifi className="w-8 h-8 text-green-400/50" />
+                <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500 animate-pulse" />
+              </div>
+              <p className="text-xs text-muted-foreground font-mono">
+                Connected — first translation in ~15s
               </p>
             </div>
           )}
@@ -586,15 +599,15 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
             </motion.div>
           ))}
 
-          {/* Current processing indicator */}
-          {currentText && (
+          {/* Status text */}
+          {statusText && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="flex items-center gap-2 text-xs text-muted-foreground/70 font-mono"
             >
-              <Loader2 className="w-3 h-3 animate-spin" />
-              {currentText}
+              {isConnected && <Loader2 className="w-3 h-3 animate-spin" />}
+              {statusText}
             </motion.div>
           )}
         </div>
@@ -620,26 +633,38 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
         <div className="flex items-center justify-between px-4 py-3 border-t border-border">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-mono text-muted-foreground/50">
-              {mode === "dual" ? "Original + English" : mode === "translate" ? "→ English" : "Original"} •{" "}
-              {sourceLanguage ? LANG_NAMES[sourceLanguage] : "Auto"}
+              {isConnected ? (
+                <span className="flex items-center gap-1">
+                  <Wifi className="w-3 h-3 text-green-400" />
+                  {receiverInfo?.host}:{receiverInfo?.port} • {frequencyKhz || "?"} kHz
+                </span>
+              ) : (
+                <>
+                  {mode === "dual" ? "Original + English" : mode === "translate" ? "→ English" : "Original"} •{" "}
+                  {sourceLanguage ? LANG_NAMES[sourceLanguage] : "Auto"}
+                </>
+              )}
             </span>
           </div>
           <button
-            onClick={isRecording ? stopRecording : startRecording}
+            onClick={isConnected || isConnecting ? stopTranslation : startTranslation}
+            disabled={!receiverUrl && !isConnected}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-              isRecording
+              isConnected || isConnecting
                 ? "bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30"
-                : "bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30"
+                : !receiverUrl
+                  ? "bg-foreground/5 text-muted-foreground/30 border border-border cursor-not-allowed"
+                  : "bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30"
             }`}
           >
-            {isRecording ? (
+            {isConnected || isConnecting ? (
               <>
                 <Square className="w-4 h-4" />
                 Stop
               </>
             ) : (
               <>
-                <Mic className="w-4 h-4" />
+                <Radio className="w-4 h-4" />
                 Start
               </>
             )}

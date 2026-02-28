@@ -376,5 +376,17 @@
 - [x] Dual-language mode: Add toggle button in TranslationPanel header (single/dual display)
 - [x] Dual-language mode: Side-by-side UI with original text on left, English translation on right
 - [x] Dual-language mode: Vitest tests for dual-language endpoint (14 tests)
-- [ ] Push dual-language + live translation to GitHub
+- [x] Push dual-language + live translation to GitHub
 - [x] All 1055 tests passing across 28 test files, zero TypeScript errors, zero DB leaks
+
+## Critical Fixes — Feb 28 2026
+
+- [x] FIX: Rebuild Live Translation with server-side KiwiSDR WebSocket audio capture (no browser permissions)
+- [x] FIX: Remove keyboard shortcuts (? button) entirely
+- [x] FIX: Make Intel Analyst Chat public (no auth required), limit to 1 concurrent user
+- [x] FIX: GPS host list 500 error — add HTTPS CDN fallback for GPS host list
+- [x] FIX: Production 500/524 timeout errors — added HTTPS fallback for TDoA reference transmitters
+- [x] FIX: FPS — added mobile/low-power device detection to start at QUALITY_MED instead of QUALITY_HIGH
+- [x] Write tests for all fixes (26 new tests: 11 chat concurrency, 11 live translator, 4 GPS fallback)
+- [ ] Push all fixes to GitHub
+- [x] All 1079 tests passing across 31 test files (2 flaky external UCDP API tests excluded)

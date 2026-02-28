@@ -780,6 +780,9 @@ export default function AudioPlayer() {
         {/* Translation panel overlay */}
         <TranslationPanel
           stationLabel={selectedStation?.label}
+          receiverUrl={selectedReceiver?.url}
+          frequencyKhz={tuneParams?.frequencyKhz}
+          sdrMode={tuneParams?.mode}
           isVisible={showTranslation}
           onClose={() => setShowTranslation(false)}
         />

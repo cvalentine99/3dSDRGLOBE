@@ -62,16 +62,27 @@ async function startServer() {
   // SSE streaming endpoint for chat
   app.post("/api/chat/stream", async (req, res) => {
     try {
-      // Authenticate user from cookie
+      // Try to authenticate, but allow anonymous access
       const { sdk } = await import("./sdk");
-      const user = await sdk.authenticateRequest(req);
-      if (!user) {
-        return res.status(401).json({ error: "Unauthorized" });
+      let sessionId = "anon";
+      try {
+        const user = await sdk.authenticateRequest(req);
+        if (user) sessionId = user.openId;
+      } catch {
+        // Anonymous access — use "anon" session
       }
 
       const { message } = req.body;
       if (!message || typeof message !== "string" || message.length > 4000) {
         return res.status(400).json({ error: "Invalid message" });
+      }
+
+      // Check concurrency lock — 1 user at a time
+      const { acquireLock, releaseLock } = await import("../routers/chat");
+      if (!acquireLock(sessionId)) {
+        return res.status(429).json({
+          error: "The Intelligence Analyst is currently assisting another user. Please wait a moment and try again.",
+        });
       }
 
       // Set SSE headers
@@ -83,10 +94,10 @@ async function startServer() {
 
       // Save user message to DB
       const { loadHistory, saveMessage } = await import("../routers/chat");
-      await saveMessage(user.openId, "user", message);
+      await saveMessage(sessionId, "user", message);
 
       // Load conversation history
-      const history = await loadHistory(user.openId);
+      const history = await loadHistory(sessionId);
 
       // Process through streaming RAG engine
       const { processChatStreaming } = await import("../ragEngine");
@@ -111,18 +122,101 @@ async function startServer() {
         });
       }
 
-      await saveMessage(user.openId, "assistant", fullResponse, globeActions);
+      await saveMessage(sessionId, "assistant", fullResponse, globeActions);
 
+      releaseLock(sessionId);
       res.write("data: [DONE]\n\n");
       res.end();
     } catch (err) {
       console.error("[SSE Chat] Error:", err);
+      // Release lock on error
+      try {
+        const { releaseLock } = await import("../routers/chat");
+        releaseLock("anon");
+      } catch { /* ignore */ }
       if (!res.headersSent) {
         res.status(500).json({ error: "Internal server error" });
       } else {
         res.write(`data: ${JSON.stringify({ type: "error", data: "An error occurred during processing." })}\n\n`);
         res.end();
       }
+    }
+  });
+
+  // ── Live Translation SSE endpoints ────────────────────────────
+  // Start a server-side KiwiSDR audio capture + Whisper translation session
+  app.post("/api/translate/start", async (req, res) => {
+    try {
+      const { host, port: sdrPort, frequencyKhz, mode, language, dualMode } = req.body;
+      if (!host || !sdrPort || !frequencyKhz) {
+        return res.status(400).json({ error: "Missing required fields: host, port, frequencyKhz" });
+      }
+
+      const { isTranslationActive } = await import("../liveTranslator");
+      if (isTranslationActive()) {
+        return res.status(429).json({ error: "A translation session is already active. Stop it first." });
+      }
+
+      // Set SSE headers
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("X-Accel-Buffering", "no");
+      res.flushHeaders();
+
+      const { startLiveTranslation } = await import("../liveTranslator");
+      const session = startLiveTranslation(
+        { host, port: Number(sdrPort), frequencyKhz: Number(frequencyKhz), mode, language, dualMode: dualMode !== false },
+        (event) => {
+          try {
+            res.write(`data: ${JSON.stringify(event)}\n\n`);
+            if (event.type === "done") {
+              res.end();
+            }
+          } catch { /* client disconnected */ }
+        },
+      );
+
+      // If client disconnects, stop the session
+      req.on("close", () => {
+        session.stop();
+      });
+    } catch (err) {
+      console.error("[LiveTranslate] Start error:", err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to start translation" });
+      }
+    }
+  });
+
+  // Stop the active translation session
+  app.post("/api/translate/stop", async (_req, res) => {
+    const { getActiveSession } = await import("../liveTranslator");
+    const session = getActiveSession();
+    if (session) {
+      session.stop();
+      res.json({ success: true, message: "Session stopped" });
+    } else {
+      res.json({ success: true, message: "No active session" });
+    }
+  });
+
+  // Check translation session status
+  app.get("/api/translate/status", async (_req, res) => {
+    const { getActiveSession } = await import("../liveTranslator");
+    const session = getActiveSession();
+    if (session) {
+      res.json({
+        active: true,
+        host: session.host,
+        port: session.port,
+        frequencyKhz: session.frequencyKhz,
+        mode: session.mode,
+        startedAt: session.startedAt,
+        runningSec: Math.round((Date.now() - session.startedAt) / 1000),
+      });
+    } else {
+      res.json({ active: false });
     }
   });
 

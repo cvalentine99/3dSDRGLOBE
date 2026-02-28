@@ -40,9 +40,11 @@ function createAuthContext(overrides?: Partial<AuthenticatedUser>): TrpcContext 
 
 describe("chat router", () => {
   describe("chat.getHistory", () => {
-    it("requires authentication", async () => {
+    it("is publicly accessible (no auth required)", async () => {
       const caller = appRouter.createCaller(createPublicContext());
-      await expect(caller.chat.getHistory()).rejects.toThrow();
+      const result = await caller.chat.getHistory();
+      expect(result).toBeDefined();
+      expect(result).toHaveProperty("messages");
     });
 
     it("returns chat history for authenticated user", async () => {
@@ -55,9 +57,10 @@ describe("chat router", () => {
   });
 
   describe("chat.clearHistory", () => {
-    it("requires authentication", async () => {
+    it("is publicly accessible (no auth required)", async () => {
       const caller = appRouter.createCaller(createPublicContext());
-      await expect(caller.chat.clearHistory()).rejects.toThrow();
+      const result = await caller.chat.clearHistory();
+      expect(result).toHaveProperty("success");
     });
 
     it("clears chat history for authenticated user", async () => {
@@ -72,9 +75,11 @@ describe("chat router", () => {
   });
 
   describe("chat.sendMessage", () => {
-    it("requires authentication", async () => {
+    it("is publicly accessible (no auth required)", async () => {
       const caller = appRouter.createCaller(createPublicContext());
-      await expect(caller.chat.sendMessage({ message: "test" })).rejects.toThrow();
+      const result = await caller.chat.sendMessage({ message: "test" });
+      expect(result).toBeDefined();
+      expect(result).toHaveProperty("response");
     });
 
     it("rejects empty messages", async () => {
@@ -1052,8 +1057,9 @@ describe("cross-router integration", () => {
     expect(authMe).toBeDefined();
     expect(authMe?.openId).toBe("e2e-test-user-3");
 
-    // Protected endpoints should fail for public
-    await expect(publicCaller.chat.getHistory()).rejects.toThrow();
+    // Chat is now public, but savedQueries and briefings still require auth
+    const chatResult = await publicCaller.chat.getHistory();
+    expect(chatResult).toBeDefined();
     await expect(publicCaller.savedQueries.list()).rejects.toThrow();
     await expect(publicCaller.briefings.list()).rejects.toThrow();
   });

@@ -11,9 +11,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
-import { useAuth } from "@/_core/hooks/useAuth";
 import { useRadio } from "@/contexts/RadioContext";
-import { getLoginUrl } from "@/const";
 import { motion, AnimatePresence } from "framer-motion";
 import { Streamdown } from "streamdown";
 import {
@@ -25,7 +23,7 @@ import {
   User,
   Minimize2,
   Maximize2,
-  AlertTriangle,
+
   Sparkles,
   MapPin,
   Radio,
@@ -149,7 +147,7 @@ const SUGGESTED_QUERIES = [
 // ── Main Component ───────────────────────────────────────────────
 
 export default function IntelChat() {
-  const { isAuthenticated } = useAuth();
+  // Chat is now public — no auth required
   const { setGlobeTarget, filteredStations, setHighlightedStationLabel, overlayToggles } = useRadio();
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -167,7 +165,7 @@ export default function IntelChat() {
   // tRPC queries
   const clearHistory = trpc.chat.clearHistory.useMutation();
   const historyQuery = trpc.chat.getHistory.useQuery(undefined, {
-    enabled: isAuthenticated && isOpen,
+    enabled: isOpen,
     refetchOnWindowFocus: false,
   });
 
@@ -676,20 +674,7 @@ export default function IntelChat() {
 
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 scrollbar-thin">
-              {!isAuthenticated ? (
-                <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
-                  <AlertTriangle className="w-8 h-8 text-amber-400/60" />
-                  <p className="text-sm text-cyan-300/60">
-                    Authentication required to use the Intelligence Analyst.
-                  </p>
-                  <a
-                    href={getLoginUrl()}
-                    className="text-xs text-cyan-400 hover:text-cyan-300 underline"
-                  >
-                    Sign in to continue
-                  </a>
-                </div>
-              ) : messages.length === 0 && !isLoading ? (
+              {messages.length === 0 && !isLoading ? (
                 <div className="flex flex-col h-full">
                   {/* Welcome */}
                   <div className="flex-1 flex flex-col items-center justify-center gap-4">
@@ -768,8 +753,7 @@ export default function IntelChat() {
             />
 
             {/* Input Area */}
-            {isAuthenticated && (
-              <div
+            <div
                 className="shrink-0 px-3 py-2"
                 style={{
                   borderTop: "1px solid rgba(0, 200, 255, 0.1)",
@@ -816,7 +800,6 @@ export default function IntelChat() {
                   Shift+Enter for new line • Enter to send
                 </p>
               </div>
-            )}
           </motion.div>
         )}
       </AnimatePresence>

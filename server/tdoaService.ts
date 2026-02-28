@@ -11,7 +11,11 @@ import { ENV } from "./_core/env";
 
 const TDOA_BASE = "http://tdoa.kiwisdr.com";
 const GPS_HOSTS_URL = `${TDOA_BASE}/tdoa/files/kiwi.gps.json`;
+// HTTPS fallback for production environments that block outbound HTTP
+const GPS_HOSTS_FALLBACK_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663252172531/8ixynDjhKaWGr2C97gbZUT/kiwi_gps_hosts_0fdfd59e.json";
 const REFS_URL = `${TDOA_BASE}/tdoa/refs.cjson`;
+// Increase refs cache to 2 hours since refs rarely change
+const REFS_CACHE_EXTENDED_TTL = 2 * 60 * 60 * 1000;
 const SUBMIT_URL = `${TDOA_BASE}/php/tdoa.php`;
 const FILES_BASE = `${TDOA_BASE}/tdoa/files`;
 
@@ -121,17 +125,31 @@ export async function getGpsHosts(): Promise<GpsHost[]> {
     return gpsHostsCache.data;
   }
 
-  try {
-    const resp = await axios.get(GPS_HOSTS_URL, { timeout: 15000 });
-    const hosts: GpsHost[] = resp.data;
-    gpsHostsCache = { data: hosts, fetchedAt: Date.now() };
-    console.log(`[TDoA] Fetched ${hosts.length} GPS-active hosts`);
-    return hosts;
-  } catch (err: any) {
-    console.error("[TDoA] Failed to fetch GPS hosts:", err.message);
-    if (gpsHostsCache) return gpsHostsCache.data;
-    throw new Error("Failed to fetch GPS host list");
+  // Try primary HTTP source first, then HTTPS CDN fallback
+  const urls = [GPS_HOSTS_URL, GPS_HOSTS_FALLBACK_URL];
+  let lastError: any = null;
+
+  for (const url of urls) {
+    try {
+      const resp = await axios.get(url, { timeout: 25000 });
+      const hosts: GpsHost[] = resp.data;
+      if (Array.isArray(hosts) && hosts.length > 0) {
+        gpsHostsCache = { data: hosts, fetchedAt: Date.now() };
+        console.log(`[TDoA] Fetched ${hosts.length} GPS-active hosts from ${url.includes('cloudfront') ? 'CDN fallback' : 'primary'}`);
+        return hosts;
+      }
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`[TDoA] GPS hosts fetch failed from ${url.includes('cloudfront') ? 'CDN' : 'primary'}: ${err.message}`);
+    }
   }
+
+  // Return stale cache if available
+  if (gpsHostsCache) {
+    console.warn(`[TDoA] Using stale GPS hosts cache (${gpsHostsCache.data.length} hosts)`);
+    return gpsHostsCache.data;
+  }
+  throw new Error("Failed to fetch GPS host list");
 }
 
 /* ── Reference Transmitters ──────────────────────── */
@@ -142,7 +160,7 @@ export async function getRefTransmitters(): Promise<RefTransmitter[]> {
   }
 
   try {
-    const resp = await axios.get(REFS_URL, { timeout: 15000, responseType: "text" });
+    const resp = await axios.get(REFS_URL, { timeout: 25000, responseType: "text" });
     // refs.cjson is JSON with comments — strip them
     const cleaned = (resp.data as string)
       .replace(/\/\/.*$/gm, "")

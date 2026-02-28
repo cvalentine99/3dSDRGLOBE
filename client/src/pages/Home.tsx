@@ -41,7 +41,7 @@ import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 import type { SavedTargetData, DriftTrailEntry, PredictionData } from "@/components/TDoAGlobeOverlay";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import ShortcutHelpOverlay from "@/components/ShortcutHelpOverlay";
+
 import ThemeToggle from "@/components/ThemeToggle";
 import { useTheme } from "@/contexts/ThemeContext";
 import DirectorySourcesPanel from "@/components/DirectorySourcesPanel";
@@ -488,16 +488,6 @@ function HomeContent() {
         {/* Theme Toggle */}
         <ThemeToggle />
 
-        {/* Keyboard Shortcuts Help */}
-        <button
-          onClick={() => setHelpOpen(true)}
-          className="flex items-center justify-center w-9 h-9 rounded-lg bg-foreground/5 border border-border backdrop-blur-md hover:bg-foreground/10 hover:border-border transition-all group"
-          title="Keyboard shortcuts (?)"
-          aria-label="Keyboard shortcuts"
-        >
-          <span className="text-sm font-mono font-bold text-muted-foreground group-hover:text-foreground/80 transition-colors">?</span>
-        </button>
-
         {/* Separator */}
         <div className="w-px h-6 bg-border/50 mx-0.5" />
 
@@ -867,7 +857,7 @@ function HomeContent() {
           <p className="text-xs font-mono text-muted-foreground text-center drop-shadow-lg"
             style={{ textShadow: '0 1px 8px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5)' }}
           >
-            Select a target or search to begin reconnaissance · <span className="text-muted-foreground/50">↑↓ to browse · Enter to select · ? for shortcuts</span>
+            Select a target or search to begin reconnaissance · <span className="text-muted-foreground/50">↑↓ to browse · Enter to select</span>
           </p>
         </motion.div>
       )}
@@ -881,12 +871,7 @@ function HomeContent() {
       {/* Station List Sidebar */}
       <StationList />
 
-      {/* Keyboard Shortcuts Help Overlay */}
-      <ShortcutHelpOverlay
-        isOpen={helpOpen}
-        onClose={() => setHelpOpen(false)}
-        shortcuts={shortcuts}
-      />
+
       {/* HybridRAG Intelligence Chat */}
       <IntelChat />
     </div>
