@@ -362,4 +362,5 @@
 - [x] Security: Review and fix 4 Dependabot alerts (1 high, 2 moderate, 1 low)
 - [x] Security: Update vulnerable dependencies (vitest 4.0.18, AWS SDK 3.1000.0, pnpm overrides for rollup/esbuild/fast-xml-parser)
 - [x] Security: Verify tests pass after dependency updates (1021/1021)
-- [ ] Security: Push fixes to GitHub
+- [x] Security: Push fixes to GitHub
+- [x] Resolve @builder.io/vite-plugin-jsx-loc peer dependency warning (added peerDependencyRules allowedVersions)
