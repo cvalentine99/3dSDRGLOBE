@@ -372,3 +372,9 @@
 - [x] Live Translation: Add translation log/history with timestamps and chunk indices
 - [x] Live Translation: 20 vitest tests for translation router (translate, transcribe, size limits, error handling, fallback)
 - [x] All 1041 tests passing across 28 test files, zero TypeScript errors, zero DB leaks
+- [x] Dual-language mode: Add server-side endpoint that returns both original transcription and English translation per chunk
+- [x] Dual-language mode: Add toggle button in TranslationPanel header (single/dual display)
+- [x] Dual-language mode: Side-by-side UI with original text on left, English translation on right
+- [x] Dual-language mode: Vitest tests for dual-language endpoint (14 tests)
+- [ ] Push dual-language + live translation to GitHub
+- [x] All 1055 tests passing across 28 test files, zero TypeScript errors, zero DB leaks

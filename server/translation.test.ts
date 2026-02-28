@@ -468,3 +468,300 @@ describe("Translation Router", () => {
     });
   });
 });
+
+// ── Dual-language mode tests ─────────────────────────────────────────────────
+describe("dualTranslateChunk", () => {
+  let caller: ReturnType<typeof appRouter.createCaller>;
+
+  beforeAll(() => {
+    caller = appRouter.createCaller({
+      user: null,
+      req: { protocol: "https", headers: {}, get: () => "localhost" } as any,
+      res: { cookie: () => {}, clearCookie: () => {} } as any,
+    });
+  });
+
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  // Helper: set up fetch mock that returns different results for transcribe vs translate
+  function setupDualMock(opts: {
+    transcribeText?: string;
+    translateText?: string;
+    transcribeLang?: string;
+    translateLang?: string;
+    transcribeFail?: boolean;
+    translateFail?: boolean;
+  } = {}) {
+    const transcribeResp = mockWhisperResponse({
+      task: "transcribe",
+      language: opts.transcribeLang ?? "ru",
+      text: opts.transcribeText ?? "Привет мир, это радио Москва.",
+    });
+    const translateResp = mockWhisperResponse({
+      task: "translate",
+      language: opts.translateLang ?? "ru",
+      text: opts.translateText ?? "Hello world, this is Radio Moscow.",
+    });
+
+    mockFetch.mockImplementation(async (url: string | URL | Request) => {
+      const urlStr = typeof url === "string" ? url : url instanceof URL ? url.toString() : url.url;
+
+      // S3 audio download
+      if (urlStr.includes("s3.example.com")) {
+        return new Response(Buffer.alloc(1000, 0x42), {
+          status: 200,
+          headers: { "content-type": "audio/webm" },
+        });
+      }
+
+      // Whisper transcriptions endpoint
+      if (urlStr.includes("v1/audio/transcriptions")) {
+        if (opts.transcribeFail) {
+          return new Response("Server error", { status: 500 });
+        }
+        return new Response(JSON.stringify(transcribeResp), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+
+      // Whisper translations endpoint
+      if (urlStr.includes("v1/audio/translations")) {
+        if (opts.translateFail) {
+          return new Response("Server error", { status: 500 });
+        }
+        return new Response(JSON.stringify(translateResp), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+
+      return new Response("Not found", { status: 404 });
+    });
+
+    return { transcribeResp, translateResp };
+  }
+
+  it("returns both original and translated text for non-English audio", async () => {
+    setupDualMock();
+
+    const result = await caller.translation.dualTranslateChunk({
+      audioBase64: createTestAudioBase64(),
+      mimeType: "audio/webm",
+      chunkIndex: 0,
+      stationLabel: "Radio Moscow",
+    });
+
+    expect(result.original).not.toBeNull();
+    expect(result.translated).not.toBeNull();
+    expect(result.original!.text).toBe("Привет мир, это радио Москва.");
+    expect(result.translated!.text).toBe("Hello world, this is Radio Moscow.");
+    expect(result.detectedLanguage).toBe("ru");
+    expect(result.isEnglishSource).toBe(false);
+  });
+
+  it("returns chunkIndex and processingTimeMs", async () => {
+    setupDualMock();
+
+    const result = await caller.translation.dualTranslateChunk({
+      audioBase64: createTestAudioBase64(),
+      mimeType: "audio/webm",
+      chunkIndex: 7,
+    });
+
+    expect(result.chunkIndex).toBe(7);
+    expect(result.processingTimeMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("returns duration from the original transcription", async () => {
+    setupDualMock();
+
+    const result = await caller.translation.dualTranslateChunk({
+      audioBase64: createTestAudioBase64(),
+      mimeType: "audio/webm",
+      chunkIndex: 0,
+    });
+
+    expect(result.duration).toBe(20.5);
+  });
+
+  it("returns segments for both original and translated", async () => {
+    setupDualMock();
+
+    const result = await caller.translation.dualTranslateChunk({
+      audioBase64: createTestAudioBase64(),
+      mimeType: "audio/webm",
+      chunkIndex: 0,
+    });
+
+    expect(result.original!.segments).toHaveLength(2);
+    expect(result.translated!.segments).toHaveLength(2);
+    expect(result.original!.segments[0]).toHaveProperty("start");
+    expect(result.original!.segments[0]).toHaveProperty("end");
+    expect(result.original!.segments[0]).toHaveProperty("text");
+  });
+
+  it("sets isEnglishSource to true when detected language is English", async () => {
+    setupDualMock({
+      transcribeLang: "en",
+      translateLang: "en",
+      transcribeText: "Hello from London.",
+      translateText: "Hello from London.",
+    });
+
+    const result = await caller.translation.dualTranslateChunk({
+      audioBase64: createTestAudioBase64(),
+      mimeType: "audio/webm",
+      chunkIndex: 0,
+    });
+
+    expect(result.isEnglishSource).toBe(true);
+    expect(result.detectedLanguage).toBe("en");
+  });
+
+  it("calls both transcriptions and translations endpoints in parallel", async () => {
+    setupDualMock();
+
+    await caller.translation.dualTranslateChunk({
+      audioBase64: createTestAudioBase64(),
+      mimeType: "audio/webm",
+      chunkIndex: 0,
+    });
+
+    // Should have called S3 (1 upload fetch) + 2 Whisper endpoints
+    const whisperCalls = mockFetch.mock.calls.filter((call) => {
+      const urlStr = typeof call[0] === "string" ? call[0] : call[0]?.url ?? "";
+      return urlStr.includes("v1/audio/");
+    });
+    expect(whisperCalls.length).toBe(2);
+
+    const endpoints = whisperCalls.map((call) => {
+      const urlStr = typeof call[0] === "string" ? call[0] : call[0]?.url ?? "";
+      return urlStr;
+    });
+    expect(endpoints.some((u) => u.includes("transcriptions"))).toBe(true);
+    expect(endpoints.some((u) => u.includes("translations"))).toBe(true);
+  });
+
+  it("gracefully handles transcription failure (returns translation only)", async () => {
+    setupDualMock({ transcribeFail: true });
+
+    const result = await caller.translation.dualTranslateChunk({
+      audioBase64: createTestAudioBase64(),
+      mimeType: "audio/webm",
+      chunkIndex: 0,
+    });
+
+    // Transcription failed, but translation succeeded
+    expect(result.original).toBeNull();
+    expect(result.translated).not.toBeNull();
+    expect(result.translated!.text).toBe("Hello world, this is Radio Moscow.");
+  });
+
+  it("gracefully handles translation failure (returns original only)", async () => {
+    setupDualMock({ translateFail: true });
+
+    const result = await caller.translation.dualTranslateChunk({
+      audioBase64: createTestAudioBase64(),
+      mimeType: "audio/webm",
+      chunkIndex: 0,
+    });
+
+    // Translation failed, but transcription succeeded
+    expect(result.original).not.toBeNull();
+    expect(result.translated).toBeNull();
+    expect(result.original!.text).toBe("Привет мир, это радио Москва.");
+  });
+
+  it("throws when both transcription and translation fail", async () => {
+    setupDualMock({ transcribeFail: true, translateFail: true });
+
+    await expect(
+      caller.translation.dualTranslateChunk({
+        audioBase64: createTestAudioBase64(),
+        mimeType: "audio/webm",
+        chunkIndex: 0,
+      }),
+    ).rejects.toThrow(/Dual translation failed/);
+  });
+
+  it("rejects chunks larger than 16MB", async () => {
+    const largeBuf = Buffer.alloc(17 * 1024 * 1024, 0x42);
+
+    await expect(
+      caller.translation.dualTranslateChunk({
+        audioBase64: largeBuf.toString("base64"),
+        mimeType: "audio/webm",
+        chunkIndex: 0,
+      }),
+    ).rejects.toThrow(/too large/i);
+  });
+
+  it("passes language hint to both endpoints", async () => {
+    setupDualMock();
+
+    await caller.translation.dualTranslateChunk({
+      audioBase64: createTestAudioBase64(),
+      mimeType: "audio/webm",
+      language: "ru",
+      chunkIndex: 0,
+    });
+
+    // Both Whisper calls should include the language in the form data
+    const whisperCalls = mockFetch.mock.calls.filter((call) => {
+      const urlStr = typeof call[0] === "string" ? call[0] : call[0]?.url ?? "";
+      return urlStr.includes("v1/audio/");
+    });
+    expect(whisperCalls.length).toBe(2);
+  });
+
+  it("handles different languages for Arabic broadcast", async () => {
+    setupDualMock({
+      transcribeLang: "ar",
+      translateLang: "ar",
+      transcribeText: "مرحبا بالعالم",
+      translateText: "Hello world",
+    });
+
+    const result = await caller.translation.dualTranslateChunk({
+      audioBase64: createTestAudioBase64(),
+      mimeType: "audio/webm",
+      chunkIndex: 0,
+    });
+
+    expect(result.original!.text).toBe("مرحبا بالعالم");
+    expect(result.translated!.text).toBe("Hello world");
+    expect(result.detectedLanguage).toBe("ar");
+  });
+
+  it("handles mp3 mime type", async () => {
+    setupDualMock();
+
+    const result = await caller.translation.dualTranslateChunk({
+      audioBase64: createTestAudioBase64(),
+      mimeType: "audio/mp3",
+      chunkIndex: 0,
+    });
+
+    expect(result.original).not.toBeNull();
+    expect(result.translated).not.toBeNull();
+  });
+
+  it("uploads audio to S3 with dual- prefix in key", async () => {
+    const { storagePut } = await import("./storage");
+    setupDualMock();
+
+    await caller.translation.dualTranslateChunk({
+      audioBase64: createTestAudioBase64(),
+      mimeType: "audio/webm",
+      chunkIndex: 0,
+    });
+
+    // storagePut should have been called with a key containing "dual-"
+    expect(storagePut).toHaveBeenCalled();
+    const lastCall = (storagePut as any).mock.calls.at(-1);
+    expect(lastCall[0]).toContain("dual-");
+  });
+});

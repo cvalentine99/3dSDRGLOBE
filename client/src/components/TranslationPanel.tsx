@@ -3,17 +3,22 @@
  * Captures audio from the browser tab, sends chunks to the Whisper API,
  * and displays rolling English subtitles.
  *
+ * Modes:
+ *   - Translate: Foreign audio → English text only
+ *   - Transcribe: Audio → same-language text only
+ *   - Dual: Side-by-side original transcription + English translation
+ *
  * Double-buffer approach (mirrors translate.py):
  *   Records chunk N+1 while the server translates chunk N.
  *
  * Design: "Ether" — frosted glass with monospace transcript
  */
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Languages, Mic, MicOff, Square, Settings2,
-  ChevronDown, ChevronUp, Clock, Loader2, AlertCircle,
-  Volume2, Copy, Check, Trash2,
+  Languages, Mic, Square, Settings2,
+  ChevronDown, Clock, Loader2, AlertCircle,
+  Copy, Check, Trash2, Columns2, AlignLeft,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
@@ -21,16 +26,19 @@ import { trpc } from "@/lib/trpc";
 interface TranslationEntry {
   id: string;
   chunkIndex: number;
-  text: string;
+  text: string;                     // Primary text (translated or transcribed)
+  originalText?: string | null;     // Original-language text (dual mode only)
   detectedLanguage: string;
   duration: number;
   processingTimeMs: number;
-  timestamp: number; // wall-clock ms
+  timestamp: number;                // wall-clock ms
   segments: { start: number; end: number; text: string }[];
+  originalSegments?: { start: number; end: number; text: string }[] | null;
   task: string;
+  isEnglishSource?: boolean;
 }
 
-type TranslationMode = "translate" | "transcribe";
+type TranslationMode = "translate" | "transcribe" | "dual";
 
 // ── Constants ───────────────────────────────────────────────────────────────
 const CHUNK_DURATION_MS = 20_000; // 20 seconds per chunk
@@ -57,7 +65,7 @@ interface TranslationPanelProps {
 export default function TranslationPanel({ stationLabel, isVisible, onClose }: TranslationPanelProps) {
   // State
   const [isRecording, setIsRecording] = useState(false);
-  const [mode, setMode] = useState<TranslationMode>("translate");
+  const [mode, setMode] = useState<TranslationMode>("dual");
   const [sourceLanguage, setSourceLanguage] = useState<string>(""); // empty = auto-detect
   const [history, setHistory] = useState<TranslationEntry[]>([]);
   const [currentText, setCurrentText] = useState<string>("");
@@ -78,6 +86,7 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
   // tRPC mutations
   const translateMutation = trpc.translation.translateChunk.useMutation();
   const transcribeMutation = trpc.translation.transcribeChunk.useMutation();
+  const dualMutation = trpc.translation.dualTranslateChunk.useMutation();
 
   // Auto-scroll to bottom when new entries arrive
   useEffect(() => {
@@ -99,16 +108,14 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
       setError(null);
 
       // Use getDisplayMedia to capture tab audio (the radio stream)
-      // This captures whatever audio is playing in the browser
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getDisplayMedia({
           audio: true,
-          video: false, // We only want audio
+          video: false,
         });
-      } catch (displayErr) {
-        // Fallback: if getDisplayMedia fails (e.g., user denies screen share),
-        // try getUserMedia with microphone (user can hold mic to speaker)
+      } catch {
+        // Fallback: microphone
         try {
           stream = await navigator.mediaDevices.getUserMedia({
             audio: {
@@ -126,7 +133,6 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
 
       streamRef.current = stream;
 
-      // Determine best supported MIME type
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
         : MediaRecorder.isTypeSupported("audio/webm")
@@ -135,7 +141,7 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
 
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType,
-        audioBitsPerSecond: 64000, // Keep chunks small
+        audioBitsPerSecond: 64000,
       });
 
       mediaRecorderRef.current = mediaRecorder;
@@ -148,11 +154,10 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
         }
       };
 
-      mediaRecorder.start(1000); // Collect data every second
+      mediaRecorder.start(1000);
       setIsRecording(true);
       setChunkCount(0);
 
-      // Set up chunk processing interval (double-buffer)
       recordingIntervalRef.current = setInterval(() => {
         processCurrentChunk();
       }, CHUNK_DURATION_MS);
@@ -164,25 +169,21 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
   }, [mode, sourceLanguage]);
 
   const stopRecording = useCallback(() => {
-    // Stop the media recorder
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
     }
     mediaRecorderRef.current = null;
 
-    // Stop all tracks on the stream
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
 
-    // Clear the interval
     if (recordingIntervalRef.current) {
       clearInterval(recordingIntervalRef.current);
       recordingIntervalRef.current = null;
     }
 
-    // Process any remaining audio
     if (audioChunksRef.current.length > 0) {
       processCurrentChunk();
     }
@@ -192,71 +193,103 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
 
   const processCurrentChunk = useCallback(async () => {
     const chunks = audioChunksRef.current;
-    audioChunksRef.current = []; // Reset for next chunk (double-buffer)
+    audioChunksRef.current = [];
 
     if (chunks.length === 0) return;
 
     const blob = new Blob(chunks, { type: chunks[0].type });
-
-    // Skip very small chunks (likely silence)
     if (blob.size < 1000) return;
 
     const chunkIdx = chunkIndexRef.current++;
     setChunkCount((c) => c + 1);
     setIsProcessing(true);
-    setCurrentText("Translating...");
+    setCurrentText(mode === "dual" ? "Transcribing & translating..." : "Processing...");
 
     try {
-      // Convert blob to base64
       const arrayBuffer = await blob.arrayBuffer();
       const base64 = btoa(
         new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), ""),
       );
-
       const mimeType = blob.type || "audio/webm";
 
-      // Call the appropriate mutation
-      const mutation = mode === "translate" ? translateMutation : transcribeMutation;
-      const result = await mutation.mutateAsync({
-        audioBase64: base64,
-        mimeType,
-        language: sourceLanguage || undefined,
-        chunkIndex: chunkIdx,
-        ...(mode === "translate" ? { stationLabel } : {}),
-      });
-
-      if (result.text && result.text.trim()) {
-        const entry: TranslationEntry = {
-          id: `${Date.now()}-${chunkIdx}`,
-          chunkIndex: result.chunkIndex,
-          text: result.text,
-          detectedLanguage: result.detectedLanguage,
-          duration: result.duration,
-          processingTimeMs: result.processingTimeMs,
-          timestamp: Date.now(),
-          segments: result.segments,
-          task: result.task,
-        };
-
-        setHistory((prev) => {
-          const next = [...prev, entry];
-          return next.slice(-MAX_HISTORY);
+      if (mode === "dual") {
+        // Dual mode: parallel transcription + translation
+        const result = await dualMutation.mutateAsync({
+          audioBase64: base64,
+          mimeType,
+          language: sourceLanguage || undefined,
+          chunkIndex: chunkIdx,
+          stationLabel,
         });
-        setCurrentText("");
+
+        const hasContent =
+          (result.original?.text && result.original.text.trim()) ||
+          (result.translated?.text && result.translated.text.trim());
+
+        if (hasContent) {
+          const entry: TranslationEntry = {
+            id: `${Date.now()}-${chunkIdx}`,
+            chunkIndex: result.chunkIndex,
+            text: result.translated?.text || result.original?.text || "",
+            originalText: result.original?.text || null,
+            detectedLanguage: result.detectedLanguage,
+            duration: result.duration,
+            processingTimeMs: result.processingTimeMs,
+            timestamp: Date.now(),
+            segments: result.translated?.segments || [],
+            originalSegments: result.original?.segments || null,
+            task: result.translated?.task || "dual",
+            isEnglishSource: result.isEnglishSource,
+          };
+
+          setHistory((prev) => [...prev, entry].slice(-MAX_HISTORY));
+          setCurrentText("");
+        } else {
+          setCurrentText("(no speech detected)");
+          setTimeout(() => setCurrentText(""), 2000);
+        }
       } else {
-        setCurrentText("(no speech detected)");
-        setTimeout(() => setCurrentText(""), 2000);
+        // Single mode: translate or transcribe
+        const mutation = mode === "translate" ? translateMutation : transcribeMutation;
+        const result = await mutation.mutateAsync({
+          audioBase64: base64,
+          mimeType,
+          language: sourceLanguage || undefined,
+          chunkIndex: chunkIdx,
+          ...(mode === "translate" ? { stationLabel } : {}),
+        });
+
+        if (result.text && result.text.trim()) {
+          const entry: TranslationEntry = {
+            id: `${Date.now()}-${chunkIdx}`,
+            chunkIndex: result.chunkIndex,
+            text: result.text,
+            originalText: null,
+            detectedLanguage: result.detectedLanguage,
+            duration: result.duration,
+            processingTimeMs: result.processingTimeMs,
+            timestamp: Date.now(),
+            segments: result.segments,
+            originalSegments: null,
+            task: result.task,
+          };
+
+          setHistory((prev) => [...prev, entry].slice(-MAX_HISTORY));
+          setCurrentText("");
+        } else {
+          setCurrentText("(no speech detected)");
+          setTimeout(() => setCurrentText(""), 2000);
+        }
       }
     } catch (err) {
       console.error("[Translation] Chunk processing failed:", err);
       setCurrentText("");
       setError(`Translation failed: ${err instanceof Error ? err.message : "Unknown error"}`);
-      // Clear error after 5s
       setTimeout(() => setError(null), 5000);
     } finally {
       setIsProcessing(false);
     }
-  }, [mode, sourceLanguage, stationLabel, translateMutation, transcribeMutation]);
+  }, [mode, sourceLanguage, stationLabel, translateMutation, transcribeMutation, dualMutation]);
 
   // Copy text to clipboard
   const copyText = useCallback((id: string, text: string) => {
@@ -271,9 +304,12 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
       .map((e) => {
         const time = new Date(e.timestamp).toLocaleTimeString();
         const lang = LANG_NAMES[e.detectedLanguage] || e.detectedLanguage;
+        if (e.originalText && e.text !== e.originalText) {
+          return `[${time}] (${lang})\n  Original: ${e.originalText}\n  English:  ${e.text}`;
+        }
         return `[${time}] (${lang}) ${e.text}`;
       })
-      .join("\n");
+      .join("\n\n");
     navigator.clipboard.writeText(fullText);
     setCopiedId("all");
     setTimeout(() => setCopiedId(null), 2000);
@@ -286,10 +322,12 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
     setChunkCount(0);
   }, []);
 
-  // Format timestamp
   const formatTime = (ms: number) => new Date(ms).toLocaleTimeString();
 
   if (!isVisible) return null;
+
+  // Panel width: wider in dual mode for side-by-side
+  const panelWidth = mode === "dual" ? "w-[620px]" : "w-[420px]";
 
   return (
     <AnimatePresence>
@@ -297,15 +335,15 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
         initial={{ opacity: 0, y: 20, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 20, scale: 0.95 }}
-        transition={{ type: "spring", damping: 25, stiffness: 300 }}
-        className="absolute bottom-20 right-4 z-40 w-[420px] max-h-[60vh] flex flex-col glass-panel rounded-2xl overflow-hidden"
+        transition={{ duration: 0.2, ease: "easeOut" }}
+        className={`absolute bottom-20 right-4 z-40 ${panelWidth} max-h-[60vh] flex flex-col glass-panel rounded-2xl overflow-hidden`}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
             <Languages className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium text-foreground">
-              Live {mode === "translate" ? "Translation" : "Transcription"}
+              {mode === "dual" ? "Dual Translation" : mode === "translate" ? "Live Translation" : "Transcription"}
             </span>
             {isRecording && (
               <span className="flex items-center gap-1">
@@ -365,10 +403,21 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
               className="border-b border-border overflow-hidden"
             >
               <div className="px-4 py-3 space-y-3">
-                {/* Mode toggle */}
+                {/* Mode toggle — 3 options */}
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground w-16">Mode</span>
                   <div className="flex rounded-lg overflow-hidden border border-border">
+                    <button
+                      onClick={() => setMode("dual")}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono transition-all ${
+                        mode === "dual"
+                          ? "bg-primary/20 text-primary"
+                          : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
+                      }`}
+                    >
+                      <Columns2 className="w-3 h-3" />
+                      Dual
+                    </button>
                     <button
                       onClick={() => setMode("translate")}
                       className={`px-3 py-1.5 text-xs font-mono transition-all ${
@@ -381,12 +430,13 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
                     </button>
                     <button
                       onClick={() => setMode("transcribe")}
-                      className={`px-3 py-1.5 text-xs font-mono transition-all ${
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono transition-all ${
                         mode === "transcribe"
                           ? "bg-primary/20 text-primary"
                           : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
                       }`}
                     >
+                      <AlignLeft className="w-3 h-3" />
                       Transcribe
                     </button>
                   </div>
@@ -410,6 +460,7 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
                 {/* Info */}
                 <p className="text-[10px] text-muted-foreground/60 font-mono">
                   Chunks: {CHUNK_DURATION_MS / 1000}s • Processed: {chunkCount} • Buffer: double
+                  {mode === "dual" && " • Parallel: transcribe + translate"}
                 </p>
               </div>
             </motion.div>
@@ -419,16 +470,25 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
         {/* Translation log */}
         <div
           ref={scrollRef}
-          className="flex-1 overflow-y-auto min-h-[120px] max-h-[40vh] px-4 py-3 space-y-2"
+          className="flex-1 overflow-y-auto min-h-[120px] max-h-[40vh] px-4 py-3 space-y-3"
         >
+          {/* Empty state */}
           {history.length === 0 && !currentText && !isRecording && (
             <div className="flex flex-col items-center justify-center h-full gap-3 py-8">
               <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
-                <Languages className="w-6 h-6 text-primary/50" />
+                {mode === "dual" ? (
+                  <Columns2 className="w-6 h-6 text-primary/50" />
+                ) : (
+                  <Languages className="w-6 h-6 text-primary/50" />
+                )}
               </div>
               <div className="text-center">
                 <p className="text-xs text-muted-foreground">
-                  {mode === "translate" ? "Translate radio broadcasts to English" : "Transcribe radio audio to text"}
+                  {mode === "dual"
+                    ? "Dual mode: original transcription + English translation side by side"
+                    : mode === "translate"
+                      ? "Translate radio broadcasts to English"
+                      : "Transcribe radio audio to text"}
                 </p>
                 <p className="text-[10px] text-muted-foreground/50 mt-1 font-mono">
                   Press the microphone button to start capturing audio
@@ -437,11 +497,12 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
             </div>
           )}
 
+          {/* Recording waiting state */}
           {history.length === 0 && !currentText && isRecording && (
             <div className="flex flex-col items-center justify-center h-full gap-3 py-8">
               <Loader2 className="w-8 h-8 text-primary/50 animate-spin" />
               <p className="text-xs text-muted-foreground font-mono">
-                Recording... first translation in ~{CHUNK_DURATION_MS / 1000}s
+                Recording... first {mode === "dual" ? "dual translation" : "result"} in ~{CHUNK_DURATION_MS / 1000}s
               </p>
             </div>
           )}
@@ -454,28 +515,30 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
               animate={{ opacity: 1, x: 0 }}
               className="group relative"
             >
-              <div className="flex items-start gap-2">
-                <div className="shrink-0 mt-1">
-                  <span className="text-[9px] font-mono text-muted-foreground/50">
-                    {formatTime(entry.timestamp)}
+              {/* Timestamp + language badge row */}
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <span className="text-[9px] font-mono text-muted-foreground/50">
+                  {formatTime(entry.timestamp)}
+                </span>
+                <span className="text-[9px] font-mono text-cyan-400/70 bg-cyan-400/10 px-1.5 py-0.5 rounded">
+                  {LANG_NAMES[entry.detectedLanguage] || entry.detectedLanguage}
+                </span>
+                <span className="text-[9px] font-mono text-muted-foreground/30">
+                  {entry.duration.toFixed(1)}s • {entry.processingTimeMs}ms
+                </span>
+                {entry.isEnglishSource && (
+                  <span className="text-[9px] font-mono text-amber-400/70 bg-amber-400/10 px-1.5 py-0.5 rounded">
+                    EN source
                   </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="text-[9px] font-mono text-cyan-400/70 bg-cyan-400/10 px-1.5 py-0.5 rounded">
-                      {LANG_NAMES[entry.detectedLanguage] || entry.detectedLanguage}
-                    </span>
-                    <span className="text-[9px] font-mono text-muted-foreground/30">
-                      {entry.duration.toFixed(1)}s • {entry.processingTimeMs}ms
-                    </span>
-                  </div>
-                  <p className="text-sm text-foreground/90 leading-relaxed">
-                    {entry.text}
-                  </p>
-                </div>
+                )}
                 <button
-                  onClick={() => copyText(entry.id, entry.text)}
-                  className="shrink-0 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity bg-foreground/5 hover:bg-foreground/10"
+                  onClick={() => {
+                    const fullText = entry.originalText
+                      ? `Original: ${entry.originalText}\nEnglish: ${entry.text}`
+                      : entry.text;
+                    copyText(entry.id, fullText);
+                  }}
+                  className="shrink-0 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity bg-foreground/5 hover:bg-foreground/10 ml-auto"
                   title="Copy"
                 >
                   {copiedId === entry.id ? (
@@ -485,6 +548,41 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
                   )}
                 </button>
               </div>
+
+              {/* Content: dual or single */}
+              {mode === "dual" && entry.originalText && entry.text !== entry.originalText ? (
+                /* ── Side-by-side dual display ── */
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Original language column */}
+                  <div className="rounded-lg bg-foreground/[0.03] border border-border/50 px-3 py-2">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-[9px] font-mono text-orange-400/80 uppercase tracking-wider">
+                        Original
+                      </span>
+                    </div>
+                    <p className="text-sm text-foreground/70 leading-relaxed" dir="auto">
+                      {entry.originalText}
+                    </p>
+                  </div>
+
+                  {/* English translation column */}
+                  <div className="rounded-lg bg-primary/[0.03] border border-primary/20 px-3 py-2">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-[9px] font-mono text-primary/80 uppercase tracking-wider">
+                        English
+                      </span>
+                    </div>
+                    <p className="text-sm text-foreground/90 leading-relaxed">
+                      {entry.text}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                /* ── Single-column display ── */
+                <p className="text-sm text-foreground/90 leading-relaxed pl-1">
+                  {entry.text}
+                </p>
+              )}
             </motion.div>
           ))}
 
@@ -522,7 +620,7 @@ export default function TranslationPanel({ stationLabel, isVisible, onClose }: T
         <div className="flex items-center justify-between px-4 py-3 border-t border-border">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-mono text-muted-foreground/50">
-              {mode === "translate" ? "→ English" : "Original"} •{" "}
+              {mode === "dual" ? "Original + English" : mode === "translate" ? "→ English" : "Original"} •{" "}
               {sourceLanguage ? LANG_NAMES[sourceLanguage] : "Auto"}
             </span>
           </div>
