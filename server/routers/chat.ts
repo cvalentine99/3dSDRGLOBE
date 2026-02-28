@@ -21,6 +21,59 @@ import { eq, desc, asc } from "drizzle-orm";
 
 const MAX_HISTORY = 50;
 
+// ── Rate Limiter ─────────────────────────────────────────────────
+// Sliding window: max 20 messages per 5 minutes, burst limit of 5 per 30 seconds
+const RATE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+const RATE_MAX_MESSAGES = 20;
+const BURST_WINDOW_MS = 30 * 1000; // 30 seconds
+const BURST_MAX_MESSAGES = 5;
+
+interface RateBucket {
+  timestamps: number[];
+}
+
+const rateBuckets = new Map<string, RateBucket>();
+
+// Clean up stale entries every 10 minutes
+setInterval(() => {
+  const cutoff = Date.now() - RATE_WINDOW_MS;
+  rateBuckets.forEach((bucket: RateBucket, key: string) => {
+    bucket.timestamps = bucket.timestamps.filter((t: number) => t > cutoff);
+    if (bucket.timestamps.length === 0) rateBuckets.delete(key);
+  });
+}, 10 * 60 * 1000);
+
+export function checkRateLimit(sessionId: string): { allowed: boolean; retryAfterSec?: number } {
+  const now = Date.now();
+  let bucket = rateBuckets.get(sessionId);
+  if (!bucket) {
+    bucket = { timestamps: [] };
+    rateBuckets.set(sessionId, bucket);
+  }
+
+  // Prune old timestamps
+  bucket.timestamps = bucket.timestamps.filter((t) => t > now - RATE_WINDOW_MS);
+
+  // Check burst limit (5 per 30s)
+  const burstCount = bucket.timestamps.filter((t) => t > now - BURST_WINDOW_MS).length;
+  if (burstCount >= BURST_MAX_MESSAGES) {
+    const oldestBurst = bucket.timestamps.filter((t) => t > now - BURST_WINDOW_MS)[0];
+    const retryAfterSec = Math.ceil((oldestBurst + BURST_WINDOW_MS - now) / 1000);
+    return { allowed: false, retryAfterSec };
+  }
+
+  // Check window limit (20 per 5min)
+  if (bucket.timestamps.length >= RATE_MAX_MESSAGES) {
+    const oldestInWindow = bucket.timestamps[0];
+    const retryAfterSec = Math.ceil((oldestInWindow + RATE_WINDOW_MS - now) / 1000);
+    return { allowed: false, retryAfterSec };
+  }
+
+  // Record this message
+  bucket.timestamps.push(now);
+  return { allowed: true };
+}
+
 // ── Concurrency Lock ──────────────────────────────────────────────
 // Only 1 active chat request at a time (across all users)
 let activeChatLock: { sessionId: string; startedAt: number } | null = null;
@@ -117,6 +170,18 @@ export const chatRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const sessionId = getSessionId(ctx);
+
+      // Check rate limit
+      const rateCheck = checkRateLimit(sessionId);
+      if (!rateCheck.allowed) {
+        return {
+          response: `You've sent too many messages. Please wait ${rateCheck.retryAfterSec} seconds before trying again.`,
+          timestamp: Date.now(),
+          busy: false,
+          rateLimited: true,
+          retryAfterSec: rateCheck.retryAfterSec,
+        };
+      }
 
       // Check concurrency lock
       if (!acquireLock(sessionId)) {

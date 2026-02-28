@@ -388,5 +388,16 @@
 - [x] FIX: Production 500/524 timeout errors — added HTTPS fallback for TDoA reference transmitters
 - [x] FIX: FPS — added mobile/low-power device detection to start at QUALITY_MED instead of QUALITY_HIGH
 - [x] Write tests for all fixes (26 new tests: 11 chat concurrency, 11 live translator, 4 GPS fallback)
-- [ ] Push all fixes to GitHub
+- [x] Push all fixes to GitHub
 - [x] All 1079 tests passing across 31 test files (2 flaky external UCDP API tests excluded)
+
+## New Features — Feb 28 2026 (Round 2)
+
+- [x] Test live translation on a real KiwiSDR via browser — VERIFIED: real Chinese broadcast transcribed on 7200 kHz AM from Bavaria
+- [x] Live translation works end-to-end — no fixes needed
+- [x] Collab > Analytics Dashboard ALREADY WORKS — 7 real tRPC queries (summary, targetsByCategory, anomalyTrend, jobTrend, topFingerprints, recentActivity, receiverStats)
+- [x] Collab > Shared Target Lists ALREADY WORKS — real tRPC CRUD (myLists, createList, joinByToken, deleteList)
+- [x] Add rate limiting to public Intel Chat (sliding window: 20 msgs/5min, burst: 5 msgs/30s)
+- [x] Write tests for rate limiting (6 new tests, 17 total chat tests)
+- [ ] Push all changes to GitHub
+- [x] All 1087 tests passing across 31 test files, zero failures, zero DB leaks

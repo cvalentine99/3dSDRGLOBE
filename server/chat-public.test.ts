@@ -118,3 +118,80 @@ describe("Chat Concurrency Lock", () => {
     expect(isLocked()).toBe(false);
   });
 });
+
+// ── Rate Limiter Tests ────────────────────────────────────────────
+
+import { checkRateLimit } from "./routers/chat";
+
+describe("Chat Rate Limiter", () => {
+  // Each test uses a unique session ID to avoid cross-test contamination
+
+  it("allows the first message from a new session", () => {
+    const result = checkRateLimit("rate-test-1");
+    expect(result.allowed).toBe(true);
+    expect(result.retryAfterSec).toBeUndefined();
+  });
+
+  it("allows multiple messages within burst limit", () => {
+    const session = "rate-test-burst-ok-" + Date.now();
+    for (let i = 0; i < 4; i++) {
+      const result = checkRateLimit(session);
+      expect(result.allowed).toBe(true);
+    }
+  });
+
+  it("blocks the 6th message within 30 seconds (burst limit)", () => {
+    const session = "rate-test-burst-block-" + Date.now();
+    // Send 5 messages (the burst limit)
+    for (let i = 0; i < 5; i++) {
+      const result = checkRateLimit(session);
+      expect(result.allowed).toBe(true);
+    }
+    // 6th should be blocked
+    const blocked = checkRateLimit(session);
+    expect(blocked.allowed).toBe(false);
+    expect(blocked.retryAfterSec).toBeGreaterThan(0);
+    expect(blocked.retryAfterSec).toBeLessThanOrEqual(30);
+  });
+
+  it("returns retryAfterSec when rate limited", () => {
+    const session = "rate-test-retry-" + Date.now();
+    for (let i = 0; i < 5; i++) {
+      checkRateLimit(session);
+    }
+    const blocked = checkRateLimit(session);
+    expect(blocked.allowed).toBe(false);
+    expect(typeof blocked.retryAfterSec).toBe("number");
+    expect(blocked.retryAfterSec).toBeGreaterThan(0);
+  });
+
+  it("different sessions have independent rate limits", () => {
+    const sessionA = "rate-test-indep-a-" + Date.now();
+    const sessionB = "rate-test-indep-b-" + Date.now();
+
+    // Fill up sessionA's burst
+    for (let i = 0; i < 5; i++) {
+      checkRateLimit(sessionA);
+    }
+    // sessionA is now burst-limited
+    expect(checkRateLimit(sessionA).allowed).toBe(false);
+
+    // sessionB should still be allowed
+    expect(checkRateLimit(sessionB).allowed).toBe(true);
+  });
+
+  it("allows exactly 5 messages in burst window", () => {
+    const session = "rate-test-exact-5-" + Date.now();
+    const results = [];
+    for (let i = 0; i < 6; i++) {
+      results.push(checkRateLimit(session));
+    }
+    // First 5 allowed, 6th blocked
+    expect(results[0].allowed).toBe(true);
+    expect(results[1].allowed).toBe(true);
+    expect(results[2].allowed).toBe(true);
+    expect(results[3].allowed).toBe(true);
+    expect(results[4].allowed).toBe(true);
+    expect(results[5].allowed).toBe(false);
+  });
+});

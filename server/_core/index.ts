@@ -77,8 +77,18 @@ async function startServer() {
         return res.status(400).json({ error: "Invalid message" });
       }
 
+      // Check rate limit
+      const { checkRateLimit, acquireLock, releaseLock } = await import("../routers/chat");
+      const rateCheck = checkRateLimit(sessionId);
+      if (!rateCheck.allowed) {
+        return res.status(429).json({
+          error: `You've sent too many messages. Please wait ${rateCheck.retryAfterSec} seconds before trying again.`,
+          rateLimited: true,
+          retryAfterSec: rateCheck.retryAfterSec,
+        });
+      }
+
       // Check concurrency lock — 1 user at a time
-      const { acquireLock, releaseLock } = await import("../routers/chat");
       if (!acquireLock(sessionId)) {
         return res.status(429).json({
           error: "The Intelligence Analyst is currently assisting another user. Please wait a moment and try again.",
