@@ -15,6 +15,7 @@ import { geofenceRouter } from "./geofence";
 import { chatRouter } from "./chat";
 import { savedQueriesRouter } from "./savedQueries";
 import { briefingsRouter } from "./briefings";
+import { translationRouter } from "./translation";
 
 export const appRouter = router({
   system: systemRouter,
@@ -33,6 +34,7 @@ export const appRouter = router({
   chat: chatRouter,
   savedQueries: savedQueriesRouter,
   briefings: briefingsRouter,
+  translation: translationRouter,
 });
 
 export type AppRouter = typeof appRouter;

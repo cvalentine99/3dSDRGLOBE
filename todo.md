@@ -364,3 +364,11 @@
 - [x] Security: Verify tests pass after dependency updates (1021/1021)
 - [x] Security: Push fixes to GitHub
 - [x] Resolve @builder.io/vite-plugin-jsx-loc peer dependency warning (added peerDependencyRules allowedVersions)
+- [x] Live Translation: Build server-side translation endpoint using platform Whisper API (translate + transcribe + fallback)
+- [x] Live Translation: Build frontend audio capture and chunked upload system (MediaRecorder + base64 chunks)
+- [x] Live Translation: Create TranslationPanel UI with real-time subtitle display and scrolling log
+- [x] Live Translation: Wire translation button into AudioPlayer controls bar
+- [x] Live Translation: Add language detection and source language selection (50+ languages)
+- [x] Live Translation: Add translation log/history with timestamps and chunk indices
+- [x] Live Translation: 20 vitest tests for translation router (translate, transcribe, size limits, error handling, fallback)
+- [x] All 1041 tests passing across 28 test files, zero TypeScript errors, zero DB leaks

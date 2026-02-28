@@ -8,8 +8,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Radio, ExternalLink, X, Volume2, Globe, Play, Disc,
   ChevronDown, ChevronUp, Zap, Crosshair, Mic, Info,
-  Scan, Check, AlertTriangle, RefreshCw,
+  Scan, Check, AlertTriangle, RefreshCw, Languages,
 } from "lucide-react";
+import TranslationPanel from "./TranslationPanel";
 import Waterfall from "./Waterfall";
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
@@ -80,6 +81,7 @@ export default function AudioPlayer() {
   const [showEmbed, setShowEmbed] = useState(false);
   const [showQuickTune, setShowQuickTune] = useState(false);
   const [showRecording, setShowRecording] = useState(false);
+  const [showTranslation, setShowTranslation] = useState(false);
   const [tuneParams, setTuneParams] = useState<TuneParams | null>(null);
   const [customFreq, setCustomFreq] = useState("");
   const [customMode, setCustomMode] = useState<SDRMode>("usb");
@@ -713,6 +715,19 @@ export default function AudioPlayer() {
               <Crosshair className="w-5 h-5" />
             </button>
 
+            {/* Live Translation button */}
+            <button
+              onClick={() => setShowTranslation(!showTranslation)}
+              className={`p-2.5 rounded-xl transition-all duration-200 ${
+                showTranslation
+                  ? "bg-amber-400/20 text-amber-400 glow-coral"
+                  : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
+              }`}
+              title="Live Translation"
+            >
+              <Languages className="w-5 h-5" />
+            </button>
+
             {/* Embed toggle */}
             <button
               onClick={() => {
@@ -751,6 +766,7 @@ export default function AudioPlayer() {
                 setShowEmbed(false);
                 setShowQuickTune(false);
                 setShowRecording(false);
+                setShowTranslation(false);
                 setTuneParams(null);
               }}
               className="p-2.5 rounded-xl bg-foreground/5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground transition-all duration-200"
@@ -760,6 +776,13 @@ export default function AudioPlayer() {
             </button>
           </div>
         </div>
+
+        {/* Translation panel overlay */}
+        <TranslationPanel
+          stationLabel={selectedStation?.label}
+          isVisible={showTranslation}
+          onClose={() => setShowTranslation(false)}
+        />
       </motion.div>
     </AnimatePresence>
   );
