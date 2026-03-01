@@ -15,7 +15,7 @@
  *
  * Design: "Ether" — frosted glass with monospace transcript
  */
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Languages, Radio, Square, Settings2,
@@ -23,6 +23,7 @@ import {
   Copy, Check, Trash2, Columns2, AlignLeft,
   Wifi, WifiOff,
 } from "lucide-react";
+import { trpc } from "@/lib/trpc";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 interface TranslationEntry {
@@ -42,8 +43,8 @@ type TranslationMode = "dual" | "translate" | "transcribe";
 // ── Constants ───────────────────────────────────────────────────────────────
 const MAX_HISTORY = 100;
 
-// Language name lookup
-const LANG_NAMES: Record<string, string> = {
+// Fallback language names (used until tRPC query loads)
+const FALLBACK_LANG_NAMES: Record<string, string> = {
   ar: "Arabic", zh: "Chinese", cs: "Czech", da: "Danish", nl: "Dutch",
   en: "English", fi: "Finnish", fr: "French", de: "German", el: "Greek",
   he: "Hebrew", hi: "Hindi", hu: "Hungarian", id: "Indonesian", it: "Italian",
@@ -71,6 +72,19 @@ export default function TranslationPanel({
   isVisible,
   onClose,
 }: TranslationPanelProps) {
+  // Fetch language list from server (single source of truth)
+  const { data: serverLanguages } = trpc.translation.getLanguages.useQuery(undefined, {
+    staleTime: Infinity,
+  });
+  const LANG_NAMES = useMemo(() => {
+    if (!serverLanguages) return FALLBACK_LANG_NAMES;
+    const map: Record<string, string> = {};
+    for (const lang of serverLanguages) {
+      map[lang.code] = lang.name;
+    }
+    return map;
+  }, [serverLanguages]);
+
   // State
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -149,6 +163,7 @@ export default function TranslationPanel({
           mode: sdrMode || "am",
           language: sourceLanguage || undefined,
           dualMode: mode === "dual",
+          task: mode === "transcribe" ? "transcribe" : "translate",
         }),
         signal: abortController.signal,
       });

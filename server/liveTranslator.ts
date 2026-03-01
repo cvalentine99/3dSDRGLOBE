@@ -144,11 +144,21 @@ async function callWhisper(
   };
 }
 
-// ── Detect modulation ──────────────────────────────────────────────
+// ── Detect modulation based on frequency band conventions ─────────
 function detectMode(freqKhz: number): string {
-  if (freqKhz <= 500) return "am";
+  // LF/MF broadcast bands: AM
   if (freqKhz <= 1800) return "am";
-  if (freqKhz <= 30000) return "am"; // Most broadcast is AM
+  // 160m amateur band (1800-2000 kHz): LSB
+  if (freqKhz <= 2000) return "lsb";
+  // HF international broadcast bands (most shortwave): AM
+  // 120m (2300-2495), 90m (3200-3400), 75m (3900-4000), 60m (4750-5060),
+  // 49m (5900-6200), 41m (7200-7450), 31m (9400-9900), 25m (11600-12100),
+  // 22m (13570-13870), 19m (15100-15800), 16m (17480-17900),
+  // 15m (18900-19020), 13m (21450-21850), 11m (25670-26100)
+  // Amateur bands below 10 MHz typically use LSB, above use USB
+  if (freqKhz < 10000) return "am";
+  // 10 MHz and above: default AM for broadcast, USB for amateur
+  if (freqKhz <= 30000) return "am";
   return "am";
 }
 
@@ -161,6 +171,7 @@ export function startLiveTranslation(
     mode?: string;
     language?: string;
     dualMode?: boolean;
+    task?: "transcribe" | "translate";
   },
   onEvent: (event: TranslationEvent) => void,
 ): LiveTranslationSession {
@@ -176,6 +187,7 @@ export function startLiveTranslation(
     mode = detectMode(frequencyKhz),
     language,
     dualMode = true,
+    task = "translate",
   } = params;
 
   const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -208,7 +220,7 @@ export function startLiveTranslation(
     port,
     frequencyKhz,
     mode,
-    isActive: true,
+    get isActive() { return isActive; },
     startedAt: Date.now(),
     stop,
   };
@@ -268,13 +280,14 @@ export function startLiveTranslation(
           onEvent({ type: "status", data: "(no speech detected)" });
         }
       } else {
-        // Single mode: translate only
-        const result = await callWhisper(wavBuffer, "translate", language);
+        // Single mode: use the requested task (transcribe or translate)
+        const result = await callWhisper(wavBuffer, task, language);
 
+        const isTranscribeTask = task === "transcribe";
         const chunk: TranslationChunk = {
           chunkIndex: idx,
-          original: null,
-          translated: { text: result.text, language: result.language },
+          original: isTranscribeTask ? { text: result.text, language: result.language } : null,
+          translated: isTranscribeTask ? null : { text: result.text, language: result.language },
           detectedLanguage: result.language,
           duration: result.duration,
           processingTimeMs: Date.now() - startTime,

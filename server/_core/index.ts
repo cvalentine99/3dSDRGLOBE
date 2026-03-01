@@ -157,14 +157,16 @@ async function startServer() {
   // Start a server-side KiwiSDR audio capture + Whisper translation session
   app.post("/api/translate/start", async (req, res) => {
     try {
-      const { host, port: sdrPort, frequencyKhz, mode, language, dualMode } = req.body;
+      const { host, port: sdrPort, frequencyKhz, mode, language, dualMode, task } = req.body;
       if (!host || !sdrPort || !frequencyKhz) {
         return res.status(400).json({ error: "Missing required fields: host, port, frequencyKhz" });
       }
 
-      const { isTranslationActive } = await import("../liveTranslator");
-      if (isTranslationActive()) {
-        return res.status(429).json({ error: "A translation session is already active. Stop it first." });
+      // Stop any existing session before starting a new one (prevents zombie session lockout)
+      const { getActiveSession } = await import("../liveTranslator");
+      const existing = getActiveSession();
+      if (existing) {
+        existing.stop();
       }
 
       // Set SSE headers
@@ -176,7 +178,7 @@ async function startServer() {
 
       const { startLiveTranslation } = await import("../liveTranslator");
       const session = startLiveTranslation(
-        { host, port: Number(sdrPort), frequencyKhz: Number(frequencyKhz), mode, language, dualMode: dualMode !== false },
+        { host, port: Number(sdrPort), frequencyKhz: Number(frequencyKhz), mode, language, dualMode: dualMode !== false, task: task === "transcribe" ? "transcribe" : "translate" },
         (event) => {
           try {
             res.write(`data: ${JSON.stringify(event)}\n\n`);
