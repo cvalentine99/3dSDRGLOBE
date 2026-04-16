@@ -10,7 +10,7 @@ overrides:
   qs: '>=6.14.2'
   mdast-util-to-hast: '>=13.2.1'
   fast-xml-parser: '>=5.3.8'
-  lodash: '>=4.17.23'
+  lodash: '>=4.18.1'
   lodash-es: '>=4.17.23'
   rollup: '>=4.59.0'
   '@esbuild-kit/core-utils>esbuild': '>=0.25.0'
@@ -3344,8 +3344,8 @@ packages:
   lodash-es@4.17.23:
     resolution: {integrity: sha512-kVI48u3PZr38HdYz98UmfPnXl2DXrpdctLrFLCd3kOx1xUkOmpFPx7gCWWM5MPkL/fD8zb+Ph0QzjGFs4+hHWg==}
 
-  lodash@4.17.23:
-    resolution: {integrity: sha512-LgVTMpQtIopCi79SJeDiP0TfWi5CNEc/L/aRdTh3yIvmZXTnheWpKjSZhnvMl8iXbC1tFg9gdHHDMLoV7CnG+w==}
+  lodash@4.18.1:
+    resolution: {integrity: sha512-dMInicTPVE8d1e5otfwmmjlxkZoUpiVLwyeTdUsi/Caj/gfzzblBcCE5sRHV/AsjuCmxWrte2TNGSYuCeCq+0Q==}
 
   long@5.3.2:
     resolution: {integrity: sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA==}
@@ -7739,7 +7739,7 @@ snapshots:
 
   lodash-es@4.17.23: {}
 
-  lodash@4.17.23: {}
+  lodash@4.18.1: {}
 
   long@5.3.2: {}
 
@@ -8465,7 +8465,7 @@ snapshots:
     dependencies:
       clsx: 2.1.1
       eventemitter3: 4.0.7
-      lodash: 4.17.23
+      lodash: 4.18.1
       react: 19.2.1
       react-dom: 19.2.1(react@19.2.1)
       react-is: 18.3.1
