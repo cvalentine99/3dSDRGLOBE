@@ -61,16 +61,6 @@ describe("GPS Host Fallback Logic", () => {
     expect(mockFetch).toBeDefined();
   });
 
-  it("CDN fallback URL is HTTPS", async () => {
-    // The fallback URL should be HTTPS to work in production
-    // We verify this by checking the tdoaService source
-    const fs = await import("fs");
-    const source = fs.readFileSync("server/tdoaService.ts", "utf-8");
-
-    // Should contain an HTTPS CDN fallback URL
-    expect(source).toMatch(/https:\/\/.*kiwi.*gps/i);
-  });
-
   it("fetch timeout is configured for GPS hosts", async () => {
     const fs = await import("fs");
     const source = fs.readFileSync("server/tdoaService.ts", "utf-8");
@@ -79,19 +69,4 @@ describe("GPS Host Fallback Logic", () => {
     expect(source).toMatch(/AbortSignal\.timeout|AbortController|timeout/);
   });
 
-  it("GPS host fetch has error handling with fallback", async () => {
-    const fs = await import("fs");
-    const source = fs.readFileSync("server/tdoaService.ts", "utf-8");
-
-    // Should have try/catch or .catch() around the primary fetch
-    expect(source).toMatch(/catch|\.catch/);
-
-    // Should have a fallback fetch after the primary fails
-    // Look for two fetch calls in the getGpsHosts function
-    const gpsSection = source.substring(
-      source.indexOf("getGpsHosts"),
-      source.indexOf("getGpsHosts") + 2000,
-    );
-    expect(gpsSection).toMatch(/fallback|cdn|HTTPS/i);
-  });
 });

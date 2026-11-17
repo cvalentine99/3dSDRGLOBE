@@ -4,7 +4,18 @@ import { updateConflictEventCache } from "../conflictZoneChecker";
 
 // ── HDX HAPI Configuration (free, no auth required) ────────────────
 const HAPI_BASE = "https://hapi.humdata.org/api/v2";
-const APP_ID = Buffer.from("radio-globe:radioglobe@manus.im").toString("base64");
+// HAPI requires a registered "app_name:email" identifier (base64-encoded).
+// Set HAPI_APP_IDENTIFIER to your own; the legacy value from the original
+// hosted deployment is used only until you do.
+const LEGACY_HAPI_APP_IDENTIFIER = "radio-globe:radioglobe@manus.im";
+if (!process.env.HAPI_APP_IDENTIFIER) {
+  console.warn(
+    "[HAPI] HAPI_APP_IDENTIFIER is not set; using the legacy identifier. Register your own at https://hapi.humdata.org/docs"
+  );
+}
+const APP_ID = Buffer.from(
+  process.env.HAPI_APP_IDENTIFIER || LEGACY_HAPI_APP_IDENTIFIER
+).toString("base64");
 const CACHE_TTL_MS = 20 * 60 * 1000; // 20 minute cache (was 1 hour)
 const MAX_LIMIT = 10000; // HDX HAPI max records per request
 

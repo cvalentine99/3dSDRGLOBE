@@ -11,8 +11,6 @@ import { ENV } from "./_core/env";
 
 const TDOA_BASE = "http://tdoa.kiwisdr.com";
 const GPS_HOSTS_URL = `${TDOA_BASE}/tdoa/files/kiwi.gps.json`;
-// HTTPS fallback for production environments that block outbound HTTP
-const GPS_HOSTS_FALLBACK_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663252172531/8ixynDjhKaWGr2C97gbZUT/kiwi_gps_hosts_0fdfd59e.json";
 const REFS_URL = `${TDOA_BASE}/tdoa/refs.cjson`;
 // Increase refs cache to 2 hours since refs rarely change
 const REFS_CACHE_EXTENDED_TTL = 2 * 60 * 60 * 1000;
@@ -125,8 +123,7 @@ export async function getGpsHosts(): Promise<GpsHost[]> {
     return gpsHostsCache.data;
   }
 
-  // Try primary HTTP source first, then HTTPS CDN fallback
-  const urls = [GPS_HOSTS_URL, GPS_HOSTS_FALLBACK_URL];
+  const urls = [GPS_HOSTS_URL];
   let lastError: any = null;
 
   for (const url of urls) {
@@ -135,12 +132,12 @@ export async function getGpsHosts(): Promise<GpsHost[]> {
       const hosts: GpsHost[] = resp.data;
       if (Array.isArray(hosts) && hosts.length > 0) {
         gpsHostsCache = { data: hosts, fetchedAt: Date.now() };
-        console.log(`[TDoA] Fetched ${hosts.length} GPS-active hosts from ${url.includes('cloudfront') ? 'CDN fallback' : 'primary'}`);
+        console.log(`[TDoA] Fetched ${hosts.length} GPS-active hosts from ${url}`);
         return hosts;
       }
     } catch (err: any) {
       lastError = err;
-      console.warn(`[TDoA] GPS hosts fetch failed from ${url.includes('cloudfront') ? 'CDN' : 'primary'}: ${err.message}`);
+      console.warn(`[TDoA] GPS hosts fetch failed from ${url}: ${err.message}`);
     }
   }
 

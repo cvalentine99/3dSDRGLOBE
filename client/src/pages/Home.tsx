@@ -38,6 +38,7 @@ import TDoAPanel from "@/components/TDoAPanel";
 import KiwiWaterfall from "@/components/KiwiWaterfall";
 import TargetManager from "@/components/TargetManager";
 import { trpc } from "@/lib/trpc";
+import { SPACE_BG } from "@/lib/spaceBackground";
 import { useLocation } from "wouter";
 import type { SavedTargetData, DriftTrailEntry, PredictionData } from "@/components/TDoAGlobeOverlay";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
@@ -85,7 +86,6 @@ class GlobeErrorBoundary extends Component<{ children: ReactNode }, { hasError: 
   }
 }
 
-const SPACE_BG = "https://private-us-east-1.manuscdn.com/sessionFile/vNaLpF1RBh0KpESEYFZ0O6/sandbox/jetyLTlTEnk4uuIRFGjEIW-img-1_1770744518000_na1fn_c3BhY2UtYmc.jpg?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvdk5hTHBGMVJCaDBLcEVTRVlGWjBPNi9zYW5kYm94L2pldHlMVGxURW5rNHV1SVJGR2pFSVctaW1nLTFfMTc3MDc0NDUxODAwMF9uYTFmbl9jM0JoWTJVdFltYy5qcGc~eC1vc3MtcHJvY2Vzcz1pbWFnZS9yZXNpemUsd18xOTIwLGhfMTkyMC9mb3JtYXQsd2VicC9xdWFsaXR5LHFfODAiLCJDb25kaXRpb24iOnsiRGF0ZUxlc3NUaGFuIjp7IkFXUzpFcG9jaFRpbWUiOjE3OTg3NjE2MDB9fX1dfQ__&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=oLsKLTDZuMfoSSrBgke-CjTMYV~7c6H6FjxCJ4T6rvv3cXvumKs9xEu4U9UsS1~PU3FHd-YJ-kfGKUTehPSvHy9u5Q0aGQ5~4lj0nLupUgiraYK7CvieHNb1nUVTSqW045sQZuXoUqptovMJaCgW9m6b6cVrk8mfKsAqPHKA1yFtO8Wj2RYeENPMvELvCyVIo~IjFn3jmIE6VO5MAAUaXr4fng1RicMAPHzysVpYWrvTsrp8ldVH02Z2oFtdcipjkIhAYJAeWNku9Hsg5RBcO8W9DrUMNFyKmW4Dq7LkBQ9XWUZo2lBZDfPHtNrKllwHc4xZUrX0tcNLIVRDxX0rCg__";
 
 /** Format a future timestamp as a human-readable countdown like "28m" or "< 1m" */
 function formatCountdown(targetMs: number): string {
@@ -365,7 +365,7 @@ function HomeContent() {
         className={`absolute inset-0 bg-cover bg-center pointer-events-none transition-opacity duration-500 ${
           isDark ? "opacity-40" : "opacity-15"
         }`}
-        style={{ backgroundImage: `url(${SPACE_BG})` }}
+        style={{ backgroundImage: SPACE_BG }}
       />
 
       {/* Light mode: soft warm wash behind the globe for a clean, airy feel */}

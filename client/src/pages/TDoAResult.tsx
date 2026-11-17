@@ -5,6 +5,7 @@
 import { useState, useMemo, useRef, useEffect, Component, type ReactNode } from "react";
 import { useRoute, Link } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { SPACE_BG } from "@/lib/spaceBackground";
 import Globe, { type TdoaOverlayData } from "@/components/Globe";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -20,8 +21,6 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
-const SPACE_BG =
-  "https://private-us-east-1.manuscdn.com/sessionFile/vNaLpF1RBh0KpESEYFZ0O6/sandbox/jetyLTlTEnk4uuIRFGjEIW-img-1_1770744518000_na1fn_c3BhY2UtYmc.jpg?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvdk5hTHBGMVJCaDBLcEVTRVlGWjBPNi9zYW5kYm94L2pldHlMVGxURW5rNHV1SVJGR2pFSVctaW1nLTFfMTc3MDc0NDUxODAwMF9uYTFmbl9jM0JoWTJVdFltYy5qcGc~eC1vc3MtcHJvY2Vzcz1pbWFnZS9yZXNpemUsd18xOTIwLGhfMTkyMC9mb3JtYXQsd2VicC9xdWFsaXR5LHFfODAiLCJDb25kaXRpb24iOnsiRGF0ZUxlc3NUaGFuIjp7IkFXUzpFcG9jaFRpbWUiOjE3OTg3NjE2MDB9fX1dfQ__&Signature=BPXM9FJtJnVf6wJkSRGMYwJfKEBhGmVh-FxDjjMhmMk5F3Ij~6yJpFXxJBNqFqDSqBPGT4MRh7~Nh4XbSy6q6gVsZXiPVSBqJmNMhqvVpSYFNbpqFnUBNYKdGBJNHYSMnvdC8qYP~Wd3CJKM9GJfYK5LNMqFnUBNYKdGBJNHYS&Key-Pair-Id=K1Y3GG1BVAGK5Y";
 
 /** Error boundary for WebGL crashes */
 class GlobeErrorBoundary extends Component<
@@ -98,7 +97,7 @@ export default function TDoAResult() {
       <div className="relative w-screen h-screen overflow-hidden bg-background flex items-center justify-center">
         <div
           className="absolute inset-0 bg-cover bg-center opacity-40 pointer-events-none"
-          style={{ backgroundImage: `url(${SPACE_BG})` }}
+          style={{ backgroundImage: SPACE_BG }}
         />
         <div className="relative z-10 flex flex-col items-center gap-4">
           <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
@@ -114,7 +113,7 @@ export default function TDoAResult() {
       <div className="relative w-screen h-screen overflow-hidden bg-background flex items-center justify-center">
         <div
           className="absolute inset-0 bg-cover bg-center opacity-40 pointer-events-none"
-          style={{ backgroundImage: `url(${SPACE_BG})` }}
+          style={{ backgroundImage: SPACE_BG }}
         />
         <div className="relative z-10 flex flex-col items-center gap-4 max-w-md text-center px-6">
           <div className="w-16 h-16 rounded-full bg-red-500/15 border border-red-500/25 flex items-center justify-center">
@@ -150,7 +149,7 @@ export default function TDoAResult() {
       {/* Space background */}
       <div
         className="absolute inset-0 bg-cover bg-center opacity-40 pointer-events-none"
-        style={{ backgroundImage: `url(${SPACE_BG})` }}
+        style={{ backgroundImage: SPACE_BG }}
       />
       <div
         className="absolute inset-0 pointer-events-none"

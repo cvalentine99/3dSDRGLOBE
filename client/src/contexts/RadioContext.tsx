@@ -254,10 +254,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     async function fetchStations() {
-      const sources = [
-        "/stations.json",
-        "https://files.manuscdn.com/user_upload_by_module/session_file/310519663252172531/hiMtJaBqMSSztryK.json",
-      ];
+      const sources = ["/stations.json"];
 
       let staticData: Station[] = [];
       for (const url of sources) {

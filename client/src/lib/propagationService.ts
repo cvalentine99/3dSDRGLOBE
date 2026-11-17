@@ -235,7 +235,7 @@ export async function fetchPropagationData(forceRefresh = false): Promise<Propag
   } catch (e: any) {
     // Fall back to local static copy
     try {
-      const fallback = await fetch('https://files.manuscdn.com/user_upload_by_module/session_file/310519663252172531/IRTBcgaSjgvuVyZk.json');
+      const fallback = await fetch('/fallback/kc2g-stations.json');
       if (fallback.ok) {
         const data = await fallback.json();
         result.ionosondes = parseIonosondes(data);
@@ -254,7 +254,7 @@ export async function fetchPropagationData(forceRefresh = false): Promise<Propag
   } catch {
     // Fall back to local static copy
     try {
-      const fallback = await fetch('https://files.manuscdn.com/user_upload_by_module/session_file/310519663252172531/EupYDUmYJQTVsvJq.xml');
+      const fallback = await fetch('/fallback/hamqsl-solar.xml');
       if (fallback.ok) {
         const xml = await fallback.text();
         result.solar = parseSolarXml(xml);
