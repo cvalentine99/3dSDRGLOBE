@@ -1,5 +1,7 @@
 # Globe Visual Bug Review — PR BLOCKING
 
+> **Superseded (2026-11-17):** see `GLOBE_VISUAL_BUG_REVIEW_RETRO.md`. Findings 2, 3, 5 and 12 below are false positives. Finding 6 is understated: geofence clicks land 90° off everywhere, not just near the antimeridian. Finding 11 has the wrong consequence. The retro also adds 17 missed defects, including a wrong fly-to camera angle and picking through the globe.
+
 **Reviewer:** Claude Code Review Team
 **Date:** 2026-03-10
 **Scope:** Globe rendering, overlays, interaction, lifecycle, performance, CSS integration
