@@ -3,9 +3,9 @@ import express from "express";
 import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+import { LOCAL_OWNER_OPEN_ID } from "./localAuth";
 import { serveStatic, setupVite } from "./vite";
 import { setupSdrRelay } from "../sdrRelay";
 import { proxyResultFile } from "../tdoaService";
@@ -37,8 +37,6 @@ async function startServer() {
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
-  // OAuth callback under /api/oauth/callback
-  registerOAuthRoutes(app);
   // TDoA heatmap proxy — serves PNG images from tdoa.kiwisdr.com
   app.get("/api/tdoa/heatmap/:key/:filename", async (req, res) => {
     try {
@@ -62,15 +60,8 @@ async function startServer() {
   // SSE streaming endpoint for chat
   app.post("/api/chat/stream", async (req, res) => {
     try {
-      // Try to authenticate, but allow anonymous access
-      const { sdk } = await import("./sdk");
-      let sessionId = "anon";
-      try {
-        const user = await sdk.authenticateRequest(req);
-        if (user) sessionId = user.openId;
-      } catch {
-        // Anonymous access — use "anon" session
-      }
+      // Single-user app: all chat history belongs to the local owner.
+      const sessionId = LOCAL_OWNER_OPEN_ID;
 
       const { message } = req.body;
       if (!message || typeof message !== "string" || message.length > 4000) {
@@ -142,7 +133,7 @@ async function startServer() {
       // Release lock on error
       try {
         const { releaseLock } = await import("../routers/chat");
-        releaseLock("anon");
+        releaseLock(LOCAL_OWNER_OPEN_ID);
       } catch { /* ignore */ }
       if (!res.headersSent) {
         res.status(500).json({ error: "Internal server error" });

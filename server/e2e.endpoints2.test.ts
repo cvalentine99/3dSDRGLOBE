@@ -39,7 +39,7 @@ function createAuthContext(overrides?: Partial<AuthenticatedUser>): TrpcContext 
     openId: "e2e-test-user-p2",
     email: "e2e-p2@test.com",
     name: "E2E Test User P2",
-    loginMethod: "manus",
+    loginMethod: "local",
     role: "user",
     createdAt: new Date(),
     updatedAt: new Date(),

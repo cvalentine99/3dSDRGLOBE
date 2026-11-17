@@ -1864,17 +1864,17 @@ describe("Collaborative sharing", () => {
 
   describe("invite link construction", () => {
     it("builds a valid invite URL with token", () => {
-      const origin = "https://radio-globe.manus.space";
+      const origin = "https://radio-globe.example.com";
       const token = "abc123def456";
       const url = `${origin}/invite/${token}`;
-      expect(url).toBe("https://radio-globe.manus.space/invite/abc123def456");
+      expect(url).toBe("https://radio-globe.example.com/invite/abc123def456");
     });
 
     it("handles different origins", () => {
       const origins = [
         "http://localhost:3000",
         "https://example.com",
-        "https://radio-globe.manus.space",
+        "https://radio-globe.example.com",
       ];
       const token = "testtoken123";
       origins.forEach(origin => {

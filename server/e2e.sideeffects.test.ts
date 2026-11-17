@@ -28,7 +28,7 @@ type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 function createAuthContext(overrides?: Partial<AuthenticatedUser>): TrpcContext {
   const user: AuthenticatedUser = {
     id: 1, openId: "e2e-sideeffect-user", email: "sideeffect@test.com", name: "Side Effect Tester",
-    loginMethod: "manus", role: "user",
+    loginMethod: "local", role: "user",
     createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date(),
     ...overrides,
   };

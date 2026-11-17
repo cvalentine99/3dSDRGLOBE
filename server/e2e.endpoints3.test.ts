@@ -25,7 +25,7 @@ function createPublicContext(): TrpcContext {
 function createAuthContext(overrides?: Partial<AuthenticatedUser>): TrpcContext {
   const user: AuthenticatedUser = {
     id: 1, openId: "e2e-test-user-3", email: "e2e3@test.com", name: "E2E Test User 3",
-    loginMethod: "manus", role: "user",
+    loginMethod: "local", role: "user",
     createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date(),
     ...overrides,
   };
